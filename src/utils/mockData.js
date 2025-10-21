@@ -214,16 +214,20 @@ export async function loadMockData() {
         message: 'Acme Logistics tariff expires in 90 days',
         entity_type: 'tariff',
         entity_id: '33333333-3333-3333-3333-333333333331',
+        assigned_to: MOCK_USER_ID,
+        recommended_action: 'Start renewal negotiation process',
         user_id: MOCK_USER_ID
       },
       {
         alert_type: 'idle_negotiation',
-        severity: 'warning',
+        severity: 'critical',
         status: 'active',
         title: 'Stalled Negotiation',
         message: 'Q1 2025 Rate Negotiation has been in current stage for 12 days',
         entity_type: 'csp_event',
         entity_id: '44444444-4444-4444-4444-444444444441',
+        assigned_to: MOCK_USER_ID,
+        recommended_action: 'Follow up with carrier immediately',
         user_id: MOCK_USER_ID
       },
       {
@@ -234,6 +238,8 @@ export async function loadMockData() {
         message: 'Swift Transport maintains 92.5% performance score',
         entity_type: 'carrier',
         entity_id: '22222222-2222-2222-2222-222222222221',
+        assigned_to: MOCK_USER_ID,
+        recommended_action: 'Consider for expanded capacity',
         user_id: MOCK_USER_ID
       }
     ];

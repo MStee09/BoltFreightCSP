@@ -30,15 +30,24 @@ export default function AlertsPanel({ alerts }) {
     }
   };
 
-  const getAlertColor = (severity) => {
-    switch (severity) {
-      case 'critical':
-        return 'border-l-red-500 bg-red-50';
-      case 'warning':
-        return 'border-l-amber-500 bg-amber-50';
-      default:
-        return 'border-l-blue-500 bg-blue-50';
+  const getAlertColor = (severity, alertType) => {
+    if (severity === 'critical') {
+      return 'border-l-red-500 bg-red-50/80';
     }
+
+    if (alertType === 'expiring_tariff') {
+      return 'border-l-yellow-500 bg-yellow-50/80';
+    }
+
+    if (alertType === 'idle_negotiation' && severity === 'warning') {
+      return 'border-l-red-400 bg-red-50/60';
+    }
+
+    if (severity === 'warning') {
+      return 'border-l-amber-500 bg-amber-50/80';
+    }
+
+    return 'border-l-blue-500 bg-blue-50/80';
   };
 
   return (
@@ -59,29 +68,38 @@ export default function AlertsPanel({ alerts }) {
             {safeAlerts.map((alert) => (
               <div
                 key={alert.id}
-                className={`p-4 rounded-lg border-l-4 ${getAlertColor(alert.severity)} transition-all hover:shadow-md`}
+                className={`p-4 rounded-lg border-l-4 ${getAlertColor(alert.severity, alert.alert_type)} transition-all hover:shadow-md`}
               >
                 <div className="flex items-start gap-3">
                   {getAlertIcon(alert.severity)}
                   <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-slate-900 text-sm mb-1">
-                      {alert.title}
-                    </p>
+                    <div className="flex items-center justify-between mb-1">
+                      <p className="font-semibold text-slate-900 text-sm">
+                        {alert.title}
+                      </p>
+                      {alert.assigned_to && (
+                        <Badge variant="secondary" className="text-xs bg-slate-100">
+                          Assigned
+                        </Badge>
+                      )}
+                    </div>
                     <p className="text-xs text-slate-600 mb-2">
                       {alert.message}
                     </p>
                     {alert.recommended_action && (
-                      <p className="text-xs text-slate-500 italic">
+                      <p className="text-xs text-slate-700 font-medium bg-white/50 px-2 py-1 rounded mb-2">
                         → {alert.recommended_action}
                       </p>
                     )}
-                    <p className="text-xs text-slate-400 mt-2">
-                      {format(new Date(alert.created_date), 'MMM d, h:mm a')}
-                    </p>
+                    <div className="flex items-center justify-between mt-2">
+                      <p className="text-xs text-slate-400">
+                        {format(new Date(alert.created_date), 'MMM d, h:mm a')}
+                      </p>
+                      <Badge variant="outline" className="text-xs capitalize">
+                        {alert.alert_type.replace(/_/g, ' ')}
+                      </Badge>
+                    </div>
                   </div>
-                  <Badge variant="outline" className="text-xs capitalize">
-                    {alert.alert_type.replace(/_/g, ' ')}
-                  </Badge>
                 </div>
               </div>
             ))}

@@ -111,10 +111,31 @@ export default function Dashboard() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-          <MetricCard title="Active Customers" value={customers.length} icon={Users} />
-          <MetricCard title="Managed Carriers" value={carriers.length} icon={Truck} />
-          <MetricCard title="Active Tariffs" value={tariffs.filter(t => t.status === 'active').length} icon={FileText} />
-          <MetricCard title="Open CSP Events" value={cspEvents.filter(e => e.status === 'in_progress').length} icon={Users} color="blue" />
+          <MetricCard
+            title="Active Customers"
+            value={customers.length}
+            icon={Users}
+            linkTo="Customers"
+          />
+          <MetricCard
+            title="Managed Carriers"
+            value={carriers.length}
+            icon={Truck}
+            linkTo="Carriers"
+          />
+          <MetricCard
+            title="Active Tariffs"
+            value={tariffs.filter(t => t.status === 'active').length}
+            icon={FileText}
+            linkTo="Tariffs"
+          />
+          <MetricCard
+            title="Open CSP Events"
+            value={cspEvents.filter(e => e.status === 'in_progress').length}
+            icon={Users}
+            linkTo="Pipeline"
+            iconColor="bg-blue-500"
+          />
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-3 mb-3">
