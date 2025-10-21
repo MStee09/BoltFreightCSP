@@ -1,0 +1,193 @@
+import { useState } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { UserPlus } from 'lucide-react';
+import { supabase } from '@/api/supabaseClient';
+import { toast } from 'sonner';
+
+export function InviteUserDialog({ open, onOpenChange, onInviteSent }) {
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState('basic');
+  const [loading, setLoading] = useState(false);
+
+  const handleInvite = async () => {
+    if (!email.trim()) {
+      toast.error('Please enter an email address');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast.error('Please enter a valid email address');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('Not authenticated');
+      }
+
+      const { data: existingUser } = await supabase
+        .from('user_profiles')
+        .select('id')
+        .eq('email', email.toLowerCase())
+        .single();
+
+      if (existingUser) {
+        toast.error('A user with this email already exists');
+        return;
+      }
+
+      const { data: existingInvitation } = await supabase
+        .from('user_invitations')
+        .select('id')
+        .eq('email', email.toLowerCase())
+        .eq('status', 'pending')
+        .single();
+
+      if (existingInvitation) {
+        toast.error('An invitation has already been sent to this email');
+        return;
+      }
+
+      const token = await generateToken();
+      const expiresAt = new Date();
+      expiresAt.setDate(expiresAt.getDate() + 7);
+
+      const { error: inviteError } = await supabase
+        .from('user_invitations')
+        .insert({
+          email: email.toLowerCase(),
+          role,
+          invited_by: user.id,
+          token,
+          status: 'pending',
+          expires_at: expiresAt.toISOString(),
+        });
+
+      if (inviteError) throw inviteError;
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const inviteUrl = `${window.location.origin}/register?token=${token}`;
+
+      const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-invitation`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+          'apikey': anonKey,
+        },
+        body: JSON.stringify({
+          email: email.toLowerCase(),
+          role,
+          inviteUrl,
+          invitedBy: user.email,
+        }),
+      });
+
+      if (!emailResponse.ok) {
+        console.error('Failed to send invitation email, but invitation was created');
+      }
+
+      toast.success('Invitation sent successfully');
+      setEmail('');
+      setRole('basic');
+      onOpenChange(false);
+      if (onInviteSent) onInviteSent();
+    } catch (error) {
+      console.error('Error sending invitation:', error);
+      toast.error(error.message || 'Failed to send invitation');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateToken = async () => {
+    const { data, error } = await supabase.rpc('generate_invitation_token');
+    if (error) throw error;
+    return data;
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <UserPlus className="h-5 w-5" />
+            Invite New User
+          </DialogTitle>
+          <DialogDescription>
+            Send an invitation email to add a new user to the system
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="invite-email">Email Address</Label>
+            <Input
+              id="invite-email"
+              type="email"
+              placeholder="user@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              disabled={loading}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="invite-role">Role</Label>
+            <Select value={role} onValueChange={setRole} disabled={loading}>
+              <SelectTrigger id="invite-role">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="basic">Basic User</SelectItem>
+                <SelectItem value="admin">Administrator</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {role === 'admin'
+                ? 'Admins have full access to all features and can manage users'
+                : 'Basic users have access to standard CRM features'}
+            </p>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={loading}
+          >
+            Cancel
+          </Button>
+          <Button onClick={handleInvite} disabled={loading}>
+            {loading ? 'Sending...' : 'Send Invitation'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
