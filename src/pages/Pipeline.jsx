@@ -1,6 +1,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "react-router-dom";
 import { Customer, Carrier, Tariff, CSPEvent, Task, Interaction, Alert, Shipment, LostOpportunity, ReportSnapshot } from "../api/entities";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
@@ -113,11 +114,13 @@ const StageColumn = ({ stage, events, customers, stageRef, onEventClick }) => {
 
 export default function PipelinePage() {
   const queryClient = useQueryClient();
+  const location = useLocation();
   const [isNewEventSheetOpen, setIsNewEventSheetOpen] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState(null);
   const [isDetailSheetOpen, setIsDetailSheetOpen] = useState(false);
   const rfpSentRef = useRef(null);
   const containerRef = useRef(null);
+  const stageRefs = useRef({});
 
   const { data: events = [], isLoading: isLoadingEvents } = useQuery({
     queryKey: ["csp_events"],
@@ -132,14 +135,25 @@ export default function PipelinePage() {
   });
 
   useEffect(() => {
-    if (!isLoadingEvents && rfpSentRef.current && containerRef.current) {
-      const rfpSentPosition = rfpSentRef.current.offsetLeft;
-      containerRef.current.scrollTo({
-        left: rfpSentPosition,
-        behavior: 'smooth'
-      });
+    if (!isLoadingEvents && containerRef.current) {
+      const searchParams = new URLSearchParams(location.search);
+      const targetStage = searchParams.get('stage');
+
+      if (targetStage && stageRefs.current[targetStage]) {
+        const stagePosition = stageRefs.current[targetStage].offsetLeft;
+        containerRef.current.scrollTo({
+          left: stagePosition - 100,
+          behavior: 'smooth'
+        });
+      } else if (rfpSentRef.current) {
+        const rfpSentPosition = rfpSentRef.current.offsetLeft;
+        containerRef.current.scrollTo({
+          left: rfpSentPosition,
+          behavior: 'smooth'
+        });
+      }
     }
-  }, [isLoadingEvents]);
+  }, [isLoadingEvents, location.search]);
 
   const updateEventMutation = useMutation({
       mutationFn: ({id, data}) => CSPEvent.update(id, data),
@@ -262,7 +276,12 @@ export default function PipelinePage() {
                   stage={stage}
                   events={eventsByStage[stage]}
                   customers={customers}
-                  stageRef={stage === 'rfp_sent' ? rfpSentRef : null}
+                  stageRef={(el) => {
+                    if (stage === 'rfp_sent') {
+                      rfpSentRef.current = el;
+                    }
+                    stageRefs.current[stage] = el;
+                  }}
                   onEventClick={handleEventClick}
                 />
               ))}

@@ -68,7 +68,7 @@ export default function PipelineSnapshot({ events }) {
                         const count = eventsByStage[stage] || 0;
                         return (
                             <React.Fragment key={stage}>
-                                <Link to={createPageUrl("Pipeline")} className="flex flex-col items-center group">
+                                <Link to={`${createPageUrl("Pipeline")}?stage=${stage}`} className="flex flex-col items-center group">
                                     <div className="text-2xl font-bold text-blue-600">
                                         {count}
                                     </div>
