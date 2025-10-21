@@ -90,8 +90,8 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
-      <div className="p-4 lg:p-6 max-w-[1600px] mx-auto">
-        <div className="mb-5">
+      <div className="p-4 lg:p-6 max-w-[1800px] mx-auto">
+        <div className="mb-4">
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 mb-1">Command Center</h1>
@@ -110,34 +110,27 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
           <MetricCard title="Active Customers" value={customers.length} icon={Users} />
           <MetricCard title="Managed Carriers" value={carriers.length} icon={Truck} />
           <MetricCard title="Active Tariffs" value={tariffs.filter(t => t.status === 'active').length} icon={FileText} />
           <MetricCard title="Open CSP Events" value={cspEvents.filter(e => e.status === 'in_progress').length} icon={Users} color="blue" />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-          <div className="lg:col-span-2">
+        <div className="grid grid-cols-1 xl:grid-cols-12 gap-3 mb-3">
+          <div className="xl:col-span-8">
             <PipelineSnapshot events={cspEvents} />
           </div>
-          <div className="lg:col-span-1">
+          <div className="xl:col-span-4 space-y-3">
             <AlertsPanel alerts={alerts} />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-          <div className="lg:col-span-2">
-            <ReportUploadPrompt customers={customers} />
-          </div>
-          <div className="lg:col-span-1">
             <TodayTasks tasks={todayTasks} />
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-3">
           <ExpiringTariffs tariffs={expiringTariffs} customers={customers} />
           <IdleNegotiations events={idleNegotiations} customers={customers} />
+          <ReportUploadPrompt customers={customers} />
         </div>
 
       </div>
