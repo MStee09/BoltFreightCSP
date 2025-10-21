@@ -90,17 +90,18 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
-      <div className="p-6 lg:p-8 max-w-[1600px] mx-auto">
-        <div className="mb-8">
+      <div className="p-4 lg:p-6 max-w-[1600px] mx-auto">
+        <div className="mb-5">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl lg:text-4xl font-bold text-slate-900 mb-2">Command Center</h1>
-              <p className="text-slate-600">{format(new Date(), 'EEEE, MMMM d, yyyy')}</p>
+              <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 mb-1">Command Center</h1>
+              <p className="text-sm text-slate-600">{format(new Date(), 'EEEE, MMMM d, yyyy')}</p>
             </div>
             <Button
               onClick={handleClearMockData}
               disabled={isLoadingMockData}
               variant="outline"
+              size="sm"
               className="gap-2"
             >
               <Trash2 className="w-4 h-4" />
@@ -109,25 +110,32 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
           <MetricCard title="Active Customers" value={customers.length} icon={Users} />
           <MetricCard title="Managed Carriers" value={carriers.length} icon={Truck} />
           <MetricCard title="Active Tariffs" value={tariffs.filter(t => t.status === 'active').length} icon={FileText} />
           <MetricCard title="Open CSP Events" value={cspEvents.filter(e => e.status === 'in_progress').length} icon={Users} color="blue" />
         </div>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 space-y-6">
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+          <div className="lg:col-span-2">
             <PipelineSnapshot events={cspEvents} />
-            <ReportUploadPrompt customers={customers} />
           </div>
-          <div className="lg:col-span-1 space-y-6">
+          <div className="lg:col-span-1">
             <AlertsPanel alerts={alerts} />
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
-          <TodayTasks tasks={todayTasks} />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+          <div className="lg:col-span-2">
+            <ReportUploadPrompt customers={customers} />
+          </div>
+          <div className="lg:col-span-1">
+            <TodayTasks tasks={todayTasks} />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <ExpiringTariffs tariffs={expiringTariffs} customers={customers} />
           <IdleNegotiations events={idleNegotiations} customers={customers} />
         </div>
