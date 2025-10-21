@@ -13,6 +13,7 @@ export async function loadMockData() {
         margin_30d: 12.5,
         margin_60d: 11.8,
         status: 'active',
+        segment: 'Enterprise',
         notes: 'High-volume customer with quarterly reviews',
         user_id: MOCK_USER_ID
       },
@@ -24,6 +25,7 @@ export async function loadMockData() {
         margin_30d: 15.2,
         margin_60d: 14.9,
         status: 'active',
+        segment: 'Enterprise',
         notes: 'Values reliability over cost savings',
         user_id: MOCK_USER_ID
       },
@@ -35,6 +37,7 @@ export async function loadMockData() {
         margin_30d: 8.7,
         margin_60d: 9.2,
         status: 'active',
+        segment: 'Mid-Market',
         notes: 'Growing account with potential for expansion',
         user_id: MOCK_USER_ID
       }

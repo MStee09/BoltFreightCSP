@@ -17,7 +17,7 @@ export default function EditCustomerDialog({ customer, isOpen, onOpenChange }) {
     const [formData, setFormData] = useState({
         name: '',
         account_owner: '',
-        segment: 'mid_market',
+        segment: 'Mid-Market',
         status: 'active',
         annual_revenue: '',
         primary_contact_name: '',
@@ -33,7 +33,7 @@ export default function EditCustomerDialog({ customer, isOpen, onOpenChange }) {
             setFormData({
                 name: customer.name || '',
                 account_owner: customer.account_owner || '',
-                segment: customer.segment || 'mid_market',
+                segment: customer.segment || 'Mid-Market',
                 status: customer.status || 'active',
                 annual_revenue: customer.annual_revenue || '',
                 primary_contact_name: customer.primary_contact_name || '',
@@ -139,17 +139,18 @@ export default function EditCustomerDialog({ customer, isOpen, onOpenChange }) {
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label htmlFor="segment">Segment</Label>
+                                <Label htmlFor="segment">Revenue Tier</Label>
                                 <Select value={formData.segment} onValueChange={(value) => handleChange('segment', value)}>
                                     <SelectTrigger>
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="enterprise">Enterprise</SelectItem>
-                                        <SelectItem value="mid_market">Mid Market</SelectItem>
-                                        <SelectItem value="smb">SMB</SelectItem>
+                                        <SelectItem value="Enterprise">Enterprise</SelectItem>
+                                        <SelectItem value="Mid-Market">Mid-Market</SelectItem>
+                                        <SelectItem value="SMB">SMB</SelectItem>
                                     </SelectContent>
                                 </Select>
+                                <p className="text-xs text-slate-500">Helps prioritize bid preparation efforts</p>
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="status">Status</Label>

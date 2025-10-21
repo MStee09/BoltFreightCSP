@@ -61,8 +61,40 @@ export default function CustomerOverviewTab({ customer }) {
         }
     };
 
+    const segmentColors = {
+        'Enterprise': 'bg-purple-100 text-purple-700 border-purple-200',
+        'Mid-Market': 'bg-blue-100 text-blue-700 border-blue-200',
+        'SMB': 'bg-green-100 text-green-700 border-green-200'
+    };
+
     return (
         <div className="space-y-6 mt-4">
+            <Card className="bg-gradient-to-r from-slate-50 to-slate-100/50">
+                <CardHeader>
+                    <CardTitle className="text-base font-semibold">Account Information</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <span className="text-sm text-slate-500">Account Owner</span>
+                            <p className="text-sm font-medium text-slate-900">{customer.account_owner || 'Not assigned'}</p>
+                        </div>
+                        <div>
+                            <span className="text-sm text-slate-500">Revenue Tier</span>
+                            <div className="mt-1">
+                                <Badge variant="outline" className={`${segmentColors[customer.segment] || 'bg-slate-100 text-slate-700'} font-medium`}>
+                                    {customer.segment || 'Mid-Market'}
+                                </Badge>
+                            </div>
+                        </div>
+                        <div>
+                            <span className="text-sm text-slate-500">Status</span>
+                            <p className="text-sm font-medium text-slate-900 capitalize">{customer.status || 'Active'}</p>
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <MetricDisplay
                     icon={DollarSign}

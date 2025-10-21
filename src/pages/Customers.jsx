@@ -88,6 +88,7 @@ export default function CustomersPage() {
                 <TableRow className="bg-slate-50/50 text-xs uppercase tracking-wider text-slate-500 hover:bg-slate-50/50">
                   <TableHead className="p-4"><Checkbox /></TableHead>
                   <TableHead>Customer</TableHead>
+                  <TableHead>Segment</TableHead>
                   <TableHead>Active Tariff</TableHead>
                   <TableHead>Next CSP Due</TableHead>
                   <TableHead>Usage %</TableHead>
@@ -98,22 +99,34 @@ export default function CustomersPage() {
               </TableHeader>
               <TableBody>
                 {isLoading ? Array(8).fill(0).map((_, i) => (
-                  <TableRow key={i}><TableCell colSpan={8}><Skeleton className="h-6 w-full" /></TableCell></TableRow>
-                )) : filteredCustomers.map(customer => (
-                  <TableRow key={customer.id} onClick={() => handleRowClick(customer.id)} className="cursor-pointer hover:bg-slate-50">
-                    <TableCell className="p-4" onClick={e => e.stopPropagation()}><Checkbox /></TableCell>
-                    <TableCell className="font-medium text-slate-900">{customer.name}</TableCell>
-                    <TableCell>{customer.activeTariff}</TableCell>
-                    <TableCell>{customer.nextCspDueDate}</TableCell>
-                    <TableCell>{customer.usagePercentage}%</TableCell>
-                    <TableCell className={`flex items-center gap-1 ${customer.marginTrend >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      {customer.marginTrend >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
-                      {customer.marginTrend.toFixed(1)}%
-                    </TableCell>
-                    <TableCell>{customer.lastTouchDate}</TableCell>
-                    <TableCell>{customer.account_owner}</TableCell>
-                  </TableRow>
-                ))}
+                  <TableRow key={i}><TableCell colSpan={9}><Skeleton className="h-6 w-full" /></TableCell></TableRow>
+                )) : filteredCustomers.map(customer => {
+                  const segmentColors = {
+                    'Enterprise': 'bg-purple-100 text-purple-700 border-purple-200',
+                    'Mid-Market': 'bg-blue-100 text-blue-700 border-blue-200',
+                    'SMB': 'bg-green-100 text-green-700 border-green-200'
+                  };
+                  return (
+                    <TableRow key={customer.id} onClick={() => handleRowClick(customer.id)} className="cursor-pointer hover:bg-slate-50">
+                      <TableCell className="p-4" onClick={e => e.stopPropagation()}><Checkbox /></TableCell>
+                      <TableCell className="font-medium text-slate-900">{customer.name}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={`${segmentColors[customer.segment] || 'bg-slate-100 text-slate-700'} font-medium`}>
+                          {customer.segment || 'Mid-Market'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{customer.activeTariff}</TableCell>
+                      <TableCell>{customer.nextCspDueDate}</TableCell>
+                      <TableCell>{customer.usagePercentage}%</TableCell>
+                      <TableCell className={`flex items-center gap-1 ${customer.marginTrend >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {customer.marginTrend >= 0 ? <TrendingUp className="w-4 h-4" /> : <TrendingDown className="w-4 h-4" />}
+                        {customer.marginTrend.toFixed(1)}%
+                      </TableCell>
+                      <TableCell>{customer.lastTouchDate}</TableCell>
+                      <TableCell>{customer.account_owner}</TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
