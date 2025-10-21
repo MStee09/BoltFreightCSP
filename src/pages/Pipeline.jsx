@@ -139,19 +139,21 @@ export default function PipelinePage() {
       const searchParams = new URLSearchParams(location.search);
       const targetStage = searchParams.get('stage');
 
-      if (targetStage && stageRefs.current[targetStage]) {
-        const stagePosition = stageRefs.current[targetStage].offsetLeft;
-        containerRef.current.scrollTo({
-          left: stagePosition - 100,
-          behavior: 'smooth'
-        });
-      } else if (rfpSentRef.current) {
-        const rfpSentPosition = rfpSentRef.current.offsetLeft;
-        containerRef.current.scrollTo({
-          left: rfpSentPosition,
-          behavior: 'smooth'
-        });
-      }
+      setTimeout(() => {
+        if (targetStage && stageRefs.current[targetStage]) {
+          const stagePosition = stageRefs.current[targetStage].offsetLeft;
+          containerRef.current.scrollTo({
+            left: stagePosition - 100,
+            behavior: 'smooth'
+          });
+        } else if (rfpSentRef.current) {
+          const rfpSentPosition = rfpSentRef.current.offsetLeft;
+          containerRef.current.scrollTo({
+            left: rfpSentPosition,
+            behavior: 'smooth'
+          });
+        }
+      }, 100);
     }
   }, [isLoadingEvents, location.search]);
 
