@@ -12,6 +12,7 @@ import { Skeleton } from "../components/ui/skeleton";
 import { format, formatDistanceToNow } from "date-fns";
 import CustomerDetailSheet from "../components/customers/CustomerDetailSheet";
 import { Checkbox } from "../components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 
 export default function CustomersPage() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -26,6 +27,8 @@ export default function CustomersPage() {
 
   const isLoading = isLoadingCustomers || isLoadingTariffs || isLoadingEvents || isLoadingTasks || isLoadingInteractions;
 
+  const { data: carriers = [] } = useQuery({ queryKey: ["carriers"], queryFn: () => Carrier.list(), initialData: [] });
+
   const customerData = useMemo(() => {
     return customers.map(customer => {
       const activeTariff = tariffs.find(t => t.customer_id === customer.id && t.status === 'active');
@@ -36,9 +39,10 @@ export default function CustomersPage() {
 
       return {
         ...customer,
-        activeTariff: activeTariff ? `${activeTariff.version}` : 'N/A',
+        activeTariff: activeTariff,
+        activeTariffDisplay: activeTariff ? `${activeTariff.version}` : 'N/A',
         nextCspDueDate: nextCspEvent?.due_date ? format(new Date(nextCspEvent.due_date), "MMM d, yyyy") : 'N/A',
-        usagePercentage: 98.5, // Dummy data
+        usagePercentage: 98.5,
         marginTrend: marginTrend,
         openTasksCount: openTasksCount,
         lastTouchDate: lastInteraction ? formatDistanceToNow(new Date(lastInteraction.created_date), { addSuffix: true }) : 'N/A',
@@ -106,6 +110,10 @@ export default function CustomersPage() {
                     'Mid-Market': 'bg-blue-100 text-blue-700 border-blue-200',
                     'SMB': 'bg-green-100 text-green-700 border-green-200'
                   };
+
+                  const tariff = customer.activeTariff;
+                  const carrier = tariff ? carriers.find(c => c.id === tariff.carrier_id) : null;
+
                   return (
                     <TableRow key={customer.id} onClick={() => handleRowClick(customer.id)} className="cursor-pointer hover:bg-slate-50">
                       <TableCell className="p-4" onClick={e => e.stopPropagation()}><Checkbox /></TableCell>
@@ -115,7 +123,44 @@ export default function CustomersPage() {
                           {customer.segment || 'Mid-Market'}
                         </Badge>
                       </TableCell>
-                      <TableCell>{customer.activeTariff}</TableCell>
+                      <TableCell onClick={e => e.stopPropagation()}>
+                        {tariff ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="cursor-help underline decoration-dotted underline-offset-4 text-blue-600 hover:text-blue-800">
+                                  {customer.activeTariffDisplay}
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs p-3">
+                                <div className="space-y-2">
+                                  <div className="font-semibold text-sm border-b pb-1">{tariff.version}</div>
+                                  <div className="grid grid-cols-2 gap-2 text-xs">
+                                    <div>
+                                      <span className="text-slate-500">Effective:</span>
+                                      <p className="font-medium">{tariff.effective_date ? format(new Date(tariff.effective_date), 'MMM d, yyyy') : 'N/A'}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-500">Expires:</span>
+                                      <p className="font-medium">{tariff.expiry_date ? format(new Date(tariff.expiry_date), 'MMM d, yyyy') : 'N/A'}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-500">Carrier:</span>
+                                      <p className="font-medium">{carrier?.name || 'N/A'}</p>
+                                    </div>
+                                    <div>
+                                      <span className="text-slate-500">Mode:</span>
+                                      <p className="font-medium">{tariff.mode || carrier?.service_type || 'N/A'}</p>
+                                    </div>
+                                  </div>
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : (
+                          <span className="text-slate-400">N/A</span>
+                        )}
+                      </TableCell>
                       <TableCell>{customer.nextCspDueDate}</TableCell>
                       <TableCell>{customer.usagePercentage}%</TableCell>
                       <TableCell className={`flex items-center gap-1 ${customer.marginTrend >= 0 ? 'text-green-600' : 'text-red-600'}`}>
