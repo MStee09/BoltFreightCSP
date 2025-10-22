@@ -85,6 +85,27 @@ export default function EditCspEventDialog({ isOpen, onOpenChange, eventId }) {
         mutationFn: async (data) => {
             const updatedEvent = await CSPEvent.update(eventId, data);
 
+            if (data.stage === 'awarded' && event.stage !== 'awarded') {
+                const customer = customers.find(c => c.id === data.customer_id);
+                const today = new Date();
+                const oneYearFromNow = new Date(today);
+                oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+
+                await Tariff.create({
+                    customer_id: data.customer_id,
+                    carrier_ids: data.carrier_ids || [],
+                    version: `${customer?.name || 'Event'} - ${format(today, 'yyyy-MM-dd')}`,
+                    ownership_type: 'Direct',
+                    status: 'proposed',
+                    effective_date: format(today, 'yyyy-MM-dd'),
+                    expiry_date: format(oneYearFromNow, 'yyyy-MM-dd'),
+                    is_blanket_tariff: false,
+                    customer_ids: []
+                });
+
+                queryClient.invalidateQueries({ queryKey: ['tariffs'] });
+            }
+
             if (data.stage === 'live' && event.stage !== 'live' && data.honeymoon_monitoring) {
                 const customer = customers.find(c => c.id === data.customer_id);
                 await createHoneymoonEvents(updatedEvent, customer);
@@ -92,13 +113,18 @@ export default function EditCspEventDialog({ isOpen, onOpenChange, eventId }) {
 
             return updatedEvent;
         },
-        onSuccess: () => {
+        onSuccess: (updatedEvent, variables) => {
             queryClient.invalidateQueries({ queryKey: ['csp_events'] });
             queryClient.invalidateQueries({ queryKey: ['csp_event', eventId] });
             queryClient.invalidateQueries({ queryKey: ['calendar_events'] });
+
+            const message = variables.stage === 'awarded' && event.stage !== 'awarded'
+                ? "CSP event updated and tariff created successfully."
+                : "CSP event updated successfully.";
+
             toast({
                 title: "Success!",
-                description: "CSP event updated successfully.",
+                description: message,
             });
             onOpenChange(false);
         },
