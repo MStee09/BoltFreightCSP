@@ -416,7 +416,7 @@ const DocumentsPanel = ({ cspEventId }) => {
             const { data: remainingDocs, error: checkError } = await supabase
                 .from('documents')
                 .select('id')
-                .eq('entity_id', cspEventId)
+                .eq('csp_event_id', cspEventId)
                 .in('document_type', ['transaction_detail', 'low_cost_opportunity']);
 
             if (checkError) throw checkError;
