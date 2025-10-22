@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Customer, Carrier, Tariff, CSPEvent, Task, Interaction, Alert, Shipment, LostOpportunity, ReportSnapshot, Document, User } from '../../api/entities';
+import { Customer, Carrier, Tariff, CSPEvent, Task, Interaction, Alert, Shipment, LostOpportunity, ReportSnapshot, Document } from '../../api/entities';
 import { supabase } from '../../api/supabaseClient';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter } from '../ui/sheet';
 import { Button } from '../ui/button';
@@ -43,12 +43,6 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers: custome
         initialData: customersProp
     });
 
-    const { data: users = [] } = useQuery({
-        queryKey: ['users'],
-        queryFn: () => User.listAll(),
-        enabled: isOpen,
-        initialData: []
-    });
     const [attachedFiles, setAttachedFiles] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -213,18 +207,12 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers: custome
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="assigned_to">Assigned To</Label>
-                        <Select onValueChange={value => handleValueChange('assigned_to', value)} value={newEvent.assigned_to}>
-                            <SelectTrigger id="assigned_to">
-                                <SelectValue placeholder="Select a user" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {users.length > 0 ? (
-                                    users.map(user => <SelectItem key={user.id} value={user.email}>{user.email}</SelectItem>)
-                                ) : (
-                                    <div className="p-2 text-sm text-slate-500">No users available</div>
-                                )}
-                            </SelectContent>
-                        </Select>
+                        <Input
+                            id="assigned_to"
+                            value={newEvent.assigned_to || user?.email || ''}
+                            disabled
+                            className="bg-slate-50 text-slate-600"
+                        />
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="due_date">Expected Due Date</Label>
