@@ -1,17 +1,20 @@
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useLocation } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import { Customer, Carrier, Tariff, CSPEvent, Task, Interaction, Alert, Shipment, LostOpportunity, ReportSnapshot } from "../api/entities";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
-import { PlusCircle, MoreHorizontal } from "lucide-react";
+import { PlusCircle, MoreHorizontal, ArrowRight, Users, FileText, AlertTriangle, Filter } from "lucide-react";
 import { Skeleton } from "../components/ui/skeleton";
 import { Badge } from "../components/ui/badge";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../components/ui/dropdown-menu";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuSeparator, DropdownMenuLabel } from "../components/ui/dropdown-menu";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import NewEventSheet from "../components/pipeline/NewEventSheet";
 import CspEventDetailSheet from "../components/pipeline/CspEventDetailSheet";
+import { createPageUrl } from "../utils";
+import { differenceInDays } from "date-fns";
 
 const STAGES = [
   "discovery",
@@ -27,18 +30,51 @@ const STAGES = [
   "renewal_watch"
 ];
 
+const STAGE_DEFINITIONS = {
+  discovery: "Initial research and qualification of potential RFP opportunities",
+  data_room_ready: "Customer data and requirements have been collected and organized",
+  rfp_sent: "Request for Proposal has been sent to carriers",
+  qa_round: "Internal validation and quality assurance before sending rates",
+  round_1: "First round of carrier responses received and under review",
+  final_offers: "Final pricing negotiations and carrier selection in progress",
+  awarded: "Contract awarded, awaiting tariff finalization",
+  implementation: "Tariff being implemented in systems",
+  validation: "Testing and validating new rates before go-live",
+  live: "New tariff is active and in production",
+  renewal_watch: "Monitoring for upcoming renewal opportunities"
+};
+
 const getSlaColor = (days) => {
-    if (days > 14) return 'border-l-red-500';
-    if (days > 7) return 'border-l-amber-500';
+    if (days >= 30) return 'border-l-red-500 border-l-[6px]';
+    if (days >= 21) return 'border-l-orange-500 border-l-[5px]';
+    if (days >= 14) return 'border-l-amber-400 border-l-4';
     return 'border-l-green-500';
 }
 
-const StageColumn = ({ stage, events, customers, stageRef, onEventClick }) => {
+const getAgingBadge = (days) => {
+    if (days >= 30) return <Badge variant="destructive" className="text-xs">Stale</Badge>;
+    if (days >= 21) return <Badge variant="outline" className="text-xs border-orange-500 text-orange-700">Aging</Badge>;
+    return null;
+}
+
+const StageColumn = ({ stage, events, customers, tariffs, stageRef, onEventClick }) => {
   return (
     <div className="w-64 flex-shrink-0" ref={stageRef}>
-      <h2 className="text-xs font-semibold text-slate-600 uppercase tracking-wider mb-2 px-2">
-        {stage.replace(/_/g, ' ')} ({events.length})
-      </h2>
+      <div className="flex items-center gap-2 mb-2 px-2">
+        <h2 className="text-xs font-semibold text-slate-600 uppercase tracking-wider">
+          {stage.replace(/_/g, ' ')} ({events.length})
+        </h2>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger>
+              <AlertTriangle className="w-3 h-3 text-slate-400 hover:text-slate-600" />
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs">
+              <p className="text-xs">{STAGE_DEFINITIONS[stage]}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
       <Droppable droppableId={stage}>
         {(provided, snapshot) => (
           <div
@@ -48,6 +84,10 @@ const StageColumn = ({ stage, events, customers, stageRef, onEventClick }) => {
           >
             {events.length > 0 ? events.map((event, index) => {
               const customer = customers.find(c => c.id === event.customer_id);
+              const relatedTariff = tariffs.find(t => t.csp_event_id === event.id);
+              const daysInStage = event.days_in_stage || 0;
+              const agingBadge = getAgingBadge(daysInStage);
+
               return (
                 <Draggable key={event.id} draggableId={event.id} index={index}>
                   {(provided, snapshot) => (
@@ -58,7 +98,7 @@ const StageColumn = ({ stage, events, customers, stageRef, onEventClick }) => {
                       className="mb-3"
                     >
                       <Card
-                        className={`bg-white hover:shadow-lg transition-shadow border-l-4 cursor-pointer ${getSlaColor(event.days_in_stage || 0)} ${snapshot.isDragging ? 'shadow-xl ring-2 ring-blue-500' : ''}`}
+                        className={`bg-white hover:shadow-lg transition-shadow cursor-pointer ${getSlaColor(daysInStage)} ${snapshot.isDragging ? 'shadow-xl ring-2 ring-blue-500' : ''} ${daysInStage >= 30 ? 'opacity-75' : ''}`}
                         onClick={(e) => {
                           if (!e.defaultPrevented) {
                             onEventClick(event.id);
@@ -85,12 +125,49 @@ const StageColumn = ({ stage, events, customers, stageRef, onEventClick }) => {
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         </CardHeader>
-                        <CardContent className="p-2 pt-0">
+                        <CardContent className="p-2 pt-0 space-y-2">
                           <p className="text-xs text-slate-600 mb-1 truncate">{customer?.name || "..."}</p>
                           <p className="text-xs text-slate-500 mb-2 truncate">Assigned: {event.assigned_to || "Unassigned"}</p>
+
+                          {(customer || relatedTariff) && (
+                            <div className="flex gap-1 mb-2">
+                              {customer && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 px-2 text-xs"
+                                  asChild
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <Link to={createPageUrl(`Customers?detailId=${customer.id}`)}>
+                                    <Users className="w-3 h-3 mr-1" />
+                                    Customer
+                                  </Link>
+                                </Button>
+                              )}
+                              {relatedTariff && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-6 px-2 text-xs"
+                                  asChild
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <Link to={createPageUrl(`TariffDetail?id=${relatedTariff.id}`)}>
+                                    <FileText className="w-3 h-3 mr-1" />
+                                    Tariff
+                                  </Link>
+                                </Button>
+                              )}
+                            </div>
+                          )}
+
                           <div className="flex justify-between items-center">
-                            <Badge variant={event.priority === 'urgent' ? 'destructive' : 'secondary'} className="capitalize text-xs py-0 px-1.5 h-5">{event.priority}</Badge>
-                            <span className="text-xs text-slate-500">{event.days_in_stage || 0}d</span>
+                            <div className="flex gap-1">
+                              <Badge variant={event.priority === 'urgent' ? 'destructive' : 'secondary'} className="capitalize text-xs py-0 px-1.5 h-5">{event.priority}</Badge>
+                              {agingBadge}
+                            </div>
+                            <span className="text-xs text-slate-500 font-medium">{daysInStage}d</span>
                           </div>
                         </CardContent>
                       </Card>
@@ -118,6 +195,10 @@ export default function PipelinePage() {
   const [isNewEventSheetOpen, setIsNewEventSheetOpen] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState(null);
   const [isDetailSheetOpen, setIsDetailSheetOpen] = useState(false);
+  const [filterAssignee, setFilterAssignee] = useState(null);
+  const [filterCustomer, setFilterCustomer] = useState(null);
+  const [filterMode, setFilterMode] = useState(null);
+  const [showStaleOnly, setShowStaleOnly] = useState(false);
   const rfpSentRef = useRef(null);
   const containerRef = useRef(null);
   const stageRefs = useRef({});
@@ -133,6 +214,49 @@ export default function PipelinePage() {
     queryFn: () => Customer.list(),
     initialData: []
   });
+
+  const { data: tariffs = [] } = useQuery({
+    queryKey: ["tariffs"],
+    queryFn: () => Tariff.list(),
+    initialData: []
+  });
+
+  const filteredEvents = useMemo(() => {
+    return events.filter(e => {
+      if (filterAssignee && e.assigned_to !== filterAssignee) return false;
+      if (filterCustomer && e.customer_id !== filterCustomer) return false;
+      if (filterMode && e.mode !== filterMode) return false;
+      if (showStaleOnly && (e.days_in_stage || 0) < 30) return false;
+      return true;
+    });
+  }, [events, filterAssignee, filterCustomer, filterMode, showStaleOnly]);
+
+  const metrics = useMemo(() => {
+    const activeEvents = filteredEvents.filter(e => !['live', 'renewal_watch'].includes(e.stage));
+    const totalDays = activeEvents.reduce((sum, e) => sum + (e.days_in_stage || 0), 0);
+    const avgDays = activeEvents.length > 0 ? (totalDays / activeEvents.length).toFixed(1) : 0;
+
+    const awardedCount = filteredEvents.filter(e => ['awarded', 'implementation', 'validation', 'live'].includes(e.stage)).length;
+    const totalOpportunities = filteredEvents.filter(e => e.stage !== 'renewal_watch').length;
+    const winRate = totalOpportunities > 0 ? ((awardedCount / totalOpportunities) * 100).toFixed(0) : 0;
+
+    const staleCount = activeEvents.filter(e => (e.days_in_stage || 0) >= 30).length;
+
+    return {
+      activeCount: activeEvents.length,
+      avgDays,
+      winRate,
+      staleCount
+    };
+  }, [filteredEvents]);
+
+  const uniqueAssignees = useMemo(() => {
+    return [...new Set(events.map(e => e.assigned_to).filter(Boolean))];
+  }, [events]);
+
+  const uniqueModes = useMemo(() => {
+    return [...new Set(events.map(e => e.mode).filter(Boolean))];
+  }, [events]);
 
   useEffect(() => {
     if (!isLoadingEvents && containerRef.current) {
@@ -276,9 +400,11 @@ export default function PipelinePage() {
   };
 
   const eventsByStage = STAGES.reduce((acc, stage) => {
-    acc[stage] = events.filter(e => e.stage === stage).sort((a,b) => (a.priority === 'urgent' ? -1 : 1));
+    acc[stage] = filteredEvents.filter(e => e.stage === stage).sort((a,b) => (a.priority === 'urgent' ? -1 : 1));
     return acc;
   }, {});
+
+  const activeFilterCount = [filterAssignee, filterCustomer, filterMode, showStaleOnly].filter(Boolean).length;
 
   const handleEventClick = (eventId) => {
     setSelectedEventId(eventId);
@@ -289,14 +415,135 @@ export default function PipelinePage() {
     <>
       <div className="h-full flex flex-col overflow-hidden">
         <div className="p-4 lg:p-8 flex-shrink-0 bg-white border-b border-slate-200">
-          <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-2xl lg:text-3xl font-bold text-slate-900">CSP Pipeline</h1>
-            <Button className="bg-blue-600 hover:bg-blue-700 whitespace-nowrap" onClick={() => setIsNewEventSheetOpen(true)}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              New Event
-            </Button>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl lg:text-3xl font-bold text-slate-900">CSP Pipeline</h1>
+              <Button className="bg-blue-600 hover:bg-blue-700 whitespace-nowrap" onClick={() => setIsNewEventSheetOpen(true)}>
+                <PlusCircle className="mr-2 h-4 w-4" />
+                New Event
+              </Button>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm">
+                  <Filter className="w-4 h-4 mr-2" />
+                  Filters
+                  {activeFilterCount > 0 && (
+                    <Badge variant="secondary" className="ml-2">{activeFilterCount}</Badge>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Filter By</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+
+                <DropdownMenuCheckboxItem
+                  checked={showStaleOnly}
+                  onCheckedChange={setShowStaleOnly}
+                >
+                  Show Stale Only (30+ days)
+                </DropdownMenuCheckboxItem>
+
+                {uniqueAssignees.length > 0 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel>Assignee</DropdownMenuLabel>
+                    <DropdownMenuItem onClick={() => setFilterAssignee(null)}>
+                      All Assignees
+                    </DropdownMenuItem>
+                    {uniqueAssignees.map(assignee => (
+                      <DropdownMenuCheckboxItem
+                        key={assignee}
+                        checked={filterAssignee === assignee}
+                        onCheckedChange={(checked) => setFilterAssignee(checked ? assignee : null)}
+                      >
+                        {assignee}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </>
+                )}
+
+                {customers.length > 0 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel>Customer</DropdownMenuLabel>
+                    <DropdownMenuItem onClick={() => setFilterCustomer(null)}>
+                      All Customers
+                    </DropdownMenuItem>
+                    {customers.slice(0, 10).map(customer => (
+                      <DropdownMenuCheckboxItem
+                        key={customer.id}
+                        checked={filterCustomer === customer.id}
+                        onCheckedChange={(checked) => setFilterCustomer(checked ? customer.id : null)}
+                      >
+                        {customer.name}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </>
+                )}
+
+                {uniqueModes.length > 0 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuLabel>Mode</DropdownMenuLabel>
+                    <DropdownMenuItem onClick={() => setFilterMode(null)}>
+                      All Modes
+                    </DropdownMenuItem>
+                    {uniqueModes.map(mode => (
+                      <DropdownMenuCheckboxItem
+                        key={mode}
+                        checked={filterMode === mode}
+                        onCheckedChange={(checked) => setFilterMode(checked ? mode : null)}
+                      >
+                        {mode}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </>
+                )}
+
+                {activeFilterCount > 0 && (
+                  <>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => {
+                      setFilterAssignee(null);
+                      setFilterCustomer(null);
+                      setFilterMode(null);
+                      setShowStaleOnly(false);
+                    }}>
+                      Clear All Filters
+                    </DropdownMenuItem>
+                  </>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-          <p className="text-slate-600">Track deals from discovery to renewal.</p>
+          <p className="text-slate-600 mb-3">Track deals from discovery to renewal.</p>
+
+          <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2.5 flex items-center gap-6 text-sm">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-slate-700">Active CSPs:</span>
+              <span className="text-slate-900 font-bold">{metrics.activeCount}</span>
+            </div>
+            <div className="w-px h-4 bg-slate-300"></div>
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-slate-700">Avg Days in Stage:</span>
+              <span className="text-slate-900 font-bold">{metrics.avgDays}</span>
+            </div>
+            <div className="w-px h-4 bg-slate-300"></div>
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-slate-700">Win Rate:</span>
+              <span className="text-slate-900 font-bold">{metrics.winRate}%</span>
+            </div>
+            {metrics.staleCount > 0 && (
+              <>
+                <div className="w-px h-4 bg-slate-300"></div>
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-red-600" />
+                  <span className="font-semibold text-red-700">{metrics.staleCount} Stale</span>
+                </div>
+              </>
+            )}
+          </div>
         </div>
         <div ref={containerRef} className="flex-1 p-6 lg:p-8 pt-6 overflow-x-auto overflow-y-hidden">
           <DragDropContext onDragEnd={onDragEnd}>
@@ -316,6 +563,7 @@ export default function PipelinePage() {
                   stage={stage}
                   events={eventsByStage[stage]}
                   customers={customers}
+                  tariffs={tariffs}
                   stageRef={(el) => {
                     if (stage === 'rfp_sent') {
                       rfpSentRef.current = el;
