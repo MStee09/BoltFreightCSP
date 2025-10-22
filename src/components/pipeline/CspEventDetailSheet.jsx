@@ -12,6 +12,7 @@ import { format, formatDistanceToNow } from 'date-fns';
 import EditCspEventDialog from './EditCspEventDialog';
 import { EmailComposeDialog } from '../email/EmailComposeDialog';
 import { EmailTimeline } from '../email/EmailTimeline';
+import CspStrategyTab from '../customers/CspStrategyTab';
 
 export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
     const queryClient = useQueryClient();
@@ -179,8 +180,9 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
                         </Card>
 
                         <Tabs defaultValue="activity" className="w-full">
-                            <TabsList className="grid w-full grid-cols-4">
+                            <TabsList className="grid w-full grid-cols-5">
                                 <TabsTrigger value="activity">Activity</TabsTrigger>
+                                <TabsTrigger value="strategy">Strategy</TabsTrigger>
                                 <TabsTrigger value="emails">Emails</TabsTrigger>
                                 <TabsTrigger value="carriers">Carriers</TabsTrigger>
                                 <TabsTrigger value="documents">Documents</TabsTrigger>
@@ -225,6 +227,10 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
                                         )}
                                     </CardContent>
                                 </Card>
+                            </TabsContent>
+
+                            <TabsContent value="strategy" className="mt-4">
+                                <CspStrategyTab customer={customer} cspEventId={eventId} />
                             </TabsContent>
 
                             <TabsContent value="emails" className="mt-4">

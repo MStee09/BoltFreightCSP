@@ -13,9 +13,8 @@ import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { format } from 'date-fns';
 import CustomerOverviewTab from './CustomerOverviewTab';
-import CspStrategyTab from './CspStrategyTab';
 import EditCustomerDialog from './EditCustomerDialog';
-import DocumentsTab from './DocumentsTab'; // Import the new tab component
+import DocumentsTab from './DocumentsTab';
 
 const PlaceholderTab = ({ title }) => (
     <div className="py-8 text-center text-slate-500 border border-dashed rounded-lg mt-4">
@@ -136,16 +135,12 @@ export default function CustomerDetailSheet({ customerId, isOpen, onOpenChange }
                             <Tabs defaultValue="overview">
                                 <TabsList>
                                     <TabsTrigger value="overview">Overview</TabsTrigger>
-                                    <TabsTrigger value="csp_strategy">CSP Strategy</TabsTrigger>
                                     <TabsTrigger value="tariffs">Tariff Timeline</TabsTrigger>
                                     <TabsTrigger value="interactions">Interactions</TabsTrigger>
                                     <TabsTrigger value="documents">Documents</TabsTrigger>
                                 </TabsList>
                                 <TabsContent value="overview">
                                     <CustomerOverviewTab customer={customer} />
-                                </TabsContent>
-                                <TabsContent value="csp_strategy">
-                                    <CspStrategyTab customer={customer} />
                                 </TabsContent>
                                 <TabsContent value="tariffs">
                                     <CustomerTariffTimeline customerId={customerId} />

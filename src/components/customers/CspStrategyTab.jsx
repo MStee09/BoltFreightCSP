@@ -230,9 +230,9 @@ const RecommendationPanel = ({ result, onRunCSP }) => {
     );
 };
 
-export default function CspStrategyTab({ customer }) {
+export default function CspStrategyTab({ customer, cspEventId = null }) {
     const queryClient = useQueryClient();
-    const [analysisResult, setAnalysisResult] = useState(customer.strategy_result || null);
+    const [analysisResult, setAnalysisResult] = useState(customer?.strategy_result || null);
 
     const updateCustomerMutation = useMutation({
         mutationFn: (data) => Customer.update(customer.id, data),
@@ -330,12 +330,21 @@ export default function CspStrategyTab({ customer }) {
 
     return (
         <div className="space-y-6 mt-4">
+            {cspEventId && (
+                <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertTitle>Event-Specific Analysis</AlertTitle>
+                    <AlertDescription>
+                        Run a strategy analysis for this specific bid opportunity. Upload transaction and lost-lane data relevant to this event's timeframe and lanes.
+                    </AlertDescription>
+                </Alert>
+            )}
             <UploadPanel onAnalysisComplete={runAnalysis} />
 
             {analysisResult ? (
                 <>
                     <AnalysisPanel result={analysisResult} />
-                    <RecommendationPanel result={analysisResult} onRunCSP={handleCreateCsp} />
+                    {!cspEventId && <RecommendationPanel result={analysisResult} onRunCSP={handleCreateCsp} />}
                 </>
             ) : (
                 <Alert>
