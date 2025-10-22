@@ -259,6 +259,11 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
         mutationFn: async ({ txnFile, loFile, txnMapping, loMapping }) => {
             setError(null);
 
+            toast({
+                title: "Upload Started",
+                description: "Uploading files and processing data. Please wait...",
+            });
+
             const missingTxnFields = Object.keys(requiredTxnFields).filter(key => !txnMapping[key]);
             const missingLoFields = Object.keys(requiredLoFields).filter(key => !loMapping[key]);
 
@@ -337,6 +342,12 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
                     const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-strategy-summary`;
                     const { data: { session } } = await supabase.auth.getSession();
 
+                    toast({
+                        title: "Files Uploaded Successfully",
+                        description: "AI is now analyzing your data. This may take 30-60 seconds. Please wait for the analysis to complete.",
+                        duration: 8000,
+                    });
+
                     const response = await fetch(apiUrl, {
                         method: 'POST',
                         headers: {
@@ -351,9 +362,24 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
 
                     if (response.ok) {
                         queryClient.invalidateQueries({ queryKey: ['csp_event', cspEventId] });
+                        toast({
+                            title: "Analysis Complete",
+                            description: "Your CSP strategy has been updated with the latest data.",
+                        });
+                    } else {
+                        toast({
+                            title: "Analysis In Progress",
+                            description: "Data analysis is taking longer than expected. Please check back in a moment.",
+                            variant: "default",
+                        });
                     }
                 } catch (err) {
                     console.error('Failed to generate AI summary:', err);
+                    toast({
+                        title: "Analysis Warning",
+                        description: "Files uploaded but AI analysis encountered an issue. Data may take a moment to appear.",
+                        variant: "default",
+                    });
                 }
             }
 
@@ -361,6 +387,11 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
         },
         onError: (err) => {
             setError(err.message);
+            toast({
+                title: "Upload Failed",
+                description: err.message,
+                variant: "destructive",
+            });
         }
     });
 
@@ -596,11 +627,11 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
                 {error && <Alert variant="destructive"><AlertTitle>Error</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
                 <Button
                     onClick={() => mutation.mutate({ txnFile, loFile, txnMapping, loMapping })}
-                    disabled={!txnFile || !loFile || mutation.isLoading}
+                    disabled={!txnFile || !loFile || mutation.isPending}
                     className="w-full"
                 >
-                    {mutation.isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {mutation.isLoading ? 'Processing & Generating AI Summary...' : 'Upload & Analyze'}
+                    {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {mutation.isPending ? 'Processing & Generating AI Summary...' : 'Upload & Analyze'}
                 </Button>
             </CardContent>
         </Card>
