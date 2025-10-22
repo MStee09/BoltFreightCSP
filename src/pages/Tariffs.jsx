@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
-import { PlusCircle, Search, Upload, ChevronDown, ChevronRight } from "lucide-react";
+import { PlusCircle, Search, Upload, ChevronDown, ChevronRight, AlertCircle } from "lucide-react";
 import { format, isAfter, isBefore, differenceInDays } from "date-fns";
 import { Skeleton } from "../components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
@@ -31,8 +31,26 @@ const STATUS_FILTERS = [
 export default function TariffsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [ownershipTab, setOwnershipTab] = useState("rocket_csp");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [filtersByTab, setFiltersByTab] = useState({
+    rocket_csp: 'all',
+    customer_direct: 'all',
+    rocket_blanket: 'all',
+    priority1_blanket: 'all'
+  });
   const [expandedGroups, setExpandedGroups] = useState(new Set());
+
+  const statusFilter = filtersByTab[ownershipTab];
+
+  const handleTabChange = (newTab) => {
+    setOwnershipTab(newTab);
+  };
+
+  const handleStatusFilterChange = (newFilter) => {
+    setFiltersByTab(prev => ({
+      ...prev,
+      [ownershipTab]: newFilter
+    }));
+  };
 
   const { data: tariffs = [], isLoading: isTariffsLoading } = useQuery({
     queryKey: ["tariffs"],
@@ -166,6 +184,23 @@ export default function TariffsPage() {
 
   const totalCount = groupedTariffs.reduce((sum, g) => sum + g.tariffs.length, 0);
 
+  const getTabCounts = useMemo(() => {
+    const counts = {};
+    OWNERSHIP_TYPES.forEach(type => {
+      counts[type.value] = tariffs.filter(t => t.ownership_type === type.value).length;
+    });
+    return counts;
+  }, [tariffs]);
+
+  const expiringCount = useMemo(() => {
+    const today = new Date();
+    return filteredTariffs.filter(t => {
+      const expiryDate = t.expiry_date ? new Date(t.expiry_date) : null;
+      const daysUntilExpiry = expiryDate ? differenceInDays(expiryDate, today) : null;
+      return expiryDate && daysUntilExpiry !== null && daysUntilExpiry <= 90 && daysUntilExpiry > 0;
+    }).length;
+  }, [filteredTariffs]);
+
   return (
     <div className="p-6 lg:p-8 max-w-[1600px] mx-auto">
       <div className="flex items-center justify-between mb-8">
@@ -197,32 +232,46 @@ export default function TariffsPage() {
         />
       </div>
 
-      <Tabs value={ownershipTab} onValueChange={setOwnershipTab} className="mb-6">
+      <Tabs value={ownershipTab} onValueChange={handleTabChange} className="mb-6">
         <TabsList className="grid w-full grid-cols-4 h-auto p-1">
-          {OWNERSHIP_TYPES.map(type => (
-            <TabsTrigger
-              key={type.value}
-              value={type.value}
-              className="data-[state=active]:bg-white data-[state=active]:shadow-sm py-3"
-            >
-              {type.label}
-            </TabsTrigger>
-          ))}
+          {OWNERSHIP_TYPES.map(type => {
+            const count = getTabCounts[type.value] || 0;
+            return (
+              <TabsTrigger
+                key={type.value}
+                value={type.value}
+                className="data-[state=active]:bg-white data-[state=active]:shadow-sm py-3 flex items-center gap-2"
+              >
+                <span>{type.label}</span>
+                <Badge variant="secondary" className="text-xs">
+                  {count}
+                </Badge>
+              </TabsTrigger>
+            );
+          })}
         </TabsList>
       </Tabs>
 
-      <div className="flex gap-2 mb-6 flex-wrap">
-        {STATUS_FILTERS.map(filter => (
-          <Button
-            key={filter.value}
-            variant={statusFilter === filter.value ? "default" : "outline"}
-            size="sm"
-            onClick={() => setStatusFilter(filter.value)}
-            className="h-8"
-          >
-            {filter.label}
-          </Button>
-        ))}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex gap-2 flex-wrap">
+          {STATUS_FILTERS.map(filter => (
+            <Button
+              key={filter.value}
+              variant={statusFilter === filter.value ? "default" : "outline"}
+              size="sm"
+              onClick={() => handleStatusFilterChange(filter.value)}
+              className="h-8"
+            >
+              {filter.label}
+            </Button>
+          ))}
+        </div>
+        {expiringCount > 0 && (
+          <Badge variant="destructive" className="flex items-center gap-1 bg-yellow-100 text-yellow-800 border-yellow-300 hover:bg-yellow-100">
+            <AlertCircle className="w-3 h-3" />
+            {expiringCount} Expiring Soon
+          </Badge>
+        )}
       </div>
 
       <Card>
@@ -263,8 +312,35 @@ export default function TariffsPage() {
                         )}
                         <span className="font-semibold text-slate-900">{group.name}</span>
                         <Badge variant="outline" className="ml-2">
-                          {group.tariffs.length} {group.tariffs.length === 1 ? 'Tariff' : 'Tariffs'}
+                          {group.tariffs.length}
                         </Badge>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {(() => {
+                          const activeCount = group.tariffs.filter(t => {
+                            const today = new Date();
+                            const expiryDate = t.expiry_date ? new Date(t.expiry_date) : null;
+                            return t.status === 'active' && (!expiryDate || isAfter(expiryDate, today));
+                          }).length;
+                          const expiringCount = group.tariffs.filter(t => {
+                            const today = new Date();
+                            const expiryDate = t.expiry_date ? new Date(t.expiry_date) : null;
+                            const daysUntilExpiry = expiryDate ? differenceInDays(expiryDate, today) : null;
+                            return expiryDate && daysUntilExpiry !== null && daysUntilExpiry <= 90 && daysUntilExpiry > 0;
+                          }).length;
+                          return (
+                            <>
+                              {activeCount > 0 && (
+                                <span className="text-xs text-slate-500">{activeCount} Active</span>
+                              )}
+                              {expiringCount > 0 && (
+                                <Badge variant="outline" className="text-xs bg-yellow-50 text-yellow-700 border-yellow-200">
+                                  {expiringCount} Expiring
+                                </Badge>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
                     </button>
 
