@@ -260,7 +260,7 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
                                         <div>
                                             <p className="text-xs text-slate-500">Created</p>
                                             <p className="text-sm font-medium text-slate-900">
-                                                {format(new Date(event.created_date), 'MMM d, yyyy')}
+                                                {event.created_date ? format(new Date(event.created_date), 'MMM d, yyyy') : 'N/A'}
                                             </p>
                                         </div>
                                     </div>
@@ -416,7 +416,7 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
                                                                 </div>
                                                                 <p className="text-xs text-slate-600">Version: {tariff.version}</p>
                                                                 <p className="text-xs text-slate-500 mt-1">
-                                                                    Effective: {format(new Date(tariff.effective_date), 'MMM d, yyyy')} • Expires: {format(new Date(tariff.expiry_date), 'MMM d, yyyy')}
+                                                                    Effective: {tariff.effective_date ? format(new Date(tariff.effective_date), 'MMM d, yyyy') : 'N/A'} • Expires: {tariff.expiry_date ? format(new Date(tariff.expiry_date), 'MMM d, yyyy') : 'N/A'}
                                                                 </p>
                                                             </div>
                                                             <ExternalLink className="w-4 h-4 text-slate-400 ml-2 flex-shrink-0" />
@@ -452,7 +452,7 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
                                                             <div className="min-w-0">
                                                                 <p className="font-medium text-sm text-slate-900 truncate">{doc.file_name}</p>
                                                                 <p className="text-xs text-slate-500">
-                                                                    {format(new Date(doc.upload_date), 'MMM d, yyyy')}
+                                                                    {doc.upload_date ? format(new Date(doc.upload_date), 'MMM d, yyyy') : 'N/A'}
                                                                 </p>
                                                             </div>
                                                         </div>
