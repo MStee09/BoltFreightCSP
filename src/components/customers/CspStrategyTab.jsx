@@ -901,16 +901,16 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                     </TabsList>
 
                     <TabsContent value="carriers" className="space-y-4">
-                        <div className="h-80">
+                        <div className="h-[400px]">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
                                     <Pie
                                         data={carrierPieData}
                                         cx="50%"
                                         cy="50%"
-                                        labelLine={false}
+                                        labelLine={true}
                                         label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                                        outerRadius={100}
+                                        outerRadius={120}
                                         fill="#8884d8"
                                         dataKey="value"
                                     >
@@ -927,8 +927,8 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                                 </PieChart>
                             </ResponsiveContainer>
                         </div>
-                        <div className="space-y-2">
-                            <p className="text-sm font-medium">Carrier Distribution</p>
+                        <div className="space-y-2 max-h-[400px] overflow-y-auto">
+                            <p className="text-sm font-medium sticky top-0 bg-white py-2">Carrier Distribution</p>
                             <div className="space-y-1">
                                 {strategySummary.carrier_breakdown?.slice(0, 10).map((item, idx) => (
                                     <div key={idx} className="flex items-center justify-between text-sm gap-2">
@@ -948,7 +948,7 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                     </TabsContent>
 
                     <TabsContent value="spend" className="space-y-4">
-                        <div className="h-80">
+                        <div className="h-[350px]">
                             <ResponsiveContainer width="100%" height="100%">
                                 <RechartsBarChart data={carrierBarData}>
                                     <CartesianGrid strokeDasharray="3 3" />
@@ -965,37 +965,39 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                                 </RechartsBarChart>
                             </ResponsiveContainer>
                         </div>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Carrier</TableHead>
-                                    <TableHead className="text-right">Shipments</TableHead>
-                                    <TableHead className="text-right">Total Spend</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {strategySummary.carrier_breakdown?.slice(0, 5).map((item, idx) => (
-                                    <TableRow key={idx}>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-medium">{getCarrierName(item.carrier)}</span>
-                                                {item.ownership && item.ownership !== 'Unknown' && (
-                                                    <Badge variant="outline" className="text-xs">
-                                                        {item.ownership}
-                                                    </Badge>
-                                                )}
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="text-right">{item.shipments.toLocaleString()}</TableCell>
-                                        <TableCell className="text-right">${Math.round(item.spend).toLocaleString()}</TableCell>
+                        <div className="max-h-[300px] overflow-y-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="sticky top-0 bg-white">Carrier</TableHead>
+                                        <TableHead className="text-right sticky top-0 bg-white">Shipments</TableHead>
+                                        <TableHead className="text-right sticky top-0 bg-white">Total Spend</TableHead>
                                     </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                                </TableHeader>
+                                <TableBody>
+                                    {strategySummary.carrier_breakdown?.map((item, idx) => (
+                                        <TableRow key={idx}>
+                                            <TableCell>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-medium">{getCarrierName(item.carrier)}</span>
+                                                    {item.ownership && item.ownership !== 'Unknown' && (
+                                                        <Badge variant="outline" className="text-xs">
+                                                            {item.ownership}
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-right">{item.shipments.toLocaleString()}</TableCell>
+                                            <TableCell className="text-right">${Math.round(item.spend).toLocaleString()}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
                     </TabsContent>
 
                     <TabsContent value="lanes" className="space-y-4">
-                        <div className="h-80">
+                        <div className="h-[350px]">
                             <ResponsiveContainer width="100%" height="100%">
                                 <RechartsBarChart data={laneData} layout="vertical">
                                     <CartesianGrid strokeDasharray="3 3" />
@@ -1012,31 +1014,33 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                                 </RechartsBarChart>
                             </ResponsiveContainer>
                         </div>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Lane</TableHead>
-                                    <TableHead className="text-right">Shipments</TableHead>
-                                    <TableHead className="text-right">Total Spend</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {strategySummary.top_lanes?.map((item, idx) => (
-                                    <TableRow key={idx}>
-                                        <TableCell className="font-medium">{item.lane}</TableCell>
-                                        <TableCell className="text-right">{item.shipments.toLocaleString()}</TableCell>
-                                        <TableCell className="text-right">${Math.round(item.spend).toLocaleString()}</TableCell>
+                        <div className="max-h-[300px] overflow-y-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="sticky top-0 bg-white">Lane</TableHead>
+                                        <TableHead className="text-right sticky top-0 bg-white">Shipments</TableHead>
+                                        <TableHead className="text-right sticky top-0 bg-white">Total Spend</TableHead>
                                     </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                                </TableHeader>
+                                <TableBody>
+                                    {strategySummary.top_lanes?.map((item, idx) => (
+                                        <TableRow key={idx}>
+                                            <TableCell className="font-medium">{item.lane}</TableCell>
+                                            <TableCell className="text-right">{item.shipments.toLocaleString()}</TableCell>
+                                            <TableCell className="text-right">${Math.round(item.spend).toLocaleString()}</TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
                     </TabsContent>
 
                     <TabsContent value="savings" className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="h-80">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                            <div className="h-[350px]">
                                 <p className="text-sm font-medium mb-2">Savings by Carrier</p>
-                                <ResponsiveContainer width="100%" height="100%">
+                                <ResponsiveContainer width="100%" height="90%">
                                     <RechartsBarChart data={savingsData}>
                                         <CartesianGrid strokeDasharray="3 3" />
                                         <XAxis dataKey="carrier" angle={-45} textAnchor="end" height={100} />
@@ -1052,16 +1056,16 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                                     </RechartsBarChart>
                                 </ResponsiveContainer>
                             </div>
-                            <div className="h-80">
+                            <div className="h-[350px]">
                                 <p className="text-sm font-medium mb-2">Opportunity Distribution</p>
-                                <ResponsiveContainer width="100%" height="100%">
+                                <ResponsiveContainer width="100%" height="90%">
                                     <PieChart>
                                         <Pie
                                             data={savingsData}
                                             cx="50%"
                                             cy="50%"
-                                            labelLine={false}
-                                            label={({ carrier, percent }) => `${carrier}: ${(percent * 100).toFixed(0)}%`}
+                                            labelLine={true}
+                                            label={({ carrier, percent }) => `${carrier.length > 15 ? carrier.substring(0, 12) + '...' : carrier}: ${(percent * 100).toFixed(0)}%`}
                                             outerRadius={100}
                                             fill="#8884d8"
                                             dataKey="savings"
@@ -1087,34 +1091,36 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                                 </div>
                             </div>
                         </div>
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>Carrier</TableHead>
-                                    <TableHead className="text-right">Opportunities</TableHead>
-                                    <TableHead className="text-right">Potential Savings</TableHead>
-                                    <TableHead className="text-right">Avg Per Load</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {strategySummary.missed_savings_by_carrier?.map((item, idx) => (
-                                    <TableRow key={idx}>
-                                        <TableCell className="font-medium">{item.carrier}</TableCell>
-                                        <TableCell className="text-right">{item.opportunities.toLocaleString()}</TableCell>
-                                        <TableCell className="text-right text-red-600 font-semibold">
-                                            ${Math.round(item.savings).toLocaleString()}
-                                        </TableCell>
-                                        <TableCell className="text-right text-slate-600">
-                                            ${Math.round(item.savings / item.opportunities).toLocaleString()}
-                                        </TableCell>
+                        <div className="max-h-[400px] overflow-y-auto">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="sticky top-0 bg-white">Carrier</TableHead>
+                                        <TableHead className="text-right sticky top-0 bg-white">Opportunities</TableHead>
+                                        <TableHead className="text-right sticky top-0 bg-white">Potential Savings</TableHead>
+                                        <TableHead className="text-right sticky top-0 bg-white">Avg Per Load</TableHead>
                                     </TableRow>
-                                ))}
-                            </TableBody>
-                        </Table>
+                                </TableHeader>
+                                <TableBody>
+                                    {strategySummary.missed_savings_by_carrier?.map((item, idx) => (
+                                        <TableRow key={idx}>
+                                            <TableCell className="font-medium">{item.carrier}</TableCell>
+                                            <TableCell className="text-right">{item.opportunities.toLocaleString()}</TableCell>
+                                            <TableCell className="text-right text-red-600 font-semibold">
+                                                ${Math.round(item.savings).toLocaleString()}
+                                            </TableCell>
+                                            <TableCell className="text-right text-slate-600">
+                                                ${Math.round(item.savings / item.opportunities).toLocaleString()}
+                                            </TableCell>
+                                        </TableRow>
+                                    ))}
+                                </TableBody>
+                            </Table>
+                        </div>
                     </TabsContent>
 
                     <TabsContent value="concentration" className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <Card className="bg-slate-50">
                                 <CardContent className="pt-6">
                                     <p className="text-sm text-slate-600 mb-3">Top 3 Carrier Concentration</p>
