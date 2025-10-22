@@ -30,51 +30,62 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
     const { user } = useAuth();
     const queryClient = useQueryClient();
 
+    const parseCSV = (text) => {
+        const lines = text.trim().split('\n');
+        const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+        const data = [];
+
+        for (let i = 1; i < lines.length; i++) {
+            const values = lines[i].split(',');
+            if (values.length === headers.length) {
+                const row = {};
+                headers.forEach((header, index) => {
+                    let value = values[index].trim().replace(/^"|"$/g, '');
+                    if (!isNaN(value) && value !== '') {
+                        value = parseFloat(value);
+                    }
+                    row[header] = value;
+                });
+                data.push(row);
+            }
+        }
+        return data;
+    };
+
     const mutation = useMutation({
         mutationFn: async ({ txnFile, loFile }) => {
             setError(null);
 
-            const txnSchema = {
-                type: "object",
-                properties: {
-                    Load: { type: "string" },
-                    Pricing_Ownership: { type: "string" },
-                    Carrier: { type: "string" },
-                    Bill: { type: "number" },
-                }
-            };
-            const loSchema = {
-                type: "object",
-                properties: {
-                    LoadId: { type: "string" },
-                    Selected_Carrier_Name: { type: "string" },
-                    Selected_Carrier_Cost: { type: "number" },
-                    LO_Carrier_Name: { type: "string" },
-                    LO_Carrier_Cost: { type: "number" },
-                }
-            };
+            const timestamp = Date.now();
+            const txnPath = `${user?.id || '00000000-0000-0000-0000-000000000000'}/${timestamp}_${txnFile.name}`;
+            const loPath = `${user?.id || '00000000-0000-0000-0000-000000000000'}/${timestamp}_${loFile.name}`;
 
-            const [txnUploadResult, loUploadResult] = await Promise.all([
-                base44.integrations.Core.UploadFile({ file: txnFile }),
-                base44.integrations.Core.UploadFile({ file: loFile }),
+            const [txnUpload, loUpload] = await Promise.all([
+                supabase.storage.from('documents').upload(txnPath, txnFile),
+                supabase.storage.from('documents').upload(loPath, loFile)
             ]);
 
-            const [txnDataResult, loDataResult] = await Promise.all([
-                base44.integrations.Core.ExtractDataFromUploadedFile({ file_url: txnUploadResult.file_url, json_schema: txnSchema }),
-                base44.integrations.Core.ExtractDataFromUploadedFile({ file_url: loUploadResult.file_url, json_schema: loSchema }),
+            if (txnUpload.error) throw new Error(`Transaction file upload failed: ${txnUpload.error.message}`);
+            if (loUpload.error) throw new Error(`Low cost opportunity file upload failed: ${loUpload.error.message}`);
+
+            const [txnText, loText] = await Promise.all([
+                txnFile.text(),
+                loFile.text()
             ]);
 
-            if (txnDataResult.status === 'error' || loDataResult.status === 'error') {
-                throw new Error(`Data extraction failed. TXN: ${txnDataResult.details}, LO: ${loDataResult.details}`);
-            }
+            const txnData = parseCSV(txnText);
+            const loData = parseCSV(loText);
 
             if (cspEventId) {
+                const { data: { publicUrl: txnUrl } } = supabase.storage.from('documents').getPublicUrl(txnPath);
+                const { data: { publicUrl: loUrl } } = supabase.storage.from('documents').getPublicUrl(loPath);
+
                 await Document.create({
                     entity_type: 'csp_event',
                     entity_id: cspEventId,
                     csp_event_id: cspEventId,
                     file_name: txnFile.name,
-                    file_path: txnUploadResult.file_url,
+                    file_path: txnUrl,
                     file_size: txnFile.size,
                     file_type: txnFile.type,
                     document_type: txnDocType,
@@ -88,7 +99,7 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
                     entity_id: cspEventId,
                     csp_event_id: cspEventId,
                     file_name: loFile.name,
-                    file_path: loUploadResult.file_url,
+                    file_path: loUrl,
                     file_size: loFile.size,
                     file_type: loFile.type,
                     document_type: loDocType,
@@ -98,7 +109,7 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
                 });
             }
 
-            return { txnData: txnDataResult.output, loData: loDataResult.output };
+            return { txnData, loData };
         },
         onSuccess: async ({ txnData, loData }) => {
             if (cspEventId) {
