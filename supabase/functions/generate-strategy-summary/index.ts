@@ -45,11 +45,11 @@ Deno.serve(async (req: Request) => {
 
     if (Array.isArray(txnData)) {
       txnData.forEach((txn: any) => {
-        const carrier = txn.Carrier || txn.carrier || 'Unknown';
-        const bill = txn.Bill || txn.bill || 0;
-        
+        const carrier = txn.carrier || txn.Carrier || 'Unknown';
+        const cost = parseFloat(txn.cost || txn.Bill || txn.bill || 0);
+
         carrierCounts[carrier] = (carrierCounts[carrier] || 0) + 1;
-        carrierSpend[carrier] = (carrierSpend[carrier] || 0) + bill;
+        carrierSpend[carrier] = (carrierSpend[carrier] || 0) + cost;
       });
     }
 
@@ -64,9 +64,13 @@ Deno.serve(async (req: Request) => {
 
     const lostOpportunityLanes: string[] = [];
     const lostOpportunityTotal = loData.reduce((sum: number, lo: any) => {
-      const diff = (lo.Selected_Carrier_Cost || 0) - (lo.LO_Carrier_Cost || 0);
-      if (diff > 0 && lo.LoadId) {
-        lostOpportunityLanes.push(lo.LoadId);
+      const selectedCost = parseFloat(lo.selected_cost || lo.Selected_Carrier_Cost || 0);
+      const opportunityCost = parseFloat(lo.opportunity_cost || lo.LO_Carrier_Cost || 0);
+      const diff = selectedCost - opportunityCost;
+      const loadId = lo.load_id || lo.LoadId;
+
+      if (diff > 0 && loadId) {
+        lostOpportunityLanes.push(loadId);
       }
       return sum + (diff > 0 ? diff : 0);
     }, 0);
