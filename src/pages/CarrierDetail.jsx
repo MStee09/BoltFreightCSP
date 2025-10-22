@@ -413,15 +413,38 @@ const CarrierTariffs = ({ carrierId, highlightId }) => {
 export default function CarrierDetailPage() {
     const [searchParams] = useSearchParams();
     const carrierId = searchParams.get('id');
+    const isNew = searchParams.get('new') === 'true';
     const defaultTab = searchParams.get('tab') || 'overview';
     const highlightId = searchParams.get('highlight');
-    const [isEditSheetOpen, setIsEditSheetOpen] = useState(false);
+    const [isEditSheetOpen, setIsEditSheetOpen] = useState(isNew);
 
     const { data: carrier, isLoading } = useQuery({
         queryKey: ['carrier', carrierId],
         queryFn: () => Carrier.get(carrierId),
-        enabled: !!carrierId,
+        enabled: !!carrierId && !isNew,
     });
+
+    if (isNew) {
+        return (
+            <>
+                <div className="p-6 lg:p-8 max-w-[1600px] mx-auto">
+                    <Link to={createPageUrl("Carriers")} className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 mb-6">
+                        <ArrowLeft className="w-4 h-4" />
+                        Back to All Carriers
+                    </Link>
+                    <div className="text-center py-12">
+                        <h1 className="text-3xl font-bold text-slate-900 mb-4">Create New Carrier</h1>
+                        <p className="text-slate-600">Fill out the form to add a new carrier partner.</p>
+                    </div>
+                </div>
+                <EditCarrierSheet
+                    carrierId={null}
+                    isOpen={isEditSheetOpen}
+                    onOpenChange={setIsEditSheetOpen}
+                />
+            </>
+        );
+    }
 
     if (isLoading) {
         return (
@@ -432,7 +455,7 @@ export default function CarrierDetailPage() {
             </div>
         );
     }
-    
+
     if (!carrier) {
         return <div className="p-8 text-center">Carrier not found. Please return to the carriers list.</div>;
     }

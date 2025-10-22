@@ -13,7 +13,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 
 export default function EditCarrierSheet({ carrierId, isOpen, onOpenChange }) {
     const queryClient = useQueryClient();
-    const [formData, setFormData] = useState({});
+    const isCreating = !carrierId;
+    const [formData, setFormData] = useState({
+        service_countries: 'US',
+        coverage_type: 'regional'
+    });
 
     const { data: carrier, isLoading } = useQuery({
         queryKey: ['carrier', carrierId],
@@ -31,8 +35,13 @@ export default function EditCarrierSheet({ carrierId, isOpen, onOpenChange }) {
                 equipment_types: carrier.equipment_types ? carrier.equipment_types.join(', ') : '',
                 specializations: carrier.specializations ? carrier.specializations.join(', ') : '',
             });
+        } else if (isCreating) {
+            setFormData({
+                service_countries: 'US',
+                coverage_type: 'regional'
+            });
         }
-    }, [carrier]);
+    }, [carrier, isCreating]);
 
     const mutation = useMutation({
         mutationFn: (updatedData) => {
@@ -44,14 +53,23 @@ export default function EditCarrierSheet({ carrierId, isOpen, onOpenChange }) {
                 equipment_types: updatedData.equipment_types ? updatedData.equipment_types.split(',').map(s => s.trim()).filter(Boolean) : [],
                 specializations: updatedData.specializations ? updatedData.specializations.split(',').map(s => s.trim()).filter(Boolean) : [],
             };
-            return Carrier.update(carrierId, payload);
+            if (isCreating) {
+                return Carrier.create(payload);
+            } else {
+                return Carrier.update(carrierId, payload);
+            }
         },
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['carrier', carrierId] });
+            if (!isCreating) {
+                queryClient.invalidateQueries({ queryKey: ['carrier', carrierId] });
+            }
             queryClient.invalidateQueries({ queryKey: ['carriers'] });
             onOpenChange(false);
+            if (isCreating) {
+                window.location.href = '/Carriers';
+            }
         },
-        onError: (error) => console.error("Update failed:", error),
+        onError: (error) => console.error(isCreating ? "Create failed:" : "Update failed:", error),
     });
 
     const handleChange = (e) => {
@@ -67,10 +85,12 @@ export default function EditCarrierSheet({ carrierId, isOpen, onOpenChange }) {
         <Sheet open={isOpen} onOpenChange={onOpenChange}>
             <SheetContent className="sm:max-w-xl w-full flex flex-col">
                 <SheetHeader>
-                    <SheetTitle>Edit Carrier</SheetTitle>
-                    <SheetDescription>Update the details for this carrier partner.</SheetDescription>
+                    <SheetTitle>{isCreating ? 'Create New Carrier' : 'Edit Carrier'}</SheetTitle>
+                    <SheetDescription>
+                        {isCreating ? 'Add a new carrier partner to your network.' : 'Update the details for this carrier partner.'}
+                    </SheetDescription>
                 </SheetHeader>
-                {isLoading ? (
+                {isLoading && !isCreating ? (
                     <div className="space-y-4 p-4">
                         <Skeleton className="h-10 w-full" />
                         <Skeleton className="h-10 w-full" />
@@ -189,7 +209,7 @@ export default function EditCarrierSheet({ carrierId, isOpen, onOpenChange }) {
                     <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
                     <Button onClick={handleSubmit} disabled={mutation.isPending}>
                         {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Save Changes
+                        {isCreating ? 'Create Carrier' : 'Save Changes'}
                     </Button>
                 </SheetFooter>
             </SheetContent>
