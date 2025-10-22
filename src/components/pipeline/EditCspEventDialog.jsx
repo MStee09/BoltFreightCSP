@@ -71,7 +71,7 @@ export default function EditCspEventDialog({ isOpen, onOpenChange, eventId }) {
                 customer_id: event.customer_id || '',
                 stage: event.stage || 'discovery',
                 priority: event.priority || 'medium',
-                description: event.description || '',
+                description: event.notes || '',
                 assigned_to: event.assigned_to || '',
                 go_live_date: event.go_live_date || '',
                 honeymoon_monitoring: event.honeymoon_monitoring || false
@@ -81,7 +81,12 @@ export default function EditCspEventDialog({ isOpen, onOpenChange, eventId }) {
 
     const updateEventMutation = useMutation({
         mutationFn: async (data) => {
-            const updatedEvent = await CSPEvent.update(eventId, data);
+            const { description, ...rest } = data;
+            const updateData = {
+                ...rest,
+                notes: description
+            };
+            const updatedEvent = await CSPEvent.update(eventId, updateData);
 
             if (data.stage === 'awarded' && event.stage !== 'awarded') {
                 const customer = customers.find(c => c.id === data.customer_id);

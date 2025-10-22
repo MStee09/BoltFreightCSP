@@ -67,7 +67,12 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers: custome
 
     const createEventMutation = useMutation({
         mutationFn: async (eventData) => {
-            const createdEvent = await CSPEvent.create(eventData);
+            const { description, ...rest } = eventData;
+            const createData = {
+                ...rest,
+                notes: description
+            };
+            const createdEvent = await CSPEvent.create(createData);
 
             if (attachedFiles.length > 0) {
                 for (const file of attachedFiles) {
