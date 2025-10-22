@@ -78,7 +78,7 @@ const StageColumn = ({ stage, events, customers, tariffs, stageRef, onEventClick
           <div
             {...provided.droppableProps}
             ref={provided.innerRef}
-            className={`bg-slate-100/70 rounded-xl p-2 min-h-[50vh] h-full transition-colors ${snapshot.isDraggingOver ? 'bg-blue-50' : ''}`}
+            className={`rounded-xl p-2 min-h-[50vh] h-full transition-colors ${snapshot.isDraggingOver ? 'bg-blue-100' : 'bg-slate-50'}`}
           >
             {events.length > 0 ? events.map((event, index) => {
               const customer = customers.find(c => c.id === event.customer_id);
