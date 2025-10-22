@@ -7,7 +7,7 @@ import { Badge } from '../ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Skeleton } from '../ui/skeleton';
-import { Calendar, User, Clock, FileText, MessageSquare, Building2, TrendingUp, ExternalLink, Pencil, Mail, ChevronRight } from 'lucide-react';
+import { Calendar, User, Clock, FileText, MessageSquare, Building2, TrendingUp, ExternalLink, Pencil, Mail, ChevronRight, Download } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import EditCspEventDialog from './EditCspEventDialog';
@@ -16,6 +16,7 @@ import { EmailTimeline } from '../email/EmailTimeline';
 import CspStrategyTab from '../customers/CspStrategyTab';
 import CustomerDetailSheet from '../customers/CustomerDetailSheet';
 import { useToast } from '../ui/use-toast';
+import { supabase } from '../../api/supabaseClient';
 
 const STAGES = [
     "discovery",
@@ -86,6 +87,36 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
     const eventInteractions = interactions.filter(i => i.metadata?.csp_event_id === eventId);
 
     const isLoading = isLoadingEvent || isLoadingCustomer;
+
+    const handleDownloadDocument = async (document) => {
+        try {
+            const { data, error } = await supabase.storage
+                .from('documents')
+                .download(document.file_path);
+
+            if (error) throw error;
+
+            const url = URL.createObjectURL(data);
+            const a = window.document.createElement('a');
+            a.href = url;
+            a.download = document.file_name;
+            window.document.body.appendChild(a);
+            a.click();
+            window.document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+            toast({
+                title: "Success",
+                description: "Document downloaded successfully.",
+            });
+        } catch (error) {
+            toast({
+                title: "Error",
+                description: "Failed to download document.",
+                variant: "destructive",
+            });
+        }
+    };
 
     const moveToNextStage = useMutation({
         mutationFn: async (newStage) => {
@@ -449,16 +480,32 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
                                                     <div key={doc.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-slate-50">
                                                         <div className="flex items-center gap-3 flex-1 min-w-0">
                                                             <FileText className="w-5 h-5 text-slate-500 flex-shrink-0" />
-                                                            <div className="min-w-0">
+                                                            <div className="min-w-0 flex-1">
                                                                 <p className="font-medium text-sm text-slate-900 truncate">{doc.file_name}</p>
-                                                                <p className="text-xs text-slate-500">
-                                                                    {doc.upload_date ? format(new Date(doc.upload_date), 'MMM d, yyyy') : 'N/A'}
-                                                                </p>
+                                                                <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
+                                                                    <span>{doc.upload_date ? format(new Date(doc.upload_date), 'MMM d, yyyy') : 'N/A'}</span>
+                                                                    {doc.file_size && (
+                                                                        <>
+                                                                            <span>•</span>
+                                                                            <span>{(doc.file_size / 1024).toFixed(1)} KB</span>
+                                                                        </>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         </div>
-                                                        <Badge variant="secondary" className="capitalize text-xs">
-                                                            {doc.document_type?.replace(/_/g, ' ')}
-                                                        </Badge>
+                                                        <div className="flex items-center gap-2">
+                                                            <Badge variant="secondary" className="capitalize text-xs">
+                                                                {doc.document_type?.replace(/_/g, ' ')}
+                                                            </Badge>
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => handleDownloadDocument(doc)}
+                                                                className="h-8 w-8 p-0"
+                                                            >
+                                                                <Download className="w-4 h-4" />
+                                                            </Button>
+                                                        </div>
                                                     </div>
                                                 ))}
                                             </div>

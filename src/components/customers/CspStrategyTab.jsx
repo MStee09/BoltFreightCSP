@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { UploadCloud, File, X, Loader2, BrainCircuit, BarChart, FileUp, Info, FileText, Calendar, User, Download, Trash2, Sparkles } from 'lucide-react';
+import { UploadCloud, File, X, Loader2, BrainCircuit, BarChart, FileUp, Info, FileText, Calendar, User, Download, Trash2, Sparkles, MessageCircle, Send } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { Badge } from '../ui/badge';
 import { Bar, BarChart as RechartsBarChart, Line, LineChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -499,26 +499,143 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
 
 const AiSummaryPanel = ({ cspEvent }) => {
     const strategySummary = cspEvent?.strategy_summary;
+    const [chatMessages, setChatMessages] = useState([]);
+    const [chatInput, setChatInput] = useState('');
+    const [isChatLoading, setIsChatLoading] = useState(false);
+    const [showChat, setShowChat] = useState(false);
+    const { toast } = useToast();
 
     if (!strategySummary || !strategySummary.summary_text) {
         return null;
     }
 
+    const handleSendMessage = async () => {
+        if (!chatInput.trim() || isChatLoading) return;
+
+        const userMessage = chatInput.trim();
+        setChatInput('');
+        setChatMessages(prev => [...prev, { role: 'user', content: userMessage }]);
+        setIsChatLoading(true);
+
+        try {
+            const context = `Strategy Analysis Data:
+- Total Shipments: ${strategySummary.shipment_count}
+- Lanes: ${strategySummary.lane_count}
+- Total Spend: $${strategySummary.total_spend?.toLocaleString()}
+- Top Carriers: ${strategySummary.top_carriers?.map(c => `${c.carrier} (${c.percentage}%)`).join(', ')}
+- Missed Savings: $${strategySummary.lost_opportunity_total?.toLocaleString()}
+- Lost Opportunities: ${strategySummary.lost_opportunity_count}
+
+User Question: ${userMessage}
+
+Please provide a helpful, concise answer based on the strategy data above.`;
+
+            const response = {
+                role: 'assistant',
+                content: `Based on the analysis data, I can help answer your question about the strategy. However, this is a placeholder response. To enable real AI responses, you would need to integrate with an AI service like OpenAI's GPT API or Anthropic's Claude API.
+
+Your question: "${userMessage}"
+
+Key insights from the data:
+• You have ${strategySummary.shipment_count} shipments across ${strategySummary.lane_count} lanes
+• Total spend is $${strategySummary.total_spend?.toLocaleString()}
+• There are ${strategySummary.lost_opportunity_count} missed savings opportunities worth $${strategySummary.lost_opportunity_total?.toLocaleString()}`
+            };
+
+            setChatMessages(prev => [...prev, response]);
+        } catch (error) {
+            toast({
+                title: "Error",
+                description: "Failed to get AI response. Please try again.",
+                variant: "destructive",
+            });
+        } finally {
+            setIsChatLoading(false);
+        }
+    };
+
     return (
         <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-white">
             <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                    <Sparkles className="w-5 h-5 text-blue-600" />
-                    AI Strategy Summary
-                </CardTitle>
-                <CardDescription>
-                    Generated {strategySummary.generated_at ? format(new Date(strategySummary.generated_at), 'MMM dd, yyyy') : 'recently'}
-                </CardDescription>
+                <div className="flex items-center justify-between">
+                    <div>
+                        <CardTitle className="flex items-center gap-2">
+                            <Sparkles className="w-5 h-5 text-blue-600" />
+                            AI Strategy Summary
+                        </CardTitle>
+                        <CardDescription>
+                            Generated {strategySummary.generated_at ? format(new Date(strategySummary.generated_at), 'MMM dd, yyyy') : 'recently'}
+                        </CardDescription>
+                    </div>
+                    <Button
+                        variant={showChat ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setShowChat(!showChat)}
+                        className="gap-2"
+                    >
+                        <MessageCircle className="w-4 h-4" />
+                        {showChat ? 'Hide Chat' : 'Chat with AI'}
+                    </Button>
+                </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
                 <div className="prose prose-sm max-w-none whitespace-pre-line text-slate-700 leading-relaxed">
                     {strategySummary.summary_text}
                 </div>
+
+                {showChat && (
+                    <div className="border-t pt-4 space-y-4">
+                        <div className="space-y-3 max-h-96 overflow-y-auto">
+                            {chatMessages.length === 0 ? (
+                                <div className="text-center text-slate-500 text-sm py-8">
+                                    <MessageCircle className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                                    Ask questions about the strategy analysis
+                                </div>
+                            ) : (
+                                chatMessages.map((msg, idx) => (
+                                    <div
+                                        key={idx}
+                                        className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                                    >
+                                        <div
+                                            className={`max-w-[80%] rounded-lg px-4 py-2 ${
+                                                msg.role === 'user'
+                                                    ? 'bg-blue-600 text-white'
+                                                    : 'bg-white border text-slate-900'
+                                            }`}
+                                        >
+                                            <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                            {isChatLoading && (
+                                <div className="flex justify-start">
+                                    <div className="bg-white border rounded-lg px-4 py-2">
+                                        <Loader2 className="w-4 h-4 animate-spin text-slate-600" />
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex gap-2">
+                            <Input
+                                placeholder="Ask about the strategy data..."
+                                value={chatInput}
+                                onChange={(e) => setChatInput(e.target.value)}
+                                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                                disabled={isChatLoading}
+                                className="flex-1"
+                            />
+                            <Button
+                                onClick={handleSendMessage}
+                                disabled={!chatInput.trim() || isChatLoading}
+                                size="icon"
+                            >
+                                <Send className="w-4 h-4" />
+                            </Button>
+                        </div>
+                    </div>
+                )}
             </CardContent>
         </Card>
     );
