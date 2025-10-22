@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { GmailSetup } from '@/components/email/GmailSetup';
 import { UserManagement } from '@/components/admin/UserManagement';
+import { AISettings } from '@/components/settings/AISettings';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Settings as SettingsIcon, Shield, AlertCircle } from 'lucide-react';
 
@@ -45,6 +46,7 @@ export default function Settings() {
       <Tabs defaultValue="integrations" className="w-full">
         <TabsList>
           <TabsTrigger value="integrations">Integrations</TabsTrigger>
+          <TabsTrigger value="ai">AI Assistant</TabsTrigger>
           <TabsTrigger value="account">Account</TabsTrigger>
           {isAdmin && <TabsTrigger value="users">Users</TabsTrigger>}
           {isAdmin && <TabsTrigger value="admin">Admin</TabsTrigger>}
@@ -53,6 +55,12 @@ export default function Settings() {
         <TabsContent value="integrations" className="space-y-4 mt-6">
           <div className="max-w-2xl">
             <GmailSetup />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="ai" className="space-y-4 mt-6">
+          <div className="max-w-4xl">
+            <AISettings />
           </div>
         </TabsContent>
 

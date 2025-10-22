@@ -141,3 +141,73 @@ export const User = {
     });
   },
 };
+
+export const AISettings = {
+  async get() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { data, error } = await supabase
+      .from('ai_chatbot_settings')
+      .select('*')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async upsert(settings) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const existing = await this.get();
+
+    if (existing) {
+      const { data, error } = await supabase
+        .from('ai_chatbot_settings')
+        .update({
+          instructions: settings.instructions,
+          knowledge_base: settings.knowledge_base,
+          temperature: settings.temperature,
+          max_tokens: settings.max_tokens,
+        })
+        .eq('id', existing.id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } else {
+      const { data, error } = await supabase
+        .from('ai_chatbot_settings')
+        .insert({
+          user_id: user.id,
+          instructions: settings.instructions,
+          knowledge_base: settings.knowledge_base,
+          temperature: settings.temperature,
+          max_tokens: settings.max_tokens,
+          is_active: true,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    }
+  },
+
+  async reset() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { error } = await supabase
+      .from('ai_chatbot_settings')
+      .delete()
+      .eq('user_id', user.id);
+
+    if (error) throw error;
+    return { success: true };
+  },
+};

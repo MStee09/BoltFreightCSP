@@ -20,6 +20,11 @@ Deno.serve(async (req: Request) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    const authHeader = req.headers.get("Authorization");
+    const token = authHeader?.replace("Bearer ", "");
+
+    const { data: { user } } = await supabase.auth.getUser(token || "");
+
     const { cspEventId, message, conversationHistory } = await req.json();
 
     if (!cspEventId || !message) {
@@ -50,6 +55,18 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    let aiSettings = null;
+    if (user?.id) {
+      const { data: settings } = await supabase
+        .from('ai_chatbot_settings')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      aiSettings = settings;
+    }
+
     const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
 
     if (!openaiApiKey) {
@@ -65,7 +82,12 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const systemPrompt = `You are an expert logistics and carrier strategy analyst helping with CSP (Carrier Service Provider) bid analysis. You provide clear, actionable insights based on shipment data. Be specific with numbers and recommendations. Keep responses concise but informative.`;
+    const defaultInstructions = `You are an expert logistics and carrier strategy analyst helping with CSP (Carrier Service Provider) bid analysis. You provide clear, actionable insights based on shipment data. Be specific with numbers and recommendations. Keep responses concise but informative.`;
+
+    const systemPrompt = aiSettings?.instructions || defaultInstructions;
+    const knowledgeBase = aiSettings?.knowledge_base || '';
+    const temperature = aiSettings?.temperature || 0.7;
+    const maxTokens = aiSettings?.max_tokens || 1000;
 
     const dataContext = `Here is the shipment data analysis:
 - Total Shipments: ${strategySummary.shipment_count?.toLocaleString()}
@@ -94,6 +116,13 @@ ${strategySummary.missed_savings_by_carrier?.slice(0, 5).map((m: any) =>
       { role: "system", content: dataContext }
     ];
 
+    if (knowledgeBase && knowledgeBase.trim()) {
+      messages.push({
+        role: "system",
+        content: `Additional Context and Knowledge Base:\n${knowledgeBase}`
+      });
+    }
+
     if (conversationHistory && Array.isArray(conversationHistory)) {
       conversationHistory.forEach((msg: any) => {
         messages.push({
@@ -114,8 +143,8 @@ ${strategySummary.missed_savings_by_carrier?.slice(0, 5).map((m: any) =>
       body: JSON.stringify({
         model: "gpt-4o-mini",
         messages: messages,
-        temperature: 0.7,
-        max_tokens: 500,
+        temperature: temperature,
+        max_tokens: maxTokens,
       }),
     });
 
