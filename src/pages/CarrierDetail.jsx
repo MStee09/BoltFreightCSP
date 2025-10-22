@@ -14,6 +14,7 @@ import { Badge } from "../components/ui/badge";
 import { format, formatDistanceToNow, differenceInDays } from "date-fns";
 import EditCarrierSheet from '../components/carriers/EditCarrierSheet';
 import CarrierOverview from '../components/carriers/CarrierOverview';
+import ManageContactsDialog from '../components/carriers/ManageContactsDialog';
 
 const PlaceholderTab = ({ title, icon }) => (
     <div className="py-12 text-center text-slate-500 border border-dashed rounded-lg mt-4">
@@ -24,8 +25,17 @@ const PlaceholderTab = ({ title, icon }) => (
 );
 
 const CarrierContacts = ({ carrier }) => {
+    const [isManageContactsOpen, setIsManageContactsOpen] = useState(false);
+
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+        <>
+            <div className="flex justify-end mb-4">
+                <Button onClick={() => setIsManageContactsOpen(true)}>
+                    <Users className="w-4 h-4 mr-2" />
+                    Manage Contacts
+                </Button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
             <Card>
                 <CardHeader>
                     <CardTitle>Carrier Representative</CardTitle>
@@ -147,6 +157,13 @@ const CarrierContacts = ({ carrier }) => {
                 </Card>
             )}
         </div>
+        <ManageContactsDialog
+            isOpen={isManageContactsOpen}
+            onOpenChange={setIsManageContactsOpen}
+            carrierId={carrier.id}
+            carrierName={carrier.name}
+        />
+        </>
     );
 };
 

@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Customer, Carrier, CSPEvent, Document, Interaction, Tariff } from '../../api/entities';
+import { Customer, Carrier, CSPEvent, Document, Interaction, Tariff, CSPEventCarrier } from '../../api/entities';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../ui/sheet';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Skeleton } from '../ui/skeleton';
-import { Calendar, User, Clock, FileText, MessageSquare, Building2, TrendingUp, ExternalLink, Pencil, Mail, ChevronRight, Download } from 'lucide-react';
+import { Calendar, User, Clock, FileText, MessageSquare, Building2, TrendingUp, ExternalLink, Pencil, Mail, ChevronRight, Download, Plus } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import EditCspEventDialog from './EditCspEventDialog';
+import ManageCarriersDialog from './ManageCarriersDialog';
 import { EmailComposeDialog } from '../email/EmailComposeDialog';
 import { EmailTimeline } from '../email/EmailTimeline';
 import CspStrategyTab from '../customers/CspStrategyTab';
@@ -39,6 +40,7 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
     const [isCustomerDetailOpen, setIsCustomerDetailOpen] = useState(false);
+    const [isManageCarriersOpen, setIsManageCarriersOpen] = useState(false);
 
     const { data: event, isLoading: isLoadingEvent } = useQuery({
         queryKey: ['csp_event', eventId],
@@ -84,7 +86,19 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
         initialData: []
     });
 
-    const eventCarriers = event?.carrier_ids?.map(id => carriers.find(c => c.id === id)).filter(Boolean) || [];
+    const { data: eventCarrierAssignments = [] } = useQuery({
+        queryKey: ['csp_event_carriers', eventId],
+        queryFn: () => CSPEventCarrier.filter({ csp_event_id: eventId }),
+        enabled: !!eventId && isOpen,
+        initialData: []
+    });
+
+    const eventCarriers = eventCarrierAssignments
+        .map(ec => ({
+            ...carriers.find(c => c.id === ec.carrier_id),
+            assignment: ec
+        }))
+        .filter(c => c.id);
     const eventInteractions = interactions.filter(i => i.metadata?.csp_event_id === eventId);
 
     const isLoading = isLoadingEvent || isLoadingCustomer;
@@ -377,9 +391,18 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
 
                             <TabsContent value="carriers" className="mt-4">
                                 <Card>
-                                    <CardHeader>
-                                        <CardTitle className="text-base">Involved Carriers</CardTitle>
-                                        <CardDescription>Carriers participating in this event</CardDescription>
+                                    <CardHeader className="flex flex-row items-center justify-between">
+                                        <div>
+                                            <CardTitle className="text-base">Involved Carriers</CardTitle>
+                                            <CardDescription>Carriers participating in this event</CardDescription>
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            onClick={() => setIsManageCarriersOpen(true)}
+                                        >
+                                            <Plus className="w-4 h-4 mr-2" />
+                                            Manage Carriers
+                                        </Button>
                                     </CardHeader>
                                     <CardContent>
                                         {isLoadingCarriers ? (
@@ -390,10 +413,23 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
                                         ) : eventCarriers.length > 0 ? (
                                             <div className="space-y-3">
                                                 {eventCarriers.map((carrier) => (
-                                                    <div key={carrier.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-slate-50">
-                                                        <div>
-                                                            <p className="font-medium text-sm text-slate-900">{carrier.name}</p>
+                                                    <div key={carrier.id} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50">
+                                                        <div className="flex-1">
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <p className="font-medium text-sm text-slate-900">{carrier.name}</p>
+                                                                {carrier.assignment && (
+                                                                    <Badge variant="outline" className="text-xs capitalize">
+                                                                        {carrier.assignment.status}
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
                                                             <p className="text-xs text-slate-500 capitalize">{carrier.service_type}</p>
+                                                            {carrier.contact_email && (
+                                                                <div className="flex items-center gap-2 mt-2">
+                                                                    <Mail className="w-3 h-3 text-slate-400" />
+                                                                    <p className="text-xs text-slate-600">{carrier.contact_email}</p>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                         <Button
                                                             variant="ghost"
@@ -406,7 +442,17 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
                                                 ))}
                                             </div>
                                         ) : (
-                                            <p className="text-sm text-slate-500 text-center py-8">No carriers assigned yet</p>
+                                            <div className="text-center py-8">
+                                                <p className="text-sm text-slate-500 mb-4">No carriers assigned yet</p>
+                                                <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    onClick={() => setIsManageCarriersOpen(true)}
+                                                >
+                                                    <Plus className="w-4 h-4 mr-2" />
+                                                    Add Carriers
+                                                </Button>
+                                            </div>
                                         )}
                                     </CardContent>
                                 </Card>
@@ -544,6 +590,11 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
                 cspEvent={event}
                 customer={customer}
                 carrier={eventCarriers[0]}
+            />
+            <ManageCarriersDialog
+                isOpen={isManageCarriersOpen}
+                onOpenChange={setIsManageCarriersOpen}
+                cspEventId={eventId}
             />
             <CustomerDetailSheet
                 isOpen={isCustomerDetailOpen}
