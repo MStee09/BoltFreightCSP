@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { UploadCloud, File, X, Loader2, BrainCircuit, BarChart, FileUp, Info, FileText, Calendar, User, Download, Trash2, Sparkles, MessageCircle, Send } from 'lucide-react';
+import { UploadCloud, File, X, Loader2, BrainCircuit, BarChart, FileUp, Info, FileText, Calendar, User, Download, Trash2, Sparkles, MessageCircle, Send, Package, DollarSign, TrendingDown, AlertCircle, TrendingUp, CheckCircle2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { Badge } from '../ui/badge';
 import { Bar, BarChart as RechartsBarChart, Line, LineChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
@@ -690,12 +690,52 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                 <CardDescription>Visual breakdown of shipment data and opportunities</CardDescription>
             </CardHeader>
             <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <Card className="bg-gradient-to-br from-blue-50 to-white border-blue-200">
+                        <CardContent className="pt-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm text-slate-600 mb-1">Total Shipments</p>
+                                    <p className="text-2xl font-bold text-blue-600">{strategySummary.shipment_count?.toLocaleString()}</p>
+                                    <p className="text-xs text-slate-500 mt-1">{strategySummary.lane_count} unique lanes</p>
+                                </div>
+                                <Package className="w-10 h-10 text-blue-300" />
+                            </div>
+                        </CardContent>
+                    </Card>
+                    <Card className="bg-gradient-to-br from-green-50 to-white border-green-200">
+                        <CardContent className="pt-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm text-slate-600 mb-1">Total Spend</p>
+                                    <p className="text-2xl font-bold text-green-600">${Math.round(strategySummary.total_spend || 0).toLocaleString()}</p>
+                                    <p className="text-xs text-slate-500 mt-1">Across all carriers</p>
+                                </div>
+                                <DollarSign className="w-10 h-10 text-green-300" />
+                            </div>
+                        </CardContent>
+                    </Card>
+                    <Card className="bg-gradient-to-br from-red-50 to-white border-red-200">
+                        <CardContent className="pt-6">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm text-slate-600 mb-1">Missed Savings</p>
+                                    <p className="text-2xl font-bold text-red-600">${Math.round(strategySummary.lost_opportunity_total || 0).toLocaleString()}</p>
+                                    <p className="text-xs text-slate-500 mt-1">{strategySummary.lost_opportunity_count} opportunities</p>
+                                </div>
+                                <TrendingDown className="w-10 h-10 text-red-300" />
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+
                 <Tabs defaultValue="carriers" className="w-full">
-                    <TabsList className="grid w-full grid-cols-4">
+                    <TabsList className="grid w-full grid-cols-5">
                         <TabsTrigger value="carriers">Carrier Mix</TabsTrigger>
-                        <TabsTrigger value="spend">Top Spend</TabsTrigger>
+                        <TabsTrigger value="spend">Spend Analysis</TabsTrigger>
                         <TabsTrigger value="lanes">Top Lanes</TabsTrigger>
-                        <TabsTrigger value="savings">Missed Savings</TabsTrigger>
+                        <TabsTrigger value="savings">Savings Potential</TabsTrigger>
+                        <TabsTrigger value="concentration">Concentration</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="carriers" className="space-y-4">
@@ -815,22 +855,59 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                     </TabsContent>
 
                     <TabsContent value="savings" className="space-y-4">
-                        <div className="h-80">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <RechartsBarChart data={savingsData}>
-                                    <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis dataKey="carrier" angle={-45} textAnchor="end" height={100} />
-                                    <YAxis />
-                                    <Tooltip
-                                        formatter={(value, name) => [
-                                            name === 'savings' ? `$${value.toLocaleString()}` : value,
-                                            name === 'savings' ? 'Missed Savings' : 'Opportunities'
-                                        ]}
-                                    />
-                                    <Legend />
-                                    <Bar dataKey="savings" fill="#ef4444" name="Missed Savings ($)" />
-                                </RechartsBarChart>
-                            </ResponsiveContainer>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="h-80">
+                                <p className="text-sm font-medium mb-2">Savings by Carrier</p>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <RechartsBarChart data={savingsData}>
+                                        <CartesianGrid strokeDasharray="3 3" />
+                                        <XAxis dataKey="carrier" angle={-45} textAnchor="end" height={100} />
+                                        <YAxis />
+                                        <Tooltip
+                                            formatter={(value, name) => [
+                                                name === 'savings' ? `$${value.toLocaleString()}` : value,
+                                                name === 'savings' ? 'Missed Savings' : 'Opportunities'
+                                            ]}
+                                        />
+                                        <Legend />
+                                        <Bar dataKey="savings" fill="#ef4444" name="Missed Savings ($)" />
+                                    </RechartsBarChart>
+                                </ResponsiveContainer>
+                            </div>
+                            <div className="h-80">
+                                <p className="text-sm font-medium mb-2">Opportunity Distribution</p>
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={savingsData}
+                                            cx="50%"
+                                            cy="50%"
+                                            labelLine={false}
+                                            label={({ carrier, percent }) => `${carrier}: ${(percent * 100).toFixed(0)}%`}
+                                            outerRadius={100}
+                                            fill="#8884d8"
+                                            dataKey="savings"
+                                        >
+                                            {savingsData.map((entry, index) => (
+                                                <Cell key={`cell-${index}`} fill={['#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16'][index % 5]} />
+                                            ))}
+                                        </Pie>
+                                        <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, 'Savings']} />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                            <div className="flex items-start gap-3">
+                                <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
+                                <div>
+                                    <p className="font-semibold text-amber-900">Savings Opportunity Summary</p>
+                                    <p className="text-sm text-amber-800 mt-1">
+                                        Total potential savings of <span className="font-bold">${Math.round(strategySummary.lost_opportunity_total || 0).toLocaleString()}</span> identified across {strategySummary.lost_opportunity_count} loads.
+                                        Focus renegotiations on {strategySummary.missed_savings_by_carrier?.[0]?.carrier} for maximum impact.
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                         <Table>
                             <TableHeader>
@@ -838,6 +915,7 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                                     <TableHead>Carrier</TableHead>
                                     <TableHead className="text-right">Opportunities</TableHead>
                                     <TableHead className="text-right">Potential Savings</TableHead>
+                                    <TableHead className="text-right">Avg Per Load</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -848,10 +926,86 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                                         <TableCell className="text-right text-red-600 font-semibold">
                                             ${Math.round(item.savings).toLocaleString()}
                                         </TableCell>
+                                        <TableCell className="text-right text-slate-600">
+                                            ${Math.round(item.savings / item.opportunities).toLocaleString()}
+                                        </TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
                         </Table>
+                    </TabsContent>
+
+                    <TabsContent value="concentration" className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <Card className="bg-slate-50">
+                                <CardContent className="pt-6">
+                                    <p className="text-sm text-slate-600 mb-3">Top 3 Carrier Concentration</p>
+                                    <p className="text-4xl font-bold text-slate-900">
+                                        {(strategySummary.carrier_breakdown?.slice(0, 3).reduce((sum, c) => sum + c.percentage, 0) || 0).toFixed(1)}%
+                                    </p>
+                                    <p className="text-xs text-slate-500 mt-2">of total shipment volume</p>
+                                    {(strategySummary.carrier_breakdown?.slice(0, 3).reduce((sum, c) => sum + c.percentage, 0) || 0) > 70 ? (
+                                        <div className="mt-3 flex items-center gap-2 text-xs text-green-700 bg-green-100 px-2 py-1 rounded">
+                                            <CheckCircle2 className="w-3 h-3" />
+                                            Strong negotiating leverage
+                                        </div>
+                                    ) : (
+                                        <div className="mt-3 flex items-center gap-2 text-xs text-amber-700 bg-amber-100 px-2 py-1 rounded">
+                                            <AlertCircle className="w-3 h-3" />
+                                            Consider volume consolidation
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                            <Card className="bg-slate-50">
+                                <CardContent className="pt-6">
+                                    <p className="text-sm text-slate-600 mb-3">Diversification Index</p>
+                                    <p className="text-4xl font-bold text-slate-900">
+                                        {(strategySummary.carrier_breakdown?.length || 0)}
+                                    </p>
+                                    <p className="text-xs text-slate-500 mt-2">active carriers</p>
+                                    <div className="mt-3 text-xs text-slate-600">
+                                        {strategySummary.carrier_breakdown?.length > 10 ? 'Highly diversified network' : 'Moderate diversification'}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium mb-3">Carrier Spend Concentration</p>
+                            <div className="space-y-2">
+                                {strategySummary.carrier_breakdown?.slice(0, 10).map((item, idx) => {
+                                    const isHighConcentration = item.percentage > 15;
+                                    return (
+                                        <div key={idx} className="space-y-1">
+                                            <div className="flex items-center justify-between text-sm">
+                                                <span className="font-medium text-slate-700">{item.carrier}</span>
+                                                <span className="text-slate-600">{item.percentage}% ({item.shipments} loads)</span>
+                                            </div>
+                                            <div className="w-full bg-slate-200 rounded-full h-2">
+                                                <div
+                                                    className={`h-2 rounded-full ${isHighConcentration ? 'bg-blue-600' : 'bg-slate-400'}`}
+                                                    style={{ width: `${item.percentage}%` }}
+                                                />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                            <div className="flex items-start gap-3">
+                                <TrendingUp className="w-5 h-5 text-blue-600 mt-0.5" />
+                                <div>
+                                    <p className="font-semibold text-blue-900">Concentration Analysis</p>
+                                    <p className="text-sm text-blue-800 mt-1">
+                                        Your top carrier ({strategySummary.carrier_breakdown?.[0]?.carrier}) handles {strategySummary.carrier_breakdown?.[0]?.percentage}% of volume.
+                                        {(strategySummary.carrier_breakdown?.[0]?.percentage || 0) > 30
+                                            ? ' This concentration provides strong negotiating power but also creates dependency risk.'
+                                            : ' Consider consolidating volume for better rates and leverage.'}
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
                     </TabsContent>
                 </Tabs>
             </CardContent>

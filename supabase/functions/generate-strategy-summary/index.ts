@@ -129,25 +129,84 @@ Deno.serve(async (req: Request) => {
 
     const uniqueLanes = new Set(lostOpportunityLanes).size;
 
-    const topLine = `${totalShipments.toLocaleString()} shipments across ${uniqueLanes} lanes`;
-    const topCarriersSummary = topCarriers.length > 0
-      ? topCarriers.map((c: any) => `${c.carrier} (${c.percentage}%)`).join(', ')
-      : 'No carrier data available';
-    
-    const lostOpportunitySummary = lostOpportunities > 0
-      ? `$${Math.round(lostOpportunityTotal).toLocaleString()} in missed savings opportunities`
-      : 'No lost opportunity data available';
+    let summaryText = '';
+    const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
 
-    const summaryText = [
-      `📊 **Shipment Analysis**`,
-      `• ${topLine}`,
-      `• Top carriers: ${topCarriersSummary}`,
-      `• Total spend: $${Math.round(totalSpend).toLocaleString()}`,
-      ``,
-      `💰 **Opportunities**`,
-      `• ${lostOpportunitySummary}`,
-      `• Lost opportunities tracked: ${lostOpportunities}`,
-    ].join('\n');
+    if (openaiApiKey) {
+      const dataContext = {
+        totalShipments,
+        uniqueLanes,
+        totalSpend,
+        topCarriers,
+        carrierBreakdown,
+        topLanes,
+        missedSavingsByCarrier,
+        lostOpportunities,
+        lostOpportunityTotal
+      };
+
+      const prompt = `You are an expert logistics and procurement analyst. Analyze this shipment data and provide a comprehensive strategic summary for a CSP (Carrier Service Provider) bid.
+
+Data:
+${JSON.stringify(dataContext, null, 2)}
+
+Provide a detailed analysis covering:
+1. **Executive Summary** - Key metrics and overall health
+2. **Carrier Performance Analysis** - Spend concentration, diversification opportunities
+3. **Savings Opportunities** - Specific carriers and lanes with the highest savings potential
+4. **Strategic Recommendations** - 3-5 actionable recommendations prioritized by impact
+5. **Risk Assessment** - Carrier concentration risks and market vulnerabilities
+
+Format the response in markdown with clear sections. Be specific with numbers and percentages. Focus on actionable insights.`;
+
+      try {
+        const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${openaiApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: "You are an expert logistics and procurement analyst specializing in carrier strategy and cost optimization." },
+              { role: "user", content: prompt }
+            ],
+            temperature: 0.7,
+            max_tokens: 1500,
+          }),
+        });
+
+        if (openaiResponse.ok) {
+          const openaiData = await openaiResponse.json();
+          summaryText = openaiData.choices[0]?.message?.content || '';
+        }
+      } catch (error) {
+        console.error('OpenAI API error:', error);
+      }
+    }
+
+    if (!summaryText) {
+      const topLine = `${totalShipments.toLocaleString()} shipments across ${uniqueLanes} lanes`;
+      const topCarriersSummary = topCarriers.length > 0
+        ? topCarriers.map((c: any) => `${c.carrier} (${c.percentage}%)`).join(', ')
+        : 'No carrier data available';
+
+      const lostOpportunitySummary = lostOpportunities > 0
+        ? `$${Math.round(lostOpportunityTotal).toLocaleString()} in missed savings opportunities`
+        : 'No lost opportunity data available';
+
+      summaryText = [
+        `📊 **Shipment Analysis**`,
+        `• ${topLine}`,
+        `• Top carriers: ${topCarriersSummary}`,
+        `• Total spend: $${Math.round(totalSpend).toLocaleString()}`,
+        ``,
+        `💰 **Opportunities**`,
+        `• ${lostOpportunitySummary}`,
+        `• Lost opportunities tracked: ${lostOpportunities}`,
+      ].join('\n');
+    }
 
     const strategySummary = {
       generated_at: new Date().toISOString(),
