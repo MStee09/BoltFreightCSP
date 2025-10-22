@@ -4,10 +4,11 @@ import { Customer, Carrier, Tariff, CSPEvent } from "../api/entities";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "../utils";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
-import { PlusCircle, Search, Upload, ChevronDown, ChevronRight, AlertCircle, Eye, GitCompare, Download, FileText, Plus, Calendar, Link2, UploadCloud } from "lucide-react";
+import { PlusCircle, Search, Upload, ChevronDown, ChevronRight, AlertCircle, Eye, GitCompare, Download, FileText, Plus, Calendar, Link2, UploadCloud, RefreshCw, FileCheck, ArrowUpDown } from "lucide-react";
 import { format, isAfter, isBefore, differenceInDays } from "date-fns";
 import { Skeleton } from "../components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
@@ -40,6 +41,17 @@ export default function TariffsPage() {
   const [expandedGroups, setExpandedGroups] = useState(new Set());
   const [expandedCarriers, setExpandedCarriers] = useState(new Set());
   const [hoveredRowId, setHoveredRowId] = useState(null);
+  const [sortColumn, setSortColumn] = useState('expiry_date');
+  const [sortDirection, setSortDirection] = useState('asc');
+
+  const handleSort = (column) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
 
   const statusFilter = filtersByTab[ownershipTab];
 
@@ -171,9 +183,23 @@ export default function TariffsPage() {
 
     Object.values(groups).forEach(group => {
       group.tariffs.sort((a, b) => {
-        const expiryA = new Date(a.expiry_date || '9999-12-31');
-        const expiryB = new Date(b.expiry_date || '9999-12-31');
-        return expiryA - expiryB;
+        let valueA, valueB;
+
+        if (sortColumn === 'expiry_date' || sortColumn === 'effective_date') {
+          valueA = new Date(a[sortColumn] || '9999-12-31');
+          valueB = new Date(b[sortColumn] || '9999-12-31');
+        } else if (sortColumn === 'version') {
+          valueA = a.version || '';
+          valueB = b.version || '';
+        } else {
+          return 0;
+        }
+
+        if (sortDirection === 'asc') {
+          return valueA > valueB ? 1 : valueA < valueB ? -1 : 0;
+        } else {
+          return valueA < valueB ? 1 : valueA > valueB ? -1 : 0;
+        }
       });
     });
 
@@ -219,10 +245,19 @@ export default function TariffsPage() {
       const cspEvent = cspEvents.find(e => e.id === tariff.csp_event_id);
       if (cspEvent) {
         return (
-          <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 flex items-center gap-1">
-            <Link2 className="w-3 h-3" />
-            {cspEvent.title}
-          </Badge>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 flex items-center gap-1">
+                  <Link2 className="w-3 h-3" />
+                  {cspEvent.title}
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Created from CSP event: {cspEvent.title}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         );
       }
       return (
@@ -233,10 +268,19 @@ export default function TariffsPage() {
       );
     }
     return (
-      <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200 flex items-center gap-1">
-        <UploadCloud className="w-3 h-3" />
-        Manual Upload
-      </Badge>
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200 flex items-center gap-1">
+              <UploadCloud className="w-3 h-3" />
+              Manual Upload
+            </Badge>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Uploaded directly by user (not API-synced)</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     );
   };
 
@@ -491,12 +535,42 @@ export default function TariffsPage() {
                           <table className="w-full">
                             <thead className="bg-slate-50 border-b">
                               <tr>
-                                <th className="text-left p-3 text-xs font-semibold text-slate-600">Version</th>
+                                <th className="text-left p-3 text-xs font-semibold text-slate-600">
+                                  <button
+                                    onClick={() => handleSort('version')}
+                                    className="flex items-center gap-1 hover:text-slate-900 transition-colors"
+                                  >
+                                    Version
+                                    {sortColumn === 'version' && (
+                                      <ArrowUpDown className={`w-3 h-3 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                                    )}
+                                  </button>
+                                </th>
                                 <th className="text-left p-3 text-xs font-semibold text-slate-600">Status</th>
                                 <th className="text-left p-3 text-xs font-semibold text-slate-600">Source</th>
                                 <th className="text-left p-3 text-xs font-semibold text-slate-600">Carrier</th>
-                                <th className="text-right p-3 text-xs font-semibold text-slate-600">Effective Date</th>
-                                <th className="text-right p-3 text-xs font-semibold text-slate-600">Expiry Date</th>
+                                <th className="text-right p-3 text-xs font-semibold text-slate-600">
+                                  <button
+                                    onClick={() => handleSort('effective_date')}
+                                    className="flex items-center gap-1 hover:text-slate-900 transition-colors ml-auto"
+                                  >
+                                    Effective Date
+                                    {sortColumn === 'effective_date' && (
+                                      <ArrowUpDown className={`w-3 h-3 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                                    )}
+                                  </button>
+                                </th>
+                                <th className="text-right p-3 text-xs font-semibold text-slate-600">
+                                  <button
+                                    onClick={() => handleSort('expiry_date')}
+                                    className="flex items-center gap-1 hover:text-slate-900 transition-colors ml-auto"
+                                  >
+                                    Expiry Date
+                                    {sortColumn === 'expiry_date' && (
+                                      <ArrowUpDown className={`w-3 h-3 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                                    )}
+                                  </button>
+                                </th>
                                 <th className="text-right p-3 text-xs font-semibold text-slate-600 w-32">Actions</th>
                               </tr>
                             </thead>
@@ -557,36 +631,74 @@ export default function TariffsPage() {
                                 </td>
                                 <td className="p-3 text-right">
                                   <div className={`flex items-center justify-end gap-1 transition-opacity ${hoveredRowId === tariff.id ? 'opacity-100' : 'opacity-0'}`}>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-7 w-7"
-                                      asChild
-                                    >
-                                      <Link to={createPageUrl(`TariffDetail?id=${tariff.id}`)}>
-                                        <Eye className="w-3.5 h-3.5" />
-                                      </Link>
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-7 w-7"
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                      }}
-                                    >
-                                      <GitCompare className="w-3.5 h-3.5" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-7 w-7"
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                      }}
-                                    >
-                                      <Download className="w-3.5 h-3.5" />
-                                    </Button>
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7"
+                                            asChild
+                                          >
+                                            <Link to={createPageUrl(`TariffDetail?id=${tariff.id}`)}>
+                                              <Eye className="w-3.5 h-3.5" />
+                                            </Link>
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>View</TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7"
+                                            onClick={(e) => {
+                                              e.preventDefault();
+                                            }}
+                                          >
+                                            <GitCompare className="w-3.5 h-3.5" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Compare</TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7"
+                                            onClick={(e) => {
+                                              e.preventDefault();
+                                            }}
+                                          >
+                                            <RefreshCw className="w-3.5 h-3.5" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Renew</TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7"
+                                            onClick={(e) => {
+                                              e.preventDefault();
+                                            }}
+                                          >
+                                            <FileCheck className="w-3.5 h-3.5" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Documents</TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
                                   </div>
                                 </td>
                               </tr>
