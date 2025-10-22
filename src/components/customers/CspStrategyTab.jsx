@@ -39,9 +39,13 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
     const queryClient = useQueryClient();
 
     const loadSavedMappings = async (docType) => {
-        if (!user?.id) return null;
+        if (!user?.id) {
+            console.log('No user ID available for loading mappings');
+            return null;
+        }
 
         try {
+            console.log('Loading saved mappings for:', { docType, userId: user.id });
             const { data, error } = await supabase
                 .from('field_mappings')
                 .select('mapping')
@@ -50,6 +54,7 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
                 .maybeSingle();
 
             if (error) throw error;
+            console.log('Loaded mappings:', data?.mapping);
             return data?.mapping || null;
         } catch (err) {
             console.error('Error loading saved mappings:', err);
@@ -58,10 +63,14 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
     };
 
     const saveMappings = async (docType, mapping) => {
-        if (!user?.id || !mapping || Object.keys(mapping).length === 0) return;
+        if (!user?.id || !mapping || Object.keys(mapping).length === 0) {
+            console.log('Skip saving mappings:', { userId: user?.id, mappingKeys: Object.keys(mapping || {}) });
+            return;
+        }
 
         try {
-            const { error } = await supabase
+            console.log('Saving field mappings:', { docType, mapping, userId: user.id });
+            const { data, error } = await supabase
                 .from('field_mappings')
                 .upsert({
                     user_id: user.id,
@@ -72,9 +81,18 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
                     onConflict: 'user_id,document_type'
                 });
 
-            if (error) throw error;
+            if (error) {
+                console.error('Supabase error saving mappings:', error);
+                throw error;
+            }
+            console.log('Field mappings saved successfully:', data);
         } catch (err) {
             console.error('Error saving mappings:', err);
+            toast({
+                title: "Failed to save field mappings",
+                description: err.message,
+                variant: "destructive"
+            });
         }
     };
 
