@@ -140,27 +140,20 @@ export default function PipelinePage() {
       const targetStage = searchParams.get('stage');
 
       setTimeout(() => {
-        if (targetStage) {
-          console.log('Target stage:', targetStage);
-          console.log('Available refs:', Object.keys(stageRefs.current));
-          console.log('Stage ref exists:', !!stageRefs.current[targetStage]);
-
-          if (stageRefs.current[targetStage]) {
-            const stagePosition = stageRefs.current[targetStage].offsetLeft;
-            console.log('Scrolling to position:', stagePosition - 100);
-            containerRef.current.scrollTo({
-              left: stagePosition - 100,
-              behavior: 'smooth'
-            });
-          }
+        if (targetStage && stageRefs.current[targetStage]) {
+          stageRefs.current[targetStage].scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest',
+            inline: 'start'
+          });
         } else if (rfpSentRef.current) {
-          const rfpSentPosition = rfpSentRef.current.offsetLeft;
-          containerRef.current.scrollTo({
-            left: rfpSentPosition,
-            behavior: 'smooth'
+          rfpSentRef.current.scrollIntoView({
+            behavior: 'smooth',
+            block: 'nearest',
+            inline: 'start'
           });
         }
-      }, 100);
+      }, 200);
     }
   }, [isLoadingEvents, location.search]);
 
