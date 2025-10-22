@@ -356,7 +356,7 @@ export default function TariffsPage() {
                           return (
                             <Link
                               key={tariff.id}
-                              to={createPageUrl(`/tariff/${tariff.id}`)}
+                              to={createPageUrl(`TariffDetail?id=${tariff.id}`)}
                               className={`block p-4 hover:bg-slate-50 transition-colors border-b last:border-b-0 ${getOwnershipColor(tariff.ownership_type)}`}
                             >
                               <div className="flex items-start justify-between">
