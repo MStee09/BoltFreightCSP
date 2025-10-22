@@ -8,7 +8,7 @@ import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Skeleton } from '../components/ui/skeleton';
-import { ArrowLeft, Edit, File, UploadCloud, Download, X, Loader2, BookMarked } from 'lucide-react';
+import { ArrowLeft, Edit, File, UploadCloud, Download, X, Loader2, BookMarked, ArrowRight, Users } from 'lucide-react';
 import { Input } from '../components/ui/input';
 import { Badge } from "../components/ui/badge";
 import EditTariffDialog from '../components/tariffs/EditTariffDialog';
@@ -125,7 +125,13 @@ export default function TariffDetailPage() {
         initialData: []
     });
 
-    const isLoading = isLoadingTariff || isLoadingCustomer || isLoadingCarriers;
+    const { data: cspEvent, isLoading: isLoadingCspEvent } = useQuery({
+        queryKey: ['csp_event', tariff?.csp_event_id],
+        queryFn: () => CSPEvent.get(tariff.csp_event_id),
+        enabled: !!tariff?.csp_event_id,
+    });
+
+    const isLoading = isLoadingTariff || isLoadingCustomer || isLoadingCarriers || isLoadingCspEvent;
 
     const tariffCarriers = tariff?.carrier_ids?.map(cid => carriers.find(c => c.id === cid)).filter(Boolean) || [];
     
@@ -169,6 +175,35 @@ export default function TariffDetailPage() {
             </div>
 
             <div className="space-y-6">
+                {(cspEvent || customer) && (
+                    <Card className="border-blue-200 bg-blue-50/50">
+                        <CardHeader>
+                            <CardTitle className="text-lg">Related Records</CardTitle>
+                            <CardDescription>Quick links to associated customer and CSP event</CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex gap-3">
+                            {customer && (
+                                <Button variant="outline" className="bg-white" asChild>
+                                    <Link to={createPageUrl(`Customers?detailId=${customer.id}`)}>
+                                        <Users className="w-4 h-4 mr-2" />
+                                        View Customer
+                                        <ArrowRight className="w-4 h-4 ml-2" />
+                                    </Link>
+                                </Button>
+                            )}
+                            {cspEvent && (
+                                <Button variant="outline" className="bg-white" asChild>
+                                    <Link to={createPageUrl(`Pipeline?eventId=${cspEvent.id}`)}>
+                                        <File className="w-4 h-4 mr-2" />
+                                        View RFP
+                                        <ArrowRight className="w-4 h-4 ml-2" />
+                                    </Link>
+                                </Button>
+                            )}
+                        </CardContent>
+                    </Card>
+                )}
+
                 <Card>
                     <CardHeader><CardTitle>Key Information</CardTitle></CardHeader>
                     <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-6">

@@ -10,11 +10,13 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
 import { PlusCircle, Search, Upload, GitCompareArrows, ArrowRight, BookMarked } from "lucide-react";
-import { format } from "date-fns";
+import { format, isAfter, isBefore } from "date-fns";
 import { Skeleton } from "../components/ui/skeleton";
+import { Tabs, TabsList, TabsTrigger } from "../components/ui/tabs";
 
 export default function TariffsPage() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   // Destructure isLoading for each query to manage individual loading states
   const { data: tariffs = [], isLoading: isTariffsLoading } = useQuery({
@@ -64,19 +66,33 @@ export default function TariffsPage() {
       }
   }
 
-  // Filter tariffs only when all necessary data (tariffs, customers, carriers) are loaded or ready
   const filteredTariffs = tariffs.filter(t => {
-      // It's safe to call find on `customers` and `carriers` due to `initialData: []`
-      // and because the overall `isLoading` check will prevent rendering until they're fetched.
       const customer = customers.find(c => c.id === t.customer_id);
       const searchCarriers = (t.carrier_ids || []).map(cid => carriers.find(c => c.id === cid)?.name).join(' ').toLowerCase() || '';
       const searchTermLower = searchTerm.toLowerCase();
 
-      return (
+      const matchesSearch = (
           (customer?.name?.toLowerCase().includes(searchTermLower)) ||
           searchCarriers.includes(searchTermLower) ||
           (t.version?.toLowerCase().includes(searchTermLower))
       );
+
+      if (!matchesSearch) return false;
+
+      const today = new Date();
+      const expiryDate = t.expiry_date ? new Date(t.expiry_date) : null;
+
+      if (statusFilter === 'all') return true;
+      if (statusFilter === 'active') {
+          return t.status === 'active' || (expiryDate && isAfter(expiryDate, today));
+      }
+      if (statusFilter === 'expired') {
+          return t.status === 'expired' || (expiryDate && isBefore(expiryDate, today));
+      }
+      if (statusFilter === 'proposed') return t.status === 'proposed';
+      if (statusFilter === 'superseded') return t.status === 'superseded';
+
+      return true;
   });
 
   return (
@@ -95,7 +111,7 @@ export default function TariffsPage() {
       </div>
 
       <Card className="shadow-lg border-0 bg-white/80 backdrop-blur">
-        <CardHeader className="border-b border-slate-100 p-4">
+        <CardHeader className="border-b border-slate-100 p-4 space-y-4">
           <div className="flex items-center">
             <Search className="h-4 w-4 text-slate-500 mr-2" />
             <Input
@@ -105,6 +121,15 @@ export default function TariffsPage() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+          <Tabs value={statusFilter} onValueChange={setStatusFilter}>
+            <TabsList>
+              <TabsTrigger value="all">All Tariffs</TabsTrigger>
+              <TabsTrigger value="active">Active</TabsTrigger>
+              <TabsTrigger value="proposed">Proposed</TabsTrigger>
+              <TabsTrigger value="expired">Expired</TabsTrigger>
+              <TabsTrigger value="superseded">Superseded</TabsTrigger>
+            </TabsList>
+          </Tabs>
         </CardHeader>
         <CardContent className="p-0">
           <Table>

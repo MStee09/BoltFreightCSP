@@ -100,7 +100,8 @@ export default function EditCspEventDialog({ isOpen, onOpenChange, eventId }) {
                     effective_date: format(today, 'yyyy-MM-dd'),
                     expiry_date: format(oneYearFromNow, 'yyyy-MM-dd'),
                     is_blanket_tariff: false,
-                    customer_ids: []
+                    customer_ids: [],
+                    csp_event_id: eventId
                 });
 
                 queryClient.invalidateQueries({ queryKey: ['tariffs'] });
