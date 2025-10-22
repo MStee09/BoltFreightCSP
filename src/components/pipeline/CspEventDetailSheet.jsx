@@ -121,13 +121,12 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
         }
     });
 
-    const getNextStage = (currentStage) => {
-        const currentIndex = STAGES.indexOf(currentStage);
-        if (currentIndex === -1 || currentIndex === STAGES.length - 1) return null;
-        return STAGES[currentIndex + 1];
+    const getCurrentStageLabel = (stage) => {
+        if (!stage) return 'Select Stage';
+        const stageIndex = STAGES.indexOf(stage);
+        const stageDisplay = stage.replace(/_/g, ' ');
+        return `${stageIndex + 1}. ${stageDisplay.charAt(0).toUpperCase() + stageDisplay.slice(1)}`;
     };
-
-    const nextStage = event ? getNextStage(event.stage) : null;
 
     const getPriorityColor = (priority) => {
         const colors = {
@@ -175,34 +174,39 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
                                 <Pencil className="w-4 h-4" />
                                 Edit
                             </Button>
-                            {nextStage ? (
-                                <Button
-                                    size="sm"
-                                    onClick={() => moveToNextStage.mutate(nextStage)}
-                                    disabled={moveToNextStage.isPending}
-                                    className="gap-2"
-                                >
-                                    Advance Stage
-                                    <ChevronRight className="w-4 h-4" />
-                                </Button>
-                            ) : (
-                                <Select
-                                    value={event?.stage}
-                                    onValueChange={(value) => moveToNextStage.mutate(value)}
-                                    disabled={moveToNextStage.isPending}
-                                >
-                                    <SelectTrigger className="h-9 w-[140px]">
-                                        <SelectValue placeholder="Move Stage" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {STAGES.map((stage) => (
-                                            <SelectItem key={stage} value={stage} className="capitalize">
-                                                {stage.replace(/_/g, ' ')}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            )}
+                            <Select
+                                value={event?.stage}
+                                onValueChange={(value) => {
+                                    if (value !== event?.stage) {
+                                        moveToNextStage.mutate(value);
+                                    }
+                                }}
+                                disabled={moveToNextStage.isPending}
+                            >
+                                <SelectTrigger className="h-9 w-[180px]">
+                                    <SelectValue>
+                                        {event?.stage ? getCurrentStageLabel(event.stage) : 'Select Stage'}
+                                    </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {STAGES.map((stage, index) => (
+                                        <SelectItem
+                                            key={stage}
+                                            value={stage}
+                                            className="relative"
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                {event?.stage === stage && (
+                                                    <div className="w-2 h-2 rounded-full bg-blue-600" />
+                                                )}
+                                                <span className="capitalize">
+                                                    {index + 1}. {stage.replace(/_/g, ' ')}
+                                                </span>
+                                            </div>
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                         </div>
                     </div>
                 </SheetHeader>
