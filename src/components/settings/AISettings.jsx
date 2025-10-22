@@ -20,7 +20,6 @@ export function AISettings() {
   });
 
   const [instructions, setInstructions] = useState('');
-  const [knowledgeBase, setKnowledgeBase] = useState('');
   const [temperature, setTemperature] = useState([0.7]);
   const [maxTokens, setMaxTokens] = useState([1000]);
   const [hasChanges, setHasChanges] = useState(false);
@@ -28,7 +27,6 @@ export function AISettings() {
   useState(() => {
     if (settings) {
       setInstructions(settings.instructions || '');
-      setKnowledgeBase(settings.knowledge_base || '');
       setTemperature([settings.temperature || 0.7]);
       setMaxTokens([settings.max_tokens || 1000]);
     }
@@ -63,7 +61,6 @@ export function AISettings() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ai-settings'] });
       setInstructions('');
-      setKnowledgeBase('');
       setTemperature([0.7]);
       setMaxTokens([1000]);
       setHasChanges(false);
@@ -84,7 +81,7 @@ export function AISettings() {
   const handleSave = () => {
     saveMutation.mutate({
       instructions: instructions || 'You are a helpful logistics and procurement analyst. Provide clear, actionable insights based on the shipment data.',
-      knowledge_base: knowledgeBase || '',
+      knowledge_base: '',
       temperature: temperature[0],
       max_tokens: maxTokens[0],
     });
@@ -117,7 +114,7 @@ export function AISettings() {
       <Alert>
         <Sparkles className="h-4 w-4" />
         <AlertDescription>
-          Customize how the AI chatbot responds to your questions about shipment strategies. These settings affect the AI's behavior when you chat with your data.
+          Customize how the AI chatbot responds to your questions. These settings affect the AI's behavior and response style. To add company-specific knowledge, use the Knowledge Base tab.
         </AlertDescription>
       </Alert>
 
@@ -153,32 +150,6 @@ export function AISettings() {
                 <p className="text-xs text-blue-900">
                   <strong>Tips:</strong> Specify the role (e.g., "senior analyst"), tone (e.g., "direct and concise"),
                   and focus areas (e.g., "cost savings and risk mitigation"). The more specific you are, the better the responses.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <Label htmlFor="knowledge" className="text-base font-semibold">
-              Knowledge Base
-            </Label>
-            <p className="text-sm text-muted-foreground">
-              Add custom information about your company, processes, or industry-specific knowledge that the AI should consider.
-            </p>
-            <Textarea
-              id="knowledge"
-              placeholder="Example: Our company policy prioritizes carriers with 95%+ on-time delivery. We prefer regional carriers for sub-500 mile lanes. Our fiscal year ends in June. Standard contract terms are 12 months with 60-day termination clause."
-              value={knowledgeBase}
-              onChange={(e) => handleInputChange(setKnowledgeBase)(e.target.value)}
-              rows={8}
-              className="font-mono text-sm"
-            />
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-              <div className="flex gap-2">
-                <Info className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
-                <p className="text-xs text-amber-900">
-                  <strong>Examples of useful knowledge:</strong> Company policies, preferred carriers, contract terms,
-                  service level requirements, budget constraints, strategic priorities, or industry regulations.
                 </p>
               </div>
             </div>
