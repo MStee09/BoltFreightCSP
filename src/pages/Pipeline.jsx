@@ -141,16 +141,30 @@ export default function PipelinePage() {
 
       setTimeout(() => {
         if (targetStage && stageRefs.current[targetStage]) {
-          stageRefs.current[targetStage].scrollIntoView({
-            behavior: 'smooth',
-            block: 'nearest',
-            inline: 'start'
+          const element = stageRefs.current[targetStage];
+          const container = containerRef.current;
+          const elementLeft = element.offsetLeft;
+          const containerWidth = container.offsetWidth;
+          const elementWidth = element.offsetWidth;
+
+          const scrollPosition = elementLeft - (containerWidth / 2) + (elementWidth / 2);
+
+          container.scrollTo({
+            left: Math.max(0, scrollPosition),
+            behavior: 'smooth'
           });
         } else if (rfpSentRef.current) {
-          rfpSentRef.current.scrollIntoView({
-            behavior: 'smooth',
-            block: 'nearest',
-            inline: 'start'
+          const element = rfpSentRef.current;
+          const container = containerRef.current;
+          const elementLeft = element.offsetLeft;
+          const containerWidth = container.offsetWidth;
+          const elementWidth = element.offsetWidth;
+
+          const scrollPosition = elementLeft - (containerWidth / 2) + (elementWidth / 2);
+
+          container.scrollTo({
+            left: Math.max(0, scrollPosition),
+            behavior: 'smooth'
           });
         }
       }, 200);
