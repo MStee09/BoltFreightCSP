@@ -30,6 +30,8 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
     const [loHeaders, setLoHeaders] = useState([]);
     const [txnMapping, setTxnMapping] = useState({});
     const [loMapping, setLoMapping] = useState({});
+    const [txnAdditionalFields, setTxnAdditionalFields] = useState([]);
+    const [loAdditionalFields, setLoAdditionalFields] = useState([]);
     const [showMapping, setShowMapping] = useState(false);
     const { toast } = useToast();
     const { user } = useAuth();
@@ -95,48 +97,51 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
                 setTxnFile(file);
                 setTxnHeaders(headers);
                 const autoMapping = {};
-                Object.keys(requiredTxnFields).forEach(key => {
-                    const keyVariations = [
-                        key,
-                        key.replace('_', ' '),
-                        key.replace('_', '')
-                    ];
 
-                    const match = headers.find(h => {
-                        const headerLower = h.toLowerCase();
-                        return keyVariations.some(variant =>
-                            headerLower.includes(variant.toLowerCase()) ||
-                            headerLower === variant.toLowerCase()
-                        ) || requiredTxnFields[key].toLowerCase().split('/').some(label =>
-                            headerLower.includes(label.trim().toLowerCase())
-                        );
-                    });
+                const defaultMappings = {
+                    'load_id': ['Load', 'LoadID', 'Load ID', 'Load_ID'],
+                    'carrier': ['Carrier', 'Carrier Name', 'Carrier_Name', 'CarrierName'],
+                    'cost': ['TotalCost', 'Total Cost', 'Cost', 'Bill Amount', 'Amount'],
+                    'ownership': ['Pricing_Ownership', 'Pricing Ownership', 'Ownership'],
+                    'weight': ['Weight'],
+                    'class': ['Class'],
+                    'miles': ['Miles'],
+                    'mode': ['Mode']
+                };
+
+                Object.keys(requiredTxnFields).forEach(key => {
+                    const defaults = defaultMappings[key] || [];
+                    const match = headers.find(h =>
+                        defaults.some(d => h.toLowerCase() === d.toLowerCase()) ||
+                        h.toLowerCase().includes(key.replace('_', ' ').toLowerCase())
+                    );
                     if (match) autoMapping[key] = match;
                 });
                 setTxnMapping(autoMapping);
+                setTxnAdditionalFields([]);
             } else {
                 setLoFile(file);
                 setLoHeaders(headers);
                 const autoMapping = {};
-                Object.keys(requiredLoFields).forEach(key => {
-                    const keyVariations = [
-                        key,
-                        key.replace('_', ' '),
-                        key.replace('_', '')
-                    ];
 
-                    const match = headers.find(h => {
-                        const headerLower = h.toLowerCase();
-                        return keyVariations.some(variant =>
-                            headerLower.includes(variant.toLowerCase()) ||
-                            headerLower === variant.toLowerCase()
-                        ) || requiredLoFields[key].toLowerCase().split('/').some(label =>
-                            headerLower.includes(label.trim().toLowerCase())
-                        );
-                    });
+                const defaultMappings = {
+                    'load_id': ['LoadId', 'LoadID', 'Load ID', 'Load_ID', 'Load'],
+                    'selected_carrier': ['Selected_Carrier_Name', 'Selected Carrier Name', 'SelectedCarrierName'],
+                    'selected_cost': ['Select_Carrier_Bill', 'Selected Carrier Cost', 'Selected Cost'],
+                    'opportunity_carrier': ['LO_Carrier_Name', 'Low Cost Carrier Name', 'Opportunity Carrier'],
+                    'opportunity_cost': ['LO_Carrier_Bill', 'Low Cost Carrier Cost', 'Opportunity Cost']
+                };
+
+                Object.keys(requiredLoFields).forEach(key => {
+                    const defaults = defaultMappings[key] || [];
+                    const match = headers.find(h =>
+                        defaults.some(d => h.toLowerCase() === d.toLowerCase()) ||
+                        h.toLowerCase().includes(key.replace('_', ' ').toLowerCase())
+                    );
                     if (match) autoMapping[key] = match;
                 });
                 setLoMapping(autoMapping);
+                setLoAdditionalFields([]);
             }
 
             setShowMapping(true);
@@ -288,33 +293,117 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
         </div>
     );
 
-    const ColumnMapper = ({ fields, headers, mapping, setMapping, title }) => (
-        <div className="space-y-3">
-            <h4 className="text-sm font-semibold text-slate-700">{title}</h4>
-            <div className="space-y-2">
-                {Object.entries(fields).map(([key, label]) => (
-                    <div key={key} className="flex items-center gap-2">
-                        <Label className="text-xs w-1/3">{label}</Label>
-                        <Select
-                            value={mapping[key] || ''}
-                            onValueChange={(value) => setMapping({ ...mapping, [key]: value })}
-                        >
-                            <SelectTrigger className="w-2/3 h-8 text-xs">
-                                <SelectValue placeholder="Select column..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {headers.map(header => (
-                                    <SelectItem key={header} value={header} className="text-xs">
-                                        {header}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </div>
-                ))}
+    const ColumnMapper = ({ fields, headers, mapping, setMapping, title, additionalFields, setAdditionalFields, type }) => {
+        const addAdditionalField = () => {
+            setAdditionalFields([...additionalFields, { id: Date.now(), key: '', label: '', column: '' }]);
+        };
+
+        const updateAdditionalField = (id, updates) => {
+            setAdditionalFields(additionalFields.map(field =>
+                field.id === id ? { ...field, ...updates } : field
+            ));
+        };
+
+        const removeAdditionalField = (id) => {
+            setAdditionalFields(additionalFields.filter(field => field.id !== id));
+            const newMapping = { ...mapping };
+            const fieldToRemove = additionalFields.find(f => f.id === id);
+            if (fieldToRemove?.key) {
+                delete newMapping[fieldToRemove.key];
+                setMapping(newMapping);
+            }
+        };
+
+        const availableHeaders = headers.filter(h =>
+            !Object.values(mapping).includes(h) ||
+            additionalFields.some(f => f.column === h)
+        );
+
+        return (
+            <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-slate-700">{title}</h4>
+                <div className="space-y-2">
+                    {Object.entries(fields).map(([key, label]) => (
+                        <div key={key} className="flex items-center gap-2">
+                            <Label className="text-xs w-1/3">{label}</Label>
+                            <Select
+                                value={mapping[key] || ''}
+                                onValueChange={(value) => setMapping({ ...mapping, [key]: value })}
+                            >
+                                <SelectTrigger className="w-2/3 h-8 text-xs">
+                                    <SelectValue placeholder="Select column..." />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {headers.map(header => (
+                                        <SelectItem key={header} value={header} className="text-xs">
+                                            {header}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    ))}
+
+                    {additionalFields.map((field) => (
+                        <div key={field.id} className="flex items-center gap-2 pt-2 border-t">
+                            <div className="flex-1 space-y-2">
+                                <Input
+                                    placeholder="Field name (e.g., customer_name)"
+                                    value={field.label}
+                                    onChange={(e) => {
+                                        const label = e.target.value;
+                                        const key = label.toLowerCase().replace(/\s+/g, '_');
+                                        updateAdditionalField(field.id, { label, key });
+                                    }}
+                                    className="h-8 text-xs"
+                                />
+                                <Select
+                                    value={field.column}
+                                    onValueChange={(value) => {
+                                        updateAdditionalField(field.id, { column: value });
+                                        if (field.key) {
+                                            setMapping({ ...mapping, [field.key]: value });
+                                        }
+                                    }}
+                                >
+                                    <SelectTrigger className="h-8 text-xs">
+                                        <SelectValue placeholder="Select column..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {availableHeaders.map(header => (
+                                            <SelectItem key={header} value={header} className="text-xs">
+                                                {header}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeAdditionalField(field.id)}
+                                className="h-8 w-8 p-0"
+                            >
+                                <X className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    ))}
+                </div>
+
+                <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addAdditionalField}
+                    className="w-full mt-2"
+                >
+                    <FileUp className="h-4 w-4 mr-2" />
+                    Add Mapping Unit
+                </Button>
             </div>
-        </div>
-    );
+        );
+    };
 
     return (
         <Card>
@@ -375,6 +464,9 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
                                     mapping={txnMapping}
                                     setMapping={setTxnMapping}
                                     title="Transaction Detail Columns"
+                                    additionalFields={txnAdditionalFields}
+                                    setAdditionalFields={setTxnAdditionalFields}
+                                    type="txn"
                                 />
                                 <ColumnMapper
                                     fields={requiredLoFields}
@@ -382,6 +474,9 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
                                     mapping={loMapping}
                                     setMapping={setLoMapping}
                                     title="Low Cost Opportunity Columns"
+                                    additionalFields={loAdditionalFields}
+                                    setAdditionalFields={setLoAdditionalFields}
+                                    type="lo"
                                 />
                             </div>
                         </div>
