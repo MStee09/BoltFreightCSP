@@ -45,6 +45,19 @@ Deno.serve(async (req: Request) => {
 
     aiSettings = settings;
 
+    const { data: knowledgeDocs } = await supabase
+      .from('knowledge_base_documents')
+      .select('title, content')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+
+    let knowledgeBaseContent = '';
+    if (knowledgeDocs && knowledgeDocs.length > 0) {
+      knowledgeBaseContent = knowledgeDocs.map(doc =>
+        `\n### ${doc.title}\n${doc.content}`
+      ).join('\n\n');
+    }
+
     const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
 
     if (!openaiApiKey) {
@@ -137,10 +150,17 @@ Use this data to answer questions about customers, carriers, CSP events, tariffs
       { role: "system", content: dataContext }
     ];
 
+    if (knowledgeBaseContent && knowledgeBaseContent.trim()) {
+      messages.push({
+        role: "system",
+        content: `**IMPORTANT: Knowledge Base Documents (Primary Source of Truth)**\n\nThe following documents contain company-specific information, policies, and guidelines. When answering questions, ALWAYS prioritize information from these documents over general knowledge. If a question relates to content in these documents, cite the document by name and use that information as your primary source.\n\n${knowledgeBaseContent}\n\nRemember: Information in these documents takes precedence over general knowledge.`
+      });
+    }
+
     if (knowledgeBase && knowledgeBase.trim()) {
       messages.push({
         role: "system",
-        content: `Additional Context and Knowledge Base:\n${knowledgeBase}`
+        content: `Additional Context from AI Settings:\n${knowledgeBase}`
       });
     }
 

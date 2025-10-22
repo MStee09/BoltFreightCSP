@@ -211,3 +211,73 @@ export const AISettings = {
     return { success: true };
   },
 };
+
+export const KnowledgeBase = {
+  async list() {
+    const { data, error } = await supabase
+      .from('knowledge_base_documents')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+
+  async get(id) {
+    const { data, error } = await supabase
+      .from('knowledge_base_documents')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async create(document) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('Not authenticated');
+
+    const { data, error } = await supabase
+      .from('knowledge_base_documents')
+      .insert({ ...document, uploaded_by: user.id })
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async update(id, updates) {
+    const { data, error } = await supabase
+      .from('knowledge_base_documents')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  },
+
+  async delete(id) {
+    const { error } = await supabase
+      .from('knowledge_base_documents')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+    return { success: true };
+  },
+
+  async listActive() {
+    const { data, error } = await supabase
+      .from('knowledge_base_documents')
+      .select('*')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  },
+};
