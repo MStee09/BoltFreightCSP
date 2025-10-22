@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { UploadCloud, File, X, Loader2, BrainCircuit, BarChart, FileUp, Info, FileText, Calendar, User, Download, Trash2, Sparkles, MessageCircle, Send } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { Badge } from '../ui/badge';
-import { Bar, BarChart as RechartsBarChart, Line, LineChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Bar, BarChart as RechartsBarChart, Line, LineChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
 import { Separator } from '../ui/separator';
@@ -41,6 +41,8 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
         load_id: 'Load ID',
         carrier: 'Carrier Name',
         cost: 'Cost/Bill Amount',
+        origin_city: 'Origin City',
+        dest_city: 'Destination City',
         ownership: 'Pricing Ownership',
         weight: 'Weight',
         class: 'Class',
@@ -102,6 +104,8 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
                     'load_id': ['Load', 'LoadID', 'Load ID', 'Load_ID'],
                     'carrier': ['Carrier', 'Carrier Name', 'Carrier_Name', 'CarrierName'],
                     'cost': ['TotalCost', 'Total Cost', 'Cost', 'Bill Amount', 'Amount'],
+                    'origin_city': ['Origin_City', 'Origin City', 'OriginCity', 'Origin'],
+                    'dest_city': ['Dest_City', 'Destination City', 'DestinationCity', 'Destination', 'Dest'],
                     'ownership': ['Pricing_Ownership', 'Pricing Ownership', 'Ownership'],
                     'weight': ['Weight'],
                     'class': ['Class'],
@@ -641,6 +645,218 @@ Key insights from the data:
     );
 };
 
+const DataVisualizationPanel = ({ cspEvent }) => {
+    const strategySummary = cspEvent?.strategy_summary;
+
+    if (!strategySummary || !strategySummary.carrier_breakdown) {
+        return null;
+    }
+
+    const COLORS = ['#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#84cc16'];
+
+    const carrierPieData = strategySummary.carrier_breakdown?.slice(0, 6).map((item, idx) => ({
+        name: item.carrier,
+        value: item.percentage,
+        shipments: item.shipments,
+    })) || [];
+
+    const carrierBarData = strategySummary.carrier_breakdown?.slice(0, 5).map(item => ({
+        carrier: item.carrier.length > 15 ? item.carrier.substring(0, 15) + '...' : item.carrier,
+        spend: Math.round(item.spend),
+        shipments: item.shipments,
+    })) || [];
+
+    const laneData = strategySummary.top_lanes?.map(item => ({
+        lane: item.lane.length > 20 ? item.lane.substring(0, 20) + '...' : item.lane,
+        shipments: item.shipments,
+        spend: Math.round(item.spend),
+    })) || [];
+
+    const savingsData = strategySummary.missed_savings_by_carrier?.map(item => ({
+        carrier: item.carrier.length > 15 ? item.carrier.substring(0, 15) + '...' : item.carrier,
+        savings: Math.round(item.savings),
+        opportunities: item.opportunities,
+    })) || [];
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <BarChart className="w-5 h-5" />
+                    Data Visualizations
+                </CardTitle>
+                <CardDescription>Visual breakdown of shipment data and opportunities</CardDescription>
+            </CardHeader>
+            <CardContent>
+                <Tabs defaultValue="carriers" className="w-full">
+                    <TabsList className="grid w-full grid-cols-4">
+                        <TabsTrigger value="carriers">Carrier Mix</TabsTrigger>
+                        <TabsTrigger value="spend">Top Spend</TabsTrigger>
+                        <TabsTrigger value="lanes">Top Lanes</TabsTrigger>
+                        <TabsTrigger value="savings">Missed Savings</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="carriers" className="space-y-4">
+                        <div className="h-80">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <PieChart>
+                                    <Pie
+                                        data={carrierPieData}
+                                        cx="50%"
+                                        cy="50%"
+                                        labelLine={false}
+                                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                                        outerRadius={100}
+                                        fill="#8884d8"
+                                        dataKey="value"
+                                    >
+                                        {carrierPieData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip
+                                        formatter={(value, name, props) => [
+                                            `${value}% (${props.payload.shipments} shipments)`,
+                                            'Share'
+                                        ]}
+                                    />
+                                </PieChart>
+                            </ResponsiveContainer>
+                        </div>
+                        <div className="space-y-2">
+                            <p className="text-sm font-medium">Carrier Distribution</p>
+                            <div className="space-y-1">
+                                {strategySummary.carrier_breakdown?.slice(0, 10).map((item, idx) => (
+                                    <div key={idx} className="flex items-center justify-between text-sm">
+                                        <span className="text-slate-600">{item.carrier}</span>
+                                        <span className="font-medium">{item.percentage}% ({item.shipments} shipments)</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </TabsContent>
+
+                    <TabsContent value="spend" className="space-y-4">
+                        <div className="h-80">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <RechartsBarChart data={carrierBarData}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="carrier" angle={-45} textAnchor="end" height={100} />
+                                    <YAxis />
+                                    <Tooltip
+                                        formatter={(value, name) => [
+                                            name === 'spend' ? `$${value.toLocaleString()}` : value,
+                                            name === 'spend' ? 'Total Spend' : 'Shipments'
+                                        ]}
+                                    />
+                                    <Legend />
+                                    <Bar dataKey="spend" fill="#3b82f6" name="Total Spend ($)" />
+                                </RechartsBarChart>
+                            </ResponsiveContainer>
+                        </div>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Carrier</TableHead>
+                                    <TableHead className="text-right">Shipments</TableHead>
+                                    <TableHead className="text-right">Total Spend</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {strategySummary.carrier_breakdown?.slice(0, 5).map((item, idx) => (
+                                    <TableRow key={idx}>
+                                        <TableCell className="font-medium">{item.carrier}</TableCell>
+                                        <TableCell className="text-right">{item.shipments.toLocaleString()}</TableCell>
+                                        <TableCell className="text-right">${Math.round(item.spend).toLocaleString()}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </TabsContent>
+
+                    <TabsContent value="lanes" className="space-y-4">
+                        <div className="h-80">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <RechartsBarChart data={laneData} layout="vertical">
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis type="number" />
+                                    <YAxis dataKey="lane" type="category" width={150} />
+                                    <Tooltip
+                                        formatter={(value, name) => [
+                                            name === 'spend' ? `$${value.toLocaleString()}` : value,
+                                            name === 'spend' ? 'Total Spend' : 'Shipments'
+                                        ]}
+                                    />
+                                    <Legend />
+                                    <Bar dataKey="shipments" fill="#10b981" name="Shipments" />
+                                </RechartsBarChart>
+                            </ResponsiveContainer>
+                        </div>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Lane</TableHead>
+                                    <TableHead className="text-right">Shipments</TableHead>
+                                    <TableHead className="text-right">Total Spend</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {strategySummary.top_lanes?.map((item, idx) => (
+                                    <TableRow key={idx}>
+                                        <TableCell className="font-medium">{item.lane}</TableCell>
+                                        <TableCell className="text-right">{item.shipments.toLocaleString()}</TableCell>
+                                        <TableCell className="text-right">${Math.round(item.spend).toLocaleString()}</TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </TabsContent>
+
+                    <TabsContent value="savings" className="space-y-4">
+                        <div className="h-80">
+                            <ResponsiveContainer width="100%" height="100%">
+                                <RechartsBarChart data={savingsData}>
+                                    <CartesianGrid strokeDasharray="3 3" />
+                                    <XAxis dataKey="carrier" angle={-45} textAnchor="end" height={100} />
+                                    <YAxis />
+                                    <Tooltip
+                                        formatter={(value, name) => [
+                                            name === 'savings' ? `$${value.toLocaleString()}` : value,
+                                            name === 'savings' ? 'Missed Savings' : 'Opportunities'
+                                        ]}
+                                    />
+                                    <Legend />
+                                    <Bar dataKey="savings" fill="#ef4444" name="Missed Savings ($)" />
+                                </RechartsBarChart>
+                            </ResponsiveContainer>
+                        </div>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Carrier</TableHead>
+                                    <TableHead className="text-right">Opportunities</TableHead>
+                                    <TableHead className="text-right">Potential Savings</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {strategySummary.missed_savings_by_carrier?.map((item, idx) => (
+                                    <TableRow key={idx}>
+                                        <TableCell className="font-medium">{item.carrier}</TableCell>
+                                        <TableCell className="text-right">{item.opportunities.toLocaleString()}</TableCell>
+                                        <TableCell className="text-right text-red-600 font-semibold">
+                                            ${Math.round(item.savings).toLocaleString()}
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    </TabsContent>
+                </Tabs>
+            </CardContent>
+        </Card>
+    );
+};
+
 const DocumentsPanel = ({ cspEventId }) => {
     const { toast } = useToast();
     const queryClient = useQueryClient();
@@ -1046,6 +1262,8 @@ export default function CspStrategyTab({ customer, cspEventId = null, cspEvent =
             )}
 
             {cspEvent && <AiSummaryPanel cspEvent={cspEvent} />}
+
+            {cspEvent && <DataVisualizationPanel cspEvent={cspEvent} />}
 
             <UploadPanel cspEventId={cspEventId} onAnalysisComplete={runAnalysis} />
 

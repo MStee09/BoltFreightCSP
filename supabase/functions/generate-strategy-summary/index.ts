@@ -42,14 +42,21 @@ Deno.serve(async (req: Request) => {
 
     const carrierCounts: Record<string, number> = {};
     const carrierSpend: Record<string, number> = {};
+    const laneCounts: Record<string, number> = {};
+    const laneSpend: Record<string, number> = {};
 
     if (Array.isArray(txnData)) {
       txnData.forEach((txn: any) => {
         const carrier = txn.carrier || txn.Carrier || 'Unknown';
         const cost = parseFloat(txn.cost || txn.Bill || txn.bill || 0);
+        const originCity = txn.origin_city || txn['Origin City'] || txn.OriginCity || '';
+        const destCity = txn.dest_city || txn['Dest City'] || txn.DestCity || '';
+        const lane = originCity && destCity ? `${originCity} → ${destCity}` : 'Unknown';
 
         carrierCounts[carrier] = (carrierCounts[carrier] || 0) + 1;
         carrierSpend[carrier] = (carrierSpend[carrier] || 0) + cost;
+        laneCounts[lane] = (laneCounts[lane] || 0) + 1;
+        laneSpend[lane] = (laneSpend[lane] || 0) + cost;
       });
     }
 
@@ -60,6 +67,51 @@ Deno.serve(async (req: Request) => {
       .map(([carrier, count]) => ({
         carrier,
         percentage: totalShipments > 0 ? ((count / totalShipments) * 100).toFixed(1) : '0',
+      }));
+
+    const carrierBreakdown = Object.entries(carrierCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([carrier, count]) => ({
+        carrier,
+        shipments: count,
+        spend: carrierSpend[carrier] || 0,
+        percentage: totalShipments > 0 ? parseFloat(((count / totalShipments) * 100).toFixed(1)) : 0,
+      }));
+
+    const topLanes = Object.entries(laneCounts)
+      .filter(([lane]) => lane !== 'Unknown')
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([lane, count]) => ({
+        lane,
+        shipments: count,
+        spend: laneSpend[lane] || 0,
+      }));
+
+    const opportunityByCarrier: Record<string, { count: number; total: number }> = {};
+    loData.forEach((lo: any) => {
+      const selectedCost = parseFloat(lo.selected_cost || lo.Selected_Carrier_Cost || 0);
+      const opportunityCost = parseFloat(lo.opportunity_cost || lo.LO_Carrier_Cost || 0);
+      const diff = selectedCost - opportunityCost;
+      const carrier = lo.selected_carrier || lo.Selected_Carrier_Name || 'Unknown';
+
+      if (diff > 0) {
+        if (!opportunityByCarrier[carrier]) {
+          opportunityByCarrier[carrier] = { count: 0, total: 0 };
+        }
+        opportunityByCarrier[carrier].count++;
+        opportunityByCarrier[carrier].total += diff;
+      }
+    });
+
+    const missedSavingsByCarrier = Object.entries(opportunityByCarrier)
+      .sort((a, b) => b[1].total - a[1].total)
+      .slice(0, 5)
+      .map(([carrier, data]) => ({
+        carrier,
+        opportunities: data.count,
+        savings: data.total,
       }));
 
     const lostOpportunityLanes: string[] = [];
@@ -103,6 +155,9 @@ Deno.serve(async (req: Request) => {
       lane_count: uniqueLanes,
       total_spend: totalSpend,
       top_carriers: topCarriers,
+      carrier_breakdown: carrierBreakdown,
+      top_lanes: topLanes,
+      missed_savings_by_carrier: missedSavingsByCarrier,
       lost_opportunity_count: lostOpportunities,
       lost_opportunity_total: lostOpportunityTotal,
       summary_text: summaryText,
