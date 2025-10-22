@@ -81,7 +81,17 @@ export function UserPerformanceReport() {
 
       if (historyError) throw historyError;
 
-      const analytics = calculateAnalytics(events || [], stageHistory || []);
+      const { data: interactions, error: interactionsError } = await supabase
+        .from('interactions')
+        .select('user_id, interaction_type, created_date')
+        .in('user_id', userFilter)
+        .gte('created_date', dateRange.from.toISOString())
+        .lte('created_date', dateRange.to.toISOString())
+        .order('created_date');
+
+      if (interactionsError) throw interactionsError;
+
+      const analytics = calculateAnalytics(events || [], stageHistory || [], interactions || []);
       setPerformanceData(analytics);
     } catch (error) {
       console.error('Error fetching performance data:', error);
@@ -91,7 +101,7 @@ export function UserPerformanceReport() {
     }
   };
 
-  const calculateAnalytics = (events, stageHistory) => {
+  const calculateAnalytics = (events, stageHistory, interactions) => {
     const userMetrics = {};
 
     users.forEach(user => {
@@ -107,6 +117,7 @@ export function UserPerformanceReport() {
         avgDaysInStage: 0,
         stageBreakdown: {},
         timeline: [],
+        totalActivity: 0,
       };
     });
 
@@ -141,37 +152,44 @@ export function UserPerformanceReport() {
       }
     });
 
-    const timelineData = generateTimelineData(stageHistory, users);
+    interactions.forEach(interaction => {
+      if (userMetrics[interaction.user_id]) {
+        userMetrics[interaction.user_id].totalActivity++;
+      }
+    });
+
+    const timelineData = generateTimelineData(interactions, users);
 
     return {
       userMetrics: Object.values(userMetrics),
       timeline: timelineData,
       totalEvents: events.length,
       totalStageChanges: stageHistory.length,
+      totalActivity: interactions.length,
     };
   };
 
-  const generateTimelineData = (stageHistory, users) => {
-    const dataByMonth = {};
+  const generateTimelineData = (interactions, users) => {
+    const dataByDay = {};
 
-    stageHistory.forEach(change => {
-      const monthKey = format(new Date(change.changed_at), 'MMM yyyy');
+    interactions.forEach(interaction => {
+      const dayKey = format(new Date(interaction.created_date), 'MMM dd');
 
-      if (!dataByMonth[monthKey]) {
-        dataByMonth[monthKey] = { month: monthKey };
+      if (!dataByDay[dayKey]) {
+        dataByDay[dayKey] = { day: dayKey };
         users.forEach(user => {
-          dataByMonth[monthKey][user.full_name || user.email] = 0;
+          dataByDay[dayKey][user.full_name || user.email] = 0;
         });
       }
 
-      const user = users.find(u => u.id === change.changed_by);
+      const user = users.find(u => u.id === interaction.user_id);
       if (user) {
         const userName = user.full_name || user.email;
-        dataByMonth[monthKey][userName] = (dataByMonth[monthKey][userName] || 0) + 1;
+        dataByDay[dayKey][userName] = (dataByDay[dayKey][userName] || 0) + 1;
       }
     });
 
-    return Object.values(dataByMonth);
+    return Object.values(dataByDay);
   };
 
   const getWinLossRatio = (user) => {
@@ -292,11 +310,11 @@ export function UserPerformanceReport() {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Stage Changes
+                  Total Activity
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{performanceData?.totalStageChanges || 0}</div>
+                <div className="text-2xl font-bold">{performanceData?.totalActivity || 0}</div>
               </CardContent>
             </Card>
 
@@ -314,12 +332,12 @@ export function UserPerformanceReport() {
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
-                  Avg Events/User
+                  Avg Activity/User
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {users.length > 0 ? ((performanceData?.totalEvents || 0) / users.length).toFixed(1) : 0}
+                  {users.length > 0 ? ((performanceData?.totalActivity || 0) / users.length).toFixed(1) : 0}
                 </div>
               </CardContent>
             </Card>
@@ -347,6 +365,10 @@ export function UserPerformanceReport() {
                       <p className="text-xs text-muted-foreground">{user.email}</p>
                     </div>
                     <div className="flex items-center gap-6 text-sm">
+                      <div className="text-center">
+                        <p className="text-muted-foreground text-xs">Total Activity</p>
+                        <p className="font-semibold text-blue-600">{user.totalActivity}</p>
+                      </div>
                       <div className="text-center">
                         <p className="text-muted-foreground text-xs">Stage Changes</p>
                         <p className="font-semibold">{user.stageChanges}</p>
@@ -379,14 +401,14 @@ export function UserPerformanceReport() {
           <Card>
             <CardHeader>
               <CardTitle>Activity Timeline</CardTitle>
-              <CardDescription>Stage changes over time by user</CardDescription>
+              <CardDescription>All user activity over time</CardDescription>
             </CardHeader>
             <CardContent>
               {performanceData?.timeline && performanceData.timeline.length > 0 ? (
                 <ResponsiveContainer width="100%" height={400}>
                   <LineChart data={performanceData.timeline}>
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="month" />
+                    <XAxis dataKey="day" />
                     <YAxis />
                     <Tooltip />
                     <Legend />
