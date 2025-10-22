@@ -11,6 +11,7 @@ import Pipeline from "./Pipeline";
 import CalendarView from "./CalendarView";
 import Reports from "./Reports";
 import TariffDetail from "./TariffDetail";
+import Help from "./Help";
 import GmailCallback from "./GmailCallback";
 import Settings from "./Settings";
 import Login from "./Login";
@@ -39,27 +40,29 @@ function ProtectedRoute({ children }) {
 }
 
 const PAGES = {
-    
+
     Dashboard: Dashboard,
-    
+
     Customers: Customers,
-    
+
     Carriers: Carriers,
-    
+
     CarrierDetail: CarrierDetail,
-    
+
     Tariffs: Tariffs,
-    
+
     TariffUpload: TariffUpload,
-    
+
     Pipeline: Pipeline,
-    
+
     CalendarView: CalendarView,
-    
+
     Reports: Reports,
-    
+
     TariffDetail: TariffDetail,
-    
+
+    Help: Help,
+
 }
 
 function _getCurrentPage(url) {
@@ -160,6 +163,13 @@ function PagesContent() {
                 <ProtectedRoute>
                     <Layout currentPageName={currentPage}>
                         <TariffDetail />
+                    </Layout>
+                </ProtectedRoute>
+            } />
+            <Route path="/Help" element={
+                <ProtectedRoute>
+                    <Layout currentPageName={currentPage}>
+                        <Help />
                     </Layout>
                 </ProtectedRoute>
             } />

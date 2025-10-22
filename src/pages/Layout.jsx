@@ -14,7 +14,8 @@ import {
   Calendar,
   AreaChart,
   Settings,
-  Shield
+  Shield,
+  HelpCircle
 } from "lucide-react";
 import {
   Sidebar,
@@ -68,6 +69,11 @@ const navigationItems = [
     title: "Reports",
     url: createPageUrl("Reports"),
     icon: AreaChart,
+  },
+  {
+    title: "Help",
+    url: createPageUrl("Help"),
+    icon: HelpCircle,
   },
   {
     title: "Settings",
