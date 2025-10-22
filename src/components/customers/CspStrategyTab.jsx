@@ -435,7 +435,7 @@ const DocumentsPanel = ({ cspEventId }) => {
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['documents', cspEventId] });
-            queryClient.invalidateQueries({ queryKey: ['cspEvent', cspEventId] });
+            queryClient.invalidateQueries({ queryKey: ['csp_event', cspEventId] });
             toast({
                 title: "Document Deleted",
                 description: "Document removed successfully.",
