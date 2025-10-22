@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Customer, Carrier, Tariff, CSPEvent, Task, Interaction, Alert, Shipment, LostOpportunity, ReportSnapshot } from '../api/entities';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -7,7 +7,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { Skeleton } from '../components/ui/skeleton';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
-import { Camera, FileText, TrendingUp, Calendar, BarChart3 } from 'lucide-react';
+import { Camera, FileText, TrendingUp, Calendar, BarChart3, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { UserPerformanceReport } from '../components/reports/UserPerformanceReport';
 import { useToast } from '../components/ui/use-toast';
@@ -21,56 +21,78 @@ export default function ReportsPage() {
     const { data: snapshots = [], isLoading: isLoadingSnapshots } = useQuery({
         queryKey: ["reportSnapshots"],
         queryFn: () => ReportSnapshot.list('-created_date'),
-        initialData: []
+        initialData: [],
+        refetchInterval: 60000,
     });
 
     const isLoading = isLoadingSnapshots;
 
+    useEffect(() => {
+        const checkAndCreateSnapshot = async () => {
+            const now = new Date();
+            const lastSnapshot = snapshots[0];
+
+            if (!lastSnapshot) {
+                await callSnapshotFunction();
+                return;
+            }
+
+            const lastSnapshotDate = new Date(lastSnapshot.created_date);
+            const daysSinceLastSnapshot = Math.floor((now.getTime() - lastSnapshotDate.getTime()) / (1000 * 60 * 60 * 24));
+
+            if (daysSinceLastSnapshot >= 1) {
+                await callSnapshotFunction();
+            }
+        };
+
+        checkAndCreateSnapshot();
+
+        const interval = setInterval(checkAndCreateSnapshot, 24 * 60 * 60 * 1000);
+
+        return () => clearInterval(interval);
+    }, [snapshots]);
+
+    const callSnapshotFunction = async () => {
+        try {
+            const response = await fetch(
+                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-snapshot`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json',
+                    },
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error('Failed to generate snapshot');
+            }
+
+            queryClient.invalidateQueries(['reportSnapshots']);
+        } catch (error) {
+            console.error('Error generating snapshot:', error);
+        }
+    };
+
     const createSnapshotMutation = useMutation({
         mutationFn: async () => {
-            const now = new Date();
-            const periodStart = new Date(now.getFullYear(), now.getMonth(), 1);
-            const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            const response = await fetch(
+                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-snapshot`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json',
+                    },
+                }
+            );
 
-            const { data: cspEvents } = await supabase
-                .from('csp_events')
-                .select('stage, status');
+            if (!response.ok) {
+                throw new Error('Failed to generate snapshot');
+            }
 
-            const { data: interactions } = await supabase
-                .from('interactions')
-                .select('interaction_type')
-                .gte('created_date', periodStart.toISOString())
-                .lte('created_date', periodEnd.toISOString());
-
-            const { data: tariffs } = await supabase
-                .from('tariffs')
-                .select('status');
-
-            const stageBreakdown = {};
-            cspEvents?.forEach(event => {
-                stageBreakdown[event.stage] = (stageBreakdown[event.stage] || 0) + 1;
-            });
-
-            const interactionBreakdown = {};
-            interactions?.forEach(interaction => {
-                interactionBreakdown[interaction.interaction_type] = (interactionBreakdown[interaction.interaction_type] || 0) + 1;
-            });
-
-            const snapshotData = {
-                report_type: 'monthly_summary',
-                period_start: periodStart.toISOString().split('T')[0],
-                period_end: periodEnd.toISOString().split('T')[0],
-                data: {
-                    totalCspEvents: cspEvents?.length || 0,
-                    stageBreakdown,
-                    totalInteractions: interactions?.length || 0,
-                    interactionBreakdown,
-                    activeTariffs: tariffs?.filter(t => t.status === 'active').length || 0,
-                    totalTariffs: tariffs?.length || 0,
-                },
-            };
-
-            return ReportSnapshot.create(snapshotData);
+            return response.json();
         },
         onSuccess: () => {
             queryClient.invalidateQueries(['reportSnapshots']);
@@ -112,14 +134,19 @@ export default function ReportsPage() {
                 </TabsContent>
 
                 <TabsContent value="snapshots" className="space-y-4">
-                    <div className="flex justify-end mb-4">
+                    <div className="flex items-center justify-between mb-4">
+                        <Badge variant="secondary" className="gap-2 py-2 px-3">
+                            <Clock className="h-4 w-4" />
+                            Auto-generates daily
+                        </Badge>
                         <Button
                             onClick={() => createSnapshotMutation.mutate()}
                             disabled={createSnapshotMutation.isPending}
                             className="gap-2"
+                            variant="outline"
                         >
                             <Camera className="h-4 w-4" />
-                            {createSnapshotMutation.isPending ? 'Creating...' : 'Create Snapshot'}
+                            {createSnapshotMutation.isPending ? 'Creating...' : 'Create Snapshot Now'}
                         </Button>
                     </div>
 
