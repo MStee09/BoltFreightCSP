@@ -522,32 +522,34 @@ const AiSummaryPanel = ({ cspEvent }) => {
         setIsChatLoading(true);
 
         try {
-            const context = `Strategy Analysis Data:
-- Total Shipments: ${strategySummary.shipment_count}
-- Lanes: ${strategySummary.lane_count}
-- Total Spend: $${strategySummary.total_spend?.toLocaleString()}
-- Top Carriers: ${strategySummary.top_carriers?.map(c => `${c.carrier} (${c.percentage}%)`).join(', ')}
-- Missed Savings: $${strategySummary.lost_opportunity_total?.toLocaleString()}
-- Lost Opportunities: ${strategySummary.lost_opportunity_count}
+            const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-with-strategy`;
+            const { data: { session } } = await supabase.auth.getSession();
 
-User Question: ${userMessage}
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${session?.access_token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    cspEventId: cspEvent.id,
+                    message: userMessage,
+                    conversationHistory: chatMessages
+                })
+            });
 
-Please provide a helpful, concise answer based on the strategy data above.`;
+            if (!response.ok) {
+                throw new Error('Failed to get AI response');
+            }
 
-            const response = {
+            const data = await response.json();
+
+            setChatMessages(prev => [...prev, {
                 role: 'assistant',
-                content: `Based on the analysis data, I can help answer your question about the strategy. However, this is a placeholder response. To enable real AI responses, you would need to integrate with an AI service like OpenAI's GPT API or Anthropic's Claude API.
-
-Your question: "${userMessage}"
-
-Key insights from the data:
-• You have ${strategySummary.shipment_count} shipments across ${strategySummary.lane_count} lanes
-• Total spend is $${strategySummary.total_spend?.toLocaleString()}
-• There are ${strategySummary.lost_opportunity_count} missed savings opportunities worth $${strategySummary.lost_opportunity_total?.toLocaleString()}`
-            };
-
-            setChatMessages(prev => [...prev, response]);
+                content: data.response
+            }]);
         } catch (error) {
+            console.error('Chat error:', error);
             toast({
                 title: "Error",
                 description: "Failed to get AI response. Please try again.",
