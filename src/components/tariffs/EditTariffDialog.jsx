@@ -16,10 +16,11 @@ export default function EditTariffDialog({ open, onOpenChange, tariff }) {
     const [formData, setFormData] = useState({
         version: '',
         status: 'proposed',
-        ownership_type: 'Customer',
+        ownership_type: 'Direct',
         effective_date: '',
         expiry_date: '',
         customer_id: '',
+        customer_ids: [],
         carrier_ids: [],
         is_blanket_tariff: false,
         customer_contact_name: '',
@@ -44,10 +45,11 @@ export default function EditTariffDialog({ open, onOpenChange, tariff }) {
             setFormData({
                 version: tariff.version || '',
                 status: tariff.status || 'proposed',
-                ownership_type: tariff.ownership_type || 'Customer',
+                ownership_type: tariff.ownership_type || 'Direct',
                 effective_date: tariff.effective_date || '',
                 expiry_date: tariff.expiry_date || '',
                 customer_id: tariff.customer_id || '',
+                customer_ids: tariff.customer_ids || [],
                 carrier_ids: tariff.carrier_ids || [],
                 is_blanket_tariff: tariff.is_blanket_tariff || false,
                 customer_contact_name: tariff.customer_contact_name || '',
@@ -82,6 +84,23 @@ export default function EditTariffDialog({ open, onOpenChange, tariff }) {
                 ? prev.carrier_ids.filter(id => id !== carrierId)
                 : [...prev.carrier_ids, carrierId]
         }));
+    };
+
+    const handleCustomerToggle = (customerId) => {
+        setFormData(prev => ({
+            ...prev,
+            customer_ids: prev.customer_ids.includes(customerId)
+                ? prev.customer_ids.filter(id => id !== customerId)
+                : [...prev.customer_ids, customerId]
+        }));
+    };
+
+    const handleSelectAllCustomers = () => {
+        if (formData.customer_ids.length === customers.length) {
+            setFormData(prev => ({ ...prev, customer_ids: [] }));
+        } else {
+            setFormData(prev => ({ ...prev, customer_ids: customers.map(c => c.id) }));
+        }
     };
 
     return (
@@ -128,9 +147,8 @@ export default function EditTariffDialog({ open, onOpenChange, tariff }) {
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="Customer">Customer</SelectItem>
-                                    <SelectItem value="Carrier">Carrier</SelectItem>
-                                    <SelectItem value="Rocket">Rocket</SelectItem>
+                                    <SelectItem value="Direct">Direct</SelectItem>
+                                    <SelectItem value="Rocket CSP">Rocket CSP</SelectItem>
                                     <SelectItem value="Priority 1">Priority 1</SelectItem>
                                 </SelectContent>
                             </Select>
@@ -170,7 +188,7 @@ export default function EditTariffDialog({ open, onOpenChange, tariff }) {
                         </div>
                     </div>
 
-                    {!formData.is_blanket_tariff && (
+                    {!formData.is_blanket_tariff ? (
                         <div className="space-y-2">
                             <Label htmlFor="customer_id">Customer *</Label>
                             <Select value={formData.customer_id} onValueChange={(value) => setFormData({ ...formData, customer_id: value })}>
@@ -185,6 +203,34 @@ export default function EditTariffDialog({ open, onOpenChange, tariff }) {
                                     ))}
                                 </SelectContent>
                             </Select>
+                        </div>
+                    ) : (
+                        <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                                <Label>Customers *</Label>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleSelectAllCustomers}
+                                >
+                                    {formData.customer_ids.length === customers.length ? 'Deselect All' : 'Select All'}
+                                </Button>
+                            </div>
+                            <div className="border rounded-lg p-4 space-y-2 max-h-48 overflow-y-auto">
+                                {customers.map(customer => (
+                                    <div key={customer.id} className="flex items-center gap-2">
+                                        <Checkbox
+                                            id={`customer-${customer.id}`}
+                                            checked={formData.customer_ids.includes(customer.id)}
+                                            onCheckedChange={() => handleCustomerToggle(customer.id)}
+                                        />
+                                        <Label htmlFor={`customer-${customer.id}`} className="cursor-pointer flex-1">
+                                            {customer.name}
+                                        </Label>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     )}
 
