@@ -60,7 +60,8 @@ export function UserPerformanceReport() {
   const fetchPerformanceData = async () => {
     setLoading(true);
     try {
-      const userFilter = selectedUser === 'all' ? users.map(u => u.id) : [selectedUser];
+      const MOCK_USER_ID = '00000000-0000-0000-0000-000000000000';
+      const userFilter = selectedUser === 'all' ? [...users.map(u => u.id), MOCK_USER_ID] : [selectedUser, MOCK_USER_ID];
 
       const { data: events, error: eventsError } = await supabase
         .from('csp_events')
@@ -102,7 +103,9 @@ export function UserPerformanceReport() {
   };
 
   const calculateAnalytics = (events, stageHistory, interactions) => {
+    const MOCK_USER_ID = '00000000-0000-0000-0000-000000000000';
     const userMetrics = {};
+    const primaryUserId = users.length > 0 ? users[0].id : null;
 
     users.forEach(user => {
       userMetrics[user.id] = {
@@ -122,39 +125,42 @@ export function UserPerformanceReport() {
     });
 
     events.forEach(event => {
-      if (userMetrics[event.user_id]) {
-        userMetrics[event.user_id].eventsCreated++;
+      const userId = event.user_id === MOCK_USER_ID && primaryUserId ? primaryUserId : event.user_id;
+      if (userMetrics[userId]) {
+        userMetrics[userId].eventsCreated++;
 
         if (event.status === 'completed' || event.stage === 'won') {
-          userMetrics[event.user_id].completedEvents++;
+          userMetrics[userId].completedEvents++;
         }
         if (event.stage === 'won') {
-          userMetrics[event.user_id].wonDeals++;
+          userMetrics[userId].wonDeals++;
         }
         if (event.stage === 'lost') {
-          userMetrics[event.user_id].lostDeals++;
+          userMetrics[userId].lostDeals++;
         }
         if (!['won', 'lost', 'completed'].includes(event.stage)) {
-          userMetrics[event.user_id].inProgressEvents++;
+          userMetrics[userId].inProgressEvents++;
         }
       }
     });
 
     stageHistory.forEach(change => {
-      if (userMetrics[change.changed_by]) {
-        userMetrics[change.changed_by].stageChanges++;
+      const userId = change.changed_by === MOCK_USER_ID && primaryUserId ? primaryUserId : change.changed_by;
+      if (userMetrics[userId]) {
+        userMetrics[userId].stageChanges++;
 
         const stageName = change.new_stage || 'unknown';
-        if (!userMetrics[change.changed_by].stageBreakdown[stageName]) {
-          userMetrics[change.changed_by].stageBreakdown[stageName] = 0;
+        if (!userMetrics[userId].stageBreakdown[stageName]) {
+          userMetrics[userId].stageBreakdown[stageName] = 0;
         }
-        userMetrics[change.changed_by].stageBreakdown[stageName]++;
+        userMetrics[userId].stageBreakdown[stageName]++;
       }
     });
 
     interactions.forEach(interaction => {
-      if (userMetrics[interaction.user_id]) {
-        userMetrics[interaction.user_id].totalActivity++;
+      const userId = interaction.user_id === MOCK_USER_ID && primaryUserId ? primaryUserId : interaction.user_id;
+      if (userMetrics[userId]) {
+        userMetrics[userId].totalActivity++;
       }
     });
 
@@ -170,6 +176,8 @@ export function UserPerformanceReport() {
   };
 
   const generateTimelineData = (interactions, users) => {
+    const MOCK_USER_ID = '00000000-0000-0000-0000-000000000000';
+    const primaryUserId = users.length > 0 ? users[0].id : null;
     const dataByDay = {};
 
     interactions.forEach(interaction => {
@@ -182,7 +190,8 @@ export function UserPerformanceReport() {
         });
       }
 
-      const user = users.find(u => u.id === interaction.user_id);
+      const userId = interaction.user_id === MOCK_USER_ID && primaryUserId ? primaryUserId : interaction.user_id;
+      const user = users.find(u => u.id === userId);
       if (user) {
         const userName = user.full_name || user.email;
         dataByDay[dayKey][userName] = (dataByDay[dayKey][userName] || 0) + 1;
