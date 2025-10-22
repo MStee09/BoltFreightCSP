@@ -1,23 +1,42 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Customer, Carrier, CSPEvent, Document, Interaction } from '../../api/entities';
+import { Customer, Carrier, CSPEvent, Document, Interaction, Tariff } from '../../api/entities';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../ui/sheet';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Skeleton } from '../ui/skeleton';
-import { Calendar, User, Clock, FileText, MessageSquare, Building2, TrendingUp, ExternalLink, Pencil, Mail } from 'lucide-react';
+import { Calendar, User, Clock, FileText, MessageSquare, Building2, TrendingUp, ExternalLink, Pencil, Mail, ChevronRight } from 'lucide-react';
 import { format, formatDistanceToNow } from 'date-fns';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import EditCspEventDialog from './EditCspEventDialog';
 import { EmailComposeDialog } from '../email/EmailComposeDialog';
 import { EmailTimeline } from '../email/EmailTimeline';
 import CspStrategyTab from '../customers/CspStrategyTab';
+import CustomerDetailSheet from '../customers/CustomerDetailSheet';
+import { useToast } from '../ui/use-toast';
+
+const STAGES = [
+    "discovery",
+    "data_room_ready",
+    "rfp_sent",
+    "qa_round",
+    "round_1",
+    "final_offers",
+    "awarded",
+    "implementation",
+    "validation",
+    "live",
+    "renewal_watch"
+];
 
 export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
     const queryClient = useQueryClient();
+    const { toast } = useToast();
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
+    const [isCustomerDetailOpen, setIsCustomerDetailOpen] = useState(false);
 
     const { data: event, isLoading: isLoadingEvent } = useQuery({
         queryKey: ['csp_event', eventId],
@@ -56,10 +75,59 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
         initialData: []
     });
 
+    const { data: tariffs = [], isLoading: isLoadingTariffs } = useQuery({
+        queryKey: ['tariffs', { csp_event_id: eventId }],
+        queryFn: () => Tariff.filter({ csp_event_id: eventId }),
+        enabled: !!eventId && isOpen,
+        initialData: []
+    });
+
     const eventCarriers = event?.carrier_ids?.map(id => carriers.find(c => c.id === id)).filter(Boolean) || [];
     const eventInteractions = interactions.filter(i => i.metadata?.csp_event_id === eventId);
 
     const isLoading = isLoadingEvent || isLoadingCustomer;
+
+    const moveToNextStage = useMutation({
+        mutationFn: async (newStage) => {
+            await CSPEvent.update(eventId, { stage: newStage });
+            await Interaction.create({
+                entity_type: 'customer',
+                entity_id: event.customer_id,
+                interaction_type: 'stage_change',
+                summary: `CSP Stage: ${event.stage} → ${newStage}`,
+                details: `The deal "${event.title}" was moved to the "${newStage.replace(/_/g, ' ')}" stage.`,
+                metadata: {
+                    from_stage: event.stage,
+                    to_stage: newStage,
+                    csp_event_id: eventId
+                }
+            });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['csp_event', eventId] });
+            queryClient.invalidateQueries({ queryKey: ['csp_events'] });
+            queryClient.invalidateQueries({ queryKey: ['interactions'] });
+            toast({
+                title: "Stage Updated",
+                description: "CSP event stage has been updated successfully.",
+            });
+        },
+        onError: (error) => {
+            toast({
+                title: "Error",
+                description: error.message || "Failed to update stage.",
+                variant: "destructive",
+            });
+        }
+    });
+
+    const getNextStage = (currentStage) => {
+        const currentIndex = STAGES.indexOf(currentStage);
+        if (currentIndex === -1 || currentIndex === STAGES.length - 1) return null;
+        return STAGES[currentIndex + 1];
+    };
+
+    const nextStage = event ? getNextStage(event.stage) : null;
 
     const getPriorityColor = (priority) => {
         const colors = {
@@ -107,6 +175,34 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
                                 <Pencil className="w-4 h-4" />
                                 Edit
                             </Button>
+                            {nextStage ? (
+                                <Button
+                                    size="sm"
+                                    onClick={() => moveToNextStage.mutate(nextStage)}
+                                    disabled={moveToNextStage.isPending}
+                                    className="gap-2"
+                                >
+                                    Advance Stage
+                                    <ChevronRight className="w-4 h-4" />
+                                </Button>
+                            ) : (
+                                <Select
+                                    value={event?.stage}
+                                    onValueChange={(value) => moveToNextStage.mutate(value)}
+                                    disabled={moveToNextStage.isPending}
+                                >
+                                    <SelectTrigger className="h-9 w-[140px]">
+                                        <SelectValue placeholder="Move Stage" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {STAGES.map((stage) => (
+                                            <SelectItem key={stage} value={stage} className="capitalize">
+                                                {stage.replace(/_/g, ' ')}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            )}
                         </div>
                     </div>
                 </SheetHeader>
@@ -140,7 +236,12 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
                                         <Building2 className="w-4 h-4 text-slate-500 mt-0.5" />
                                         <div>
                                             <p className="text-xs text-slate-500">Customer</p>
-                                            <p className="text-sm font-medium text-slate-900">{customer?.name || 'Loading...'}</p>
+                                            <button
+                                                onClick={() => setIsCustomerDetailOpen(true)}
+                                                className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline text-left"
+                                            >
+                                                {customer?.name || 'Loading...'}
+                                            </button>
                                         </div>
                                     </div>
                                     <div className="flex items-start gap-2">
@@ -180,11 +281,12 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
                         </Card>
 
                         <Tabs defaultValue="activity" className="w-full">
-                            <TabsList className="grid w-full grid-cols-5">
+                            <TabsList className="grid w-full grid-cols-6">
                                 <TabsTrigger value="activity">Activity</TabsTrigger>
                                 <TabsTrigger value="strategy">Strategy</TabsTrigger>
                                 <TabsTrigger value="emails">Emails</TabsTrigger>
                                 <TabsTrigger value="carriers">Carriers</TabsTrigger>
+                                <TabsTrigger value="tariffs">Tariffs</TabsTrigger>
                                 <TabsTrigger value="documents">Documents</TabsTrigger>
                             </TabsList>
 
@@ -274,6 +376,57 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
                                 </Card>
                             </TabsContent>
 
+                            <TabsContent value="tariffs" className="mt-4">
+                                <Card>
+                                    <CardHeader>
+                                        <CardTitle className="text-base">Generated Tariffs</CardTitle>
+                                        <CardDescription>Tariffs created from this CSP event</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        {isLoadingTariffs ? (
+                                            <div className="space-y-3">
+                                                <Skeleton className="h-16 w-full" />
+                                                <Skeleton className="h-16 w-full" />
+                                            </div>
+                                        ) : tariffs.length > 0 ? (
+                                            <div className="space-y-3">
+                                                {tariffs.map((tariff) => {
+                                                    const tariffCarriers = (tariff.carrier_ids || []).map(id => carriers.find(c => c.id === id)).filter(Boolean);
+                                                    const firstCarrier = tariffCarriers[0];
+                                                    return (
+                                                        <a
+                                                            key={tariff.id}
+                                                            href={`/tariffs/${tariff.id}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="flex items-center justify-between p-3 border rounded-lg hover:bg-slate-50 transition-colors block"
+                                                        >
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="flex items-center gap-2 mb-1">
+                                                                    <p className="font-medium text-sm text-slate-900">
+                                                                        {firstCarrier?.name || (tariffCarriers.length > 1 ? `${tariffCarriers.length} carriers` : 'Unknown Carrier')}
+                                                                    </p>
+                                                                    <Badge variant={tariff.status === 'active' ? 'default' : 'outline'} className={tariff.status === 'active' ? 'bg-green-100 text-green-800' : ''}>
+                                                                        {tariff.status}
+                                                                    </Badge>
+                                                                </div>
+                                                                <p className="text-xs text-slate-600">Version: {tariff.version}</p>
+                                                                <p className="text-xs text-slate-500 mt-1">
+                                                                    Effective: {format(new Date(tariff.effective_date), 'MMM d, yyyy')} • Expires: {format(new Date(tariff.expiry_date), 'MMM d, yyyy')}
+                                                                </p>
+                                                            </div>
+                                                            <ExternalLink className="w-4 h-4 text-slate-400 ml-2 flex-shrink-0" />
+                                                        </a>
+                                                    );
+                                                })}
+                                            </div>
+                                        ) : (
+                                            <p className="text-sm text-slate-500 text-center py-8">No tariffs generated from this event yet</p>
+                                        )}
+                                    </CardContent>
+                                </Card>
+                            </TabsContent>
+
                             <TabsContent value="documents" className="mt-4">
                                 <Card>
                                     <CardHeader>
@@ -328,6 +481,11 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
                 cspEvent={event}
                 customer={customer}
                 carrier={eventCarriers[0]}
+            />
+            <CustomerDetailSheet
+                isOpen={isCustomerDetailOpen}
+                onOpenChange={setIsCustomerDetailOpen}
+                customerId={event?.customer_id}
             />
         </Sheet>
     );
