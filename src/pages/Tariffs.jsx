@@ -1,24 +1,39 @@
-
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Customer, Carrier, Tariff, CSPEvent, Task, Interaction, Alert, Shipment, LostOpportunity, ReportSnapshot } from "../api/entities";
+import { Customer, Carrier, Tariff } from "../api/entities";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "../utils";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
-import { PlusCircle, Search, Upload, GitCompareArrows, ArrowRight, BookMarked } from "lucide-react";
-import { format, isAfter, isBefore } from "date-fns";
+import { PlusCircle, Search, Upload, ChevronDown, ChevronRight } from "lucide-react";
+import { format, isAfter, isBefore, differenceInDays } from "date-fns";
 import { Skeleton } from "../components/ui/skeleton";
-import { Tabs, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
+
+const OWNERSHIP_TYPES = [
+  { value: 'rocket_csp', label: 'Rocket CSP', color: 'bg-purple-50 border-l-4 border-l-purple-500' },
+  { value: 'customer_direct', label: 'Customer Direct', color: 'bg-blue-50 border-l-4 border-l-blue-500' },
+  { value: 'rocket_blanket', label: 'Rocket Blanket', color: 'bg-orange-50 border-l-4 border-l-orange-500' },
+  { value: 'priority1_blanket', label: 'Priority 1 Blanket', color: 'bg-green-50 border-l-4 border-l-green-500' }
+];
+
+const STATUS_FILTERS = [
+  { value: 'all', label: 'All' },
+  { value: 'active', label: 'Active' },
+  { value: 'proposed', label: 'Proposed' },
+  { value: 'expiring', label: 'Expiring < 90d' },
+  { value: 'expired', label: 'Expired' },
+  { value: 'superseded', label: 'Superseded' }
+];
 
 export default function TariffsPage() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [ownershipTab, setOwnershipTab] = useState("rocket_csp");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [expandedGroups, setExpandedGroups] = useState(new Set());
 
-  // Destructure isLoading for each query to manage individual loading states
   const { data: tariffs = [], isLoading: isTariffsLoading } = useQuery({
     queryKey: ["tariffs"],
     queryFn: () => Tariff.list("-effective_date"),
@@ -37,159 +52,272 @@ export default function TariffsPage() {
     initialData: [],
   });
 
-  // Combine all loading states to determine overall loading for the page
   const isLoading = isTariffsLoading || isCustomersLoading || isCarriersLoading;
 
-  const getStatusBadge = (status) => {
-    switch (status) {
-      case 'active':
-        return <Badge className="bg-green-100 text-green-800 border-green-200">Active</Badge>;
-      case 'proposed':
-        return <Badge className="bg-blue-100 text-blue-800 border-blue-200">Proposed</Badge>;
-      case 'expired':
-        return <Badge variant="secondary">Expired</Badge>;
-      case 'superseded':
-          return <Badge variant="outline">Superseded</Badge>;
-      default:
-        return <Badge variant="outline">{status}</Badge>;
+  const getStatusBadge = (tariff) => {
+    const today = new Date();
+    const expiryDate = tariff.expiry_date ? new Date(tariff.expiry_date) : null;
+    const daysUntilExpiry = expiryDate ? differenceInDays(expiryDate, today) : null;
+
+    if (tariff.status === 'expired' || (expiryDate && isBefore(expiryDate, today))) {
+      return <Badge variant="secondary" className="bg-slate-100 text-slate-600">Expired</Badge>;
     }
+    if (tariff.status === 'superseded') {
+      return <Badge variant="outline" className="text-slate-500">Superseded</Badge>;
+    }
+    if (tariff.status === 'proposed') {
+      return <Badge className="bg-blue-100 text-blue-800 border-blue-200">Proposed</Badge>;
+    }
+    if (daysUntilExpiry !== null && daysUntilExpiry <= 90 && daysUntilExpiry > 0) {
+      return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">Expiring ({daysUntilExpiry}d)</Badge>;
+    }
+    return <Badge className="bg-green-100 text-green-800 border-green-200">Active</Badge>;
   };
 
-  const getOwnershipBadge = (type) => {
-      switch(type) {
-          case 'Rocket':
-              return <Badge variant="outline" className="text-blue-700 border-blue-200">{type}</Badge>;
-          case 'Priority 1':
-              return <Badge variant="outline" className="text-amber-700 border-amber-200">{type}</Badge>;
-          default:
-              return <Badge variant="outline">{type}</Badge>;
-      }
-  }
+  const getOwnershipColor = (ownershipType) => {
+    const type = OWNERSHIP_TYPES.find(t => t.value === ownershipType);
+    return type?.color || 'bg-slate-50 border-l-4 border-l-slate-300';
+  };
 
-  const filteredTariffs = tariffs.filter(t => {
+  const filteredTariffs = useMemo(() => {
+    return tariffs.filter(t => {
+      if (t.ownership_type !== ownershipTab) return false;
+
       const customer = customers.find(c => c.id === t.customer_id);
       const searchCarriers = (t.carrier_ids || []).map(cid => carriers.find(c => c.id === cid)?.name).join(' ').toLowerCase() || '';
       const searchTermLower = searchTerm.toLowerCase();
 
       const matchesSearch = (
-          (customer?.name?.toLowerCase().includes(searchTermLower)) ||
-          searchCarriers.includes(searchTermLower) ||
-          (t.version?.toLowerCase().includes(searchTermLower))
+        (customer?.name?.toLowerCase().includes(searchTermLower)) ||
+        searchCarriers.includes(searchTermLower) ||
+        (t.version?.toLowerCase().includes(searchTermLower))
       );
 
       if (!matchesSearch) return false;
 
       const today = new Date();
       const expiryDate = t.expiry_date ? new Date(t.expiry_date) : null;
+      const daysUntilExpiry = expiryDate ? differenceInDays(expiryDate, today) : null;
 
       if (statusFilter === 'all') return true;
       if (statusFilter === 'active') {
-          return t.status === 'active' || (expiryDate && isAfter(expiryDate, today));
-      }
-      if (statusFilter === 'expired') {
-          return t.status === 'expired' || (expiryDate && isBefore(expiryDate, today));
+        return t.status === 'active' && (!expiryDate || isAfter(expiryDate, today));
       }
       if (statusFilter === 'proposed') return t.status === 'proposed';
+      if (statusFilter === 'expiring') {
+        return expiryDate && daysUntilExpiry !== null && daysUntilExpiry <= 90 && daysUntilExpiry > 0;
+      }
+      if (statusFilter === 'expired') {
+        return t.status === 'expired' || (expiryDate && isBefore(expiryDate, today));
+      }
       if (statusFilter === 'superseded') return t.status === 'superseded';
 
       return true;
-  });
+    });
+  }, [tariffs, ownershipTab, statusFilter, searchTerm, customers, carriers]);
+
+  const groupedTariffs = useMemo(() => {
+    const groups = {};
+
+    filteredTariffs.forEach(tariff => {
+      let groupKey, groupName;
+
+      if (ownershipTab === 'rocket_blanket' || ownershipTab === 'priority1_blanket') {
+        const carrier = carriers.find(c => tariff.carrier_ids?.includes(c.id));
+        groupKey = carrier?.id || 'unknown';
+        groupName = carrier ? `${carrier.name} Blanket` : 'Unknown Carrier';
+      } else {
+        const customer = customers.find(c => c.id === tariff.customer_id);
+        groupKey = customer?.id || 'unknown';
+        groupName = customer?.name || 'Unknown Customer';
+      }
+
+      if (!groups[groupKey]) {
+        groups[groupKey] = {
+          name: groupName,
+          key: groupKey,
+          tariffs: []
+        };
+      }
+
+      groups[groupKey].tariffs.push(tariff);
+    });
+
+    Object.values(groups).forEach(group => {
+      group.tariffs.sort((a, b) => {
+        const dateA = new Date(a.effective_date || 0);
+        const dateB = new Date(b.effective_date || 0);
+        return dateB - dateA;
+      });
+    });
+
+    return Object.values(groups).sort((a, b) => a.name.localeCompare(b.name));
+  }, [filteredTariffs, ownershipTab, customers, carriers]);
+
+  const toggleGroup = (groupKey) => {
+    const newExpanded = new Set(expandedGroups);
+    if (newExpanded.has(groupKey)) {
+      newExpanded.delete(groupKey);
+    } else {
+      newExpanded.add(groupKey);
+    }
+    setExpandedGroups(newExpanded);
+  };
+
+  const totalCount = groupedTariffs.reduce((sum, g) => sum + g.tariffs.length, 0);
 
   return (
     <div className="p-6 lg:p-8 max-w-[1600px] mx-auto">
       <div className="flex items-center justify-between mb-8">
         <div>
-          <h1 className="text-3xl font-bold text-slate-900">Tariff Workspace</h1>
-          <p className="text-slate-600 mt-1">Ingest, analyze, and manage all tariff agreements.</p>
+          <h1 className="text-3xl font-bold text-slate-900">Tariffs</h1>
+          <p className="text-slate-600 mt-1">Manage customer and carrier pricing agreements</p>
         </div>
-        <Button asChild className="bg-blue-600 hover:bg-blue-700">
-          <Link to={createPageUrl("TariffUpload")}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            New Tariff
+        <div className="flex gap-3">
+          <Link to={createPageUrl("/tariff-upload")}>
+            <Button variant="outline">
+              <Upload className="w-4 h-4 mr-2" />
+              Upload
+            </Button>
           </Link>
-        </Button>
+          <Button>
+            <PlusCircle className="w-4 h-4 mr-2" />
+            New Tariff
+          </Button>
+        </div>
       </div>
 
-      <Card className="shadow-lg border-0 bg-white/80 backdrop-blur">
-        <CardHeader className="border-b border-slate-100 p-4 space-y-4">
-          <div className="flex items-center">
-            <Search className="h-4 w-4 text-slate-500 mr-2" />
-            <Input
-              placeholder="Search by customer, carrier, or version..."
-              className="max-w-sm border-0 focus-visible:ring-0 shadow-none"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-          <Tabs value={statusFilter} onValueChange={setStatusFilter}>
-            <TabsList>
-              <TabsTrigger value="all">All Tariffs</TabsTrigger>
-              <TabsTrigger value="active">Active</TabsTrigger>
-              <TabsTrigger value="proposed">Proposed</TabsTrigger>
-              <TabsTrigger value="expired">Expired</TabsTrigger>
-              <TabsTrigger value="superseded">Superseded</TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-slate-50">
-                <TableHead>Customer</TableHead>
-                <TableHead>Carrier(s)</TableHead>
-                <TableHead>Version</TableHead>
-                <TableHead>Ownership</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Effective Date</TableHead>
-                <TableHead>Expiry Date</TableHead>
-                <TableHead></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? Array(5).fill(0).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-48" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                  <TableCell><Skeleton className="h-6 w-24 rounded-full" /></TableCell>
-                  <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                  <TableCell><Skeleton className="h-8 w-8" /></TableCell>
-                </TableRow>
-              )) : filteredTariffs.map(tariff => {
-                  const customer = customers.find(c => c.id === tariff.customer_id);
-                  // Ensure carrier_ids is an array before mapping
-                  const tariffCarriers = (tariff.carrier_ids || []).map(cid => carriers.find(c => c.id === cid)?.name).filter(Boolean) || [];
+      <div className="relative mb-6">
+        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+        <Input
+          placeholder="Search by customer, carrier, or version..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-10 h-11"
+        />
+      </div>
 
-                  return (
-                    <TableRow key={tariff.id} className="hover:bg-slate-50/50">
-                      <TableCell className="font-medium text-slate-900">
-                        {tariff.is_blanket_tariff ? <span className="flex items-center gap-2"><BookMarked className="w-4 h-4 text-blue-600"/> Blanket Tariff</span> : customer?.name}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col gap-1">
-                          {tariffCarriers.slice(0, 2).map(name => <span key={name}>{name}</span>)}
-                          {tariffCarriers.length > 2 && <Badge variant="secondary">+{tariffCarriers.length - 2} more</Badge>}
-                        </div>
-                      </TableCell>
-                      <TableCell className="font-mono text-slate-600">{tariff.version}</TableCell>
-                      <TableCell>{getOwnershipBadge(tariff.ownership_type)}</TableCell>
-                      <TableCell>{getStatusBadge(tariff.status)}</TableCell>
-                      <TableCell>{format(new Date(tariff.effective_date), "MMM d, yyyy")}</TableCell>
-                      <TableCell>{format(new Date(tariff.expiry_date), "MMM d, yyyy")}</TableCell>
-                      <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" asChild>
-                           <Link to={createPageUrl(`TariffDetail?id=${tariff.id}`)}>
-                                View <ArrowRight className="w-4 h-4 ml-2" />
-                           </Link>
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-            </TableBody>
-          </Table>
+      <Tabs value={ownershipTab} onValueChange={setOwnershipTab} className="mb-6">
+        <TabsList className="grid w-full grid-cols-4 h-auto p-1">
+          {OWNERSHIP_TYPES.map(type => (
+            <TabsTrigger
+              key={type.value}
+              value={type.value}
+              className="data-[state=active]:bg-white data-[state=active]:shadow-sm py-3"
+            >
+              {type.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
+
+      <div className="flex gap-2 mb-6 flex-wrap">
+        {STATUS_FILTERS.map(filter => (
+          <Button
+            key={filter.value}
+            variant={statusFilter === filter.value ? "default" : "outline"}
+            size="sm"
+            onClick={() => setStatusFilter(filter.value)}
+            className="h-8"
+          >
+            {filter.label}
+          </Button>
+        ))}
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center justify-between">
+            <span>{OWNERSHIP_TYPES.find(t => t.value === ownershipTab)?.label}</span>
+            <span className="text-sm font-normal text-slate-500">
+              {totalCount} {totalCount === 1 ? 'Tariff' : 'Tariffs'}
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="space-y-3">
+              {[...Array(5)].map((_, i) => (
+                <Skeleton key={i} className="h-20 w-full" />
+              ))}
+            </div>
+          ) : groupedTariffs.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-slate-500">No tariffs found matching your criteria</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {groupedTariffs.map(group => {
+                const isExpanded = expandedGroups.has(group.key);
+                return (
+                  <div key={group.key} className="border rounded-lg overflow-hidden">
+                    <button
+                      onClick={() => toggleGroup(group.key)}
+                      className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        {isExpanded ? (
+                          <ChevronDown className="w-5 h-5 text-slate-400" />
+                        ) : (
+                          <ChevronRight className="w-5 h-5 text-slate-400" />
+                        )}
+                        <span className="font-semibold text-slate-900">{group.name}</span>
+                        <Badge variant="outline" className="ml-2">
+                          {group.tariffs.length} {group.tariffs.length === 1 ? 'Tariff' : 'Tariffs'}
+                        </Badge>
+                      </div>
+                    </button>
+
+                    {isExpanded && (
+                      <div className="border-t">
+                        {group.tariffs.map(tariff => {
+                          const customer = customers.find(c => c.id === tariff.customer_id);
+                          const tariffCarriers = (tariff.carrier_ids || [])
+                            .map(id => carriers.find(c => c.id === id))
+                            .filter(Boolean);
+                          const firstCarrier = tariffCarriers[0];
+
+                          return (
+                            <Link
+                              key={tariff.id}
+                              to={createPageUrl(`/tariff/${tariff.id}`)}
+                              className={`block p-4 hover:bg-slate-50 transition-colors border-b last:border-b-0 ${getOwnershipColor(tariff.ownership_type)}`}
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1 min-w-0 space-y-2">
+                                  <div className="flex items-center gap-3 flex-wrap">
+                                    <span className="font-medium text-slate-900">
+                                      {tariff.version || 'No Version'}
+                                    </span>
+                                    {getStatusBadge(tariff)}
+                                    {firstCarrier && (
+                                      <span className="text-sm text-slate-600">
+                                        {firstCarrier.name}
+                                        {tariffCarriers.length > 1 && ` +${tariffCarriers.length - 1} more`}
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <div className="flex items-center gap-4 text-sm text-slate-500">
+                                    {tariff.effective_date && (
+                                      <span>Effective: {format(new Date(tariff.effective_date), 'MMM dd, yyyy')}</span>
+                                    )}
+                                    {tariff.expiry_date && (
+                                      <span>Expires: {format(new Date(tariff.expiry_date), 'MMM dd, yyyy')}</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
