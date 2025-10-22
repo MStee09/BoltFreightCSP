@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, Link, useLocation } from 'react-router-dom';
 import { Customer, Carrier, Tariff, CSPEvent, Task, Interaction, Alert, Shipment, LostOpportunity, ReportSnapshot } from '../api/entities';
 import { createPageUrl } from '../utils';
 import { format } from 'date-fns';
@@ -42,7 +42,7 @@ const TariffDocumentManager = ({ tariff }) => {
     const handleUpload = () => file && mutation.mutate(file);
 
     return (
-        <Card>
+        <Card id="documents-section">
             <CardHeader>
                 <CardTitle>Tariff Document</CardTitle>
             </CardHeader>
@@ -103,8 +103,20 @@ const InfoItem = ({ label, value, children }) => (
 
 export default function TariffDetailPage() {
     const [searchParams] = useSearchParams();
+    const location = useLocation();
     const tariffId = searchParams.get('id');
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+
+    useEffect(() => {
+        if (location.hash === '#documents') {
+            setTimeout(() => {
+                const element = document.getElementById('documents-section');
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 100);
+        }
+    }, [location.hash, tariff]);
 
     const { data: tariff, isLoading: isLoadingTariff } = useQuery({
         queryKey: ['tariff', tariffId],

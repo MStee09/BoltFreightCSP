@@ -487,25 +487,35 @@ export default function TariffsPage() {
                           );
                         })()}
                         <div className="opacity-0 group-hover/card:opacity-100 transition-opacity flex gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 text-xs"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (ownershipTab === 'rocket_blanket' || ownershipTab === 'priority1_blanket') {
+                          {ownershipTab === 'rocket_blanket' || ownershipTab === 'priority1_blanket' ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 const carrier = carriers.find(c => c.id === group.key);
                                 if (carrier) {
                                   window.location.href = createPageUrl(`CarrierDetail?id=${carrier.id}`);
                                 }
-                              } else {
-                                window.location.href = createPageUrl(`Customers?detailId=${group.key}`);
-                              }
-                            }}
-                          >
-                            <FileText className="w-3 h-3 mr-1" />
-                            View All
-                          </Button>
+                              }}
+                            >
+                              <FileText className="w-3 h-3 mr-1" />
+                              View Carrier
+                            </Button>
+                          ) : (
+                            <Link to={createPageUrl(`Customers?detailId=${group.key}`)}>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 text-xs"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <FileText className="w-3 h-3 mr-1" />
+                                View Customer
+                              </Button>
+                            </Link>
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"
@@ -689,11 +699,11 @@ export default function TariffsPage() {
                                             variant="ghost"
                                             size="icon"
                                             className="h-7 w-7"
-                                            onClick={(e) => {
-                                              e.preventDefault();
-                                            }}
+                                            asChild
                                           >
-                                            <FileCheck className="w-3.5 h-3.5" />
+                                            <Link to={createPageUrl(`TariffDetail?id=${tariff.id}#documents`)}>
+                                              <FileCheck className="w-3.5 h-3.5" />
+                                            </Link>
                                           </Button>
                                         </TooltipTrigger>
                                         <TooltipContent>Documents</TooltipContent>
