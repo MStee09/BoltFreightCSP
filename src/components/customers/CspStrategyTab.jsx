@@ -19,6 +19,7 @@ import { useToast } from '../ui/use-toast';
 import { supabase } from '../../api/supabaseClient';
 import { useAuth } from '../../contexts/AuthContext';
 import _ from 'lodash';
+import StrategyScacMatch from '../strategy/StrategyScacMatch';
 
 const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
     const [txnFile, setTxnFile] = useState(null);
@@ -1418,6 +1419,8 @@ export default function CspStrategyTab({ customer, cspEventId = null, cspEvent =
             )}
 
             {cspEvent && <AiSummaryPanel cspEvent={cspEvent} />}
+
+            {cspEvent && <StrategyScacMatch strategySummary={cspEvent?.strategy_summary} />}
 
             {cspEvent && <DataVisualizationPanel cspEvent={cspEvent} />}
 
