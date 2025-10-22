@@ -163,9 +163,9 @@ export default function TariffsPage() {
 
     Object.values(groups).forEach(group => {
       group.tariffs.sort((a, b) => {
-        const dateA = new Date(a.effective_date || 0);
-        const dateB = new Date(b.effective_date || 0);
-        return dateB - dateA;
+        const expiryA = new Date(a.expiry_date || '9999-12-31');
+        const expiryB = new Date(b.expiry_date || '9999-12-31');
+        return expiryA - expiryB;
       });
     });
 
@@ -200,6 +200,26 @@ export default function TariffsPage() {
       return expiryDate && daysUntilExpiry !== null && daysUntilExpiry <= 90 && daysUntilExpiry > 0;
     }).length;
   }, [filteredTariffs]);
+
+  const tabSummary = useMemo(() => {
+    const today = new Date();
+    const currentTabTariffs = tariffs.filter(t => t.ownership_type === ownershipTab);
+
+    const activeCount = currentTabTariffs.filter(t => {
+      const expiryDate = t.expiry_date ? new Date(t.expiry_date) : null;
+      return t.status === 'active' && (!expiryDate || isAfter(expiryDate, today));
+    }).length;
+
+    const expiringCount = currentTabTariffs.filter(t => {
+      const expiryDate = t.expiry_date ? new Date(t.expiry_date) : null;
+      const daysUntilExpiry = expiryDate ? differenceInDays(expiryDate, today) : null;
+      return expiryDate && daysUntilExpiry !== null && daysUntilExpiry <= 90 && daysUntilExpiry > 0;
+    }).length;
+
+    const proposedCount = currentTabTariffs.filter(t => t.status === 'proposed').length;
+
+    return { activeCount, expiringCount, proposedCount };
+  }, [tariffs, ownershipTab]);
 
   return (
     <div className="p-6 lg:p-8 max-w-[1600px] mx-auto">
@@ -267,20 +287,40 @@ export default function TariffsPage() {
           ))}
         </div>
         {expiringCount > 0 && (
-          <Badge variant="destructive" className="flex items-center gap-1 bg-yellow-100 text-yellow-800 border-yellow-300 hover:bg-yellow-100">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleStatusFilterChange('expiring')}
+            className="flex items-center gap-1 bg-yellow-50 text-yellow-800 border-yellow-300 hover:bg-yellow-100 h-8"
+          >
             <AlertCircle className="w-3 h-3" />
             {expiringCount} Expiring Soon
-          </Badge>
+          </Button>
         )}
       </div>
 
       <Card>
         <CardHeader>
           <CardTitle className="text-lg flex items-center justify-between">
-            <span>{OWNERSHIP_TYPES.find(t => t.value === ownershipTab)?.label}</span>
-            <span className="text-sm font-normal text-slate-500">
-              {totalCount} {totalCount === 1 ? 'Tariff' : 'Tariffs'}
-            </span>
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-3">
+                <span>{OWNERSHIP_TYPES.find(t => t.value === ownershipTab)?.label}</span>
+                <span className="text-sm font-normal text-slate-500">
+                  {totalCount} {totalCount === 1 ? 'Tariff' : 'Tariffs'}
+                </span>
+              </div>
+              <div className="flex items-center gap-3 text-sm font-normal text-slate-600">
+                {tabSummary.activeCount > 0 && (
+                  <span className="text-green-700">{tabSummary.activeCount} Active</span>
+                )}
+                {tabSummary.expiringCount > 0 && (
+                  <span className="text-yellow-700">{tabSummary.expiringCount} Expiring</span>
+                )}
+                {tabSummary.proposedCount > 0 && (
+                  <span className="text-blue-700">{tabSummary.proposedCount} Proposed</span>
+                )}
+              </div>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -299,7 +339,7 @@ export default function TariffsPage() {
               {groupedTariffs.map(group => {
                 const isExpanded = expandedGroups.has(group.key);
                 return (
-                  <div key={group.key} className="border rounded-lg overflow-hidden">
+                  <div key={group.key} className="border rounded-lg overflow-hidden group/card">
                     <button
                       onClick={() => toggleGroup(group.key)}
                       className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors"
@@ -341,11 +381,43 @@ export default function TariffsPage() {
                             </>
                           );
                         })()}
+                        <div className="opacity-0 group-hover/card:opacity-100 transition-opacity flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (ownershipTab === 'rocket_blanket' || ownershipTab === 'priority1_blanket') {
+                                const carrier = carriers.find(c => c.id === group.key);
+                                if (carrier) {
+                                  window.location.href = createPageUrl(`CarrierDetail?id=${carrier.id}`);
+                                }
+                              } else {
+                                window.location.href = createPageUrl(`Customers?detailId=${group.key}`);
+                              }
+                            }}
+                          >
+                            View All
+                          </Button>
+                        </div>
                       </div>
                     </button>
 
                     {isExpanded && (
                       <div className="border-t">
+                        <div className="overflow-x-auto">
+                          <table className="w-full">
+                            <thead className="bg-slate-50 border-b">
+                              <tr>
+                                <th className="text-left p-3 text-xs font-semibold text-slate-600">Version</th>
+                                <th className="text-left p-3 text-xs font-semibold text-slate-600">Status</th>
+                                <th className="text-left p-3 text-xs font-semibold text-slate-600">Carrier</th>
+                                <th className="text-left p-3 text-xs font-semibold text-slate-600">Effective Date</th>
+                                <th className="text-left p-3 text-xs font-semibold text-slate-600">Expiry Date</th>
+                              </tr>
+                            </thead>
+                            <tbody>
                         {group.tariffs.map(tariff => {
                           const customer = customers.find(c => c.id === tariff.customer_id);
                           const tariffCarriers = (tariff.carrier_ids || [])
@@ -354,39 +426,40 @@ export default function TariffsPage() {
                           const firstCarrier = tariffCarriers[0];
 
                           return (
-                            <Link
-                              key={tariff.id}
-                              to={createPageUrl(`TariffDetail?id=${tariff.id}`)}
-                              className={`block p-4 hover:bg-slate-50 transition-colors border-b last:border-b-0 ${getOwnershipColor(tariff.ownership_type)}`}
-                            >
-                              <div className="flex items-start justify-between">
-                                <div className="flex-1 min-w-0 space-y-2">
-                                  <div className="flex items-center gap-3 flex-wrap">
-                                    <span className="font-medium text-slate-900">
-                                      {tariff.version || 'No Version'}
-                                    </span>
-                                    {getStatusBadge(tariff)}
-                                    {firstCarrier && (
-                                      <span className="text-sm text-slate-600">
-                                        {firstCarrier.name}
-                                        {tariffCarriers.length > 1 && ` +${tariffCarriers.length - 1} more`}
-                                      </span>
-                                    )}
-                                  </div>
-
-                                  <div className="flex items-center gap-4 text-sm text-slate-500">
-                                    {tariff.effective_date && (
-                                      <span>Effective: {format(new Date(tariff.effective_date), 'MMM dd, yyyy')}</span>
-                                    )}
-                                    {tariff.expiry_date && (
-                                      <span>Expires: {format(new Date(tariff.expiry_date), 'MMM dd, yyyy')}</span>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                            </Link>
+                            <tr key={tariff.id} className={`hover:bg-slate-50 transition-colors border-b last:border-b-0 ${getOwnershipColor(tariff.ownership_type)}`}>
+                              <td className="p-3">
+                                <Link
+                                  to={createPageUrl(`TariffDetail?id=${tariff.id}`)}
+                                  className="font-medium text-slate-900 hover:text-blue-600 hover:underline"
+                                >
+                                  {tariff.version || 'No Version'}
+                                </Link>
+                              </td>
+                              <td className="p-3">
+                                {getStatusBadge(tariff)}
+                              </td>
+                              <td className="p-3 text-sm text-slate-600">
+                                {firstCarrier ? (
+                                  <span>
+                                    {firstCarrier.name}
+                                    {tariffCarriers.length > 1 && ` +${tariffCarriers.length - 1}`}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400">—</span>
+                                )}
+                              </td>
+                              <td className="p-3 text-sm text-slate-600">
+                                {tariff.effective_date ? format(new Date(tariff.effective_date), 'MMM dd, yyyy') : '—'}
+                              </td>
+                              <td className="p-3 text-sm text-slate-600">
+                                {tariff.expiry_date ? format(new Date(tariff.expiry_date), 'MMM dd, yyyy') : '—'}
+                              </td>
+                            </tr>
                           );
                         })}
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     )}
                   </div>
