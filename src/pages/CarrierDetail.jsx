@@ -414,6 +414,7 @@ export default function CarrierDetailPage() {
     const [searchParams] = useSearchParams();
     const carrierId = searchParams.get('id');
     const isNew = searchParams.get('new') === 'true';
+    const prefillScac = searchParams.get('scac');
     const defaultTab = searchParams.get('tab') || 'overview';
     const highlightId = searchParams.get('highlight');
     const [isEditSheetOpen, setIsEditSheetOpen] = useState(isNew);
@@ -441,6 +442,7 @@ export default function CarrierDetailPage() {
                     carrierId={null}
                     isOpen={isEditSheetOpen}
                     onOpenChange={setIsEditSheetOpen}
+                    prefillData={prefillScac ? { scac_code: prefillScac } : undefined}
                 />
             </>
         );

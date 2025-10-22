@@ -17,6 +17,7 @@ import CspStrategyTab from '../customers/CspStrategyTab';
 import CustomerDetailSheet from '../customers/CustomerDetailSheet';
 import { useToast } from '../ui/use-toast';
 import { supabase } from '../../api/supabaseClient';
+import ScacCarrierMatch from '../documents/ScacCarrierMatch';
 
 const STAGES = [
     "discovery",
@@ -477,35 +478,46 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
                                         ) : documents.length > 0 ? (
                                             <div className="space-y-3">
                                                 {documents.map((doc) => (
-                                                    <div key={doc.id} className="flex items-center justify-between p-3 border rounded-lg hover:bg-slate-50">
-                                                        <div className="flex items-center gap-3 flex-1 min-w-0">
-                                                            <FileText className="w-5 h-5 text-slate-500 flex-shrink-0" />
-                                                            <div className="min-w-0 flex-1">
-                                                                <p className="font-medium text-sm text-slate-900 truncate">{doc.file_name}</p>
-                                                                <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
-                                                                    <span>{doc.upload_date ? format(new Date(doc.upload_date), 'MMM d, yyyy') : 'N/A'}</span>
-                                                                    {doc.file_size && (
-                                                                        <>
-                                                                            <span>•</span>
-                                                                            <span>{(doc.file_size / 1024).toFixed(1)} KB</span>
-                                                                        </>
-                                                                    )}
+                                                    <div key={doc.id}>
+                                                        <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-slate-50">
+                                                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                                                                <FileText className="w-5 h-5 text-slate-500 flex-shrink-0" />
+                                                                <div className="min-w-0 flex-1">
+                                                                    <p className="font-medium text-sm text-slate-900 truncate">{doc.file_name}</p>
+                                                                    <div className="flex items-center gap-2 text-xs text-slate-500 mt-1">
+                                                                        <span>{doc.upload_date ? format(new Date(doc.upload_date), 'MMM d, yyyy') : 'N/A'}</span>
+                                                                        {doc.file_size && (
+                                                                            <>
+                                                                                <span>•</span>
+                                                                                <span>{(doc.file_size / 1024).toFixed(1)} KB</span>
+                                                                            </>
+                                                                        )}
+                                                                        {doc.ai_processing_status && (
+                                                                            <>
+                                                                                <span>•</span>
+                                                                                <Badge variant="outline" className="capitalize text-xs">
+                                                                                    {doc.ai_processing_status}
+                                                                                </Badge>
+                                                                            </>
+                                                                        )}
+                                                                    </div>
                                                                 </div>
                                                             </div>
+                                                            <div className="flex items-center gap-2">
+                                                                <Badge variant="secondary" className="capitalize text-xs">
+                                                                    {doc.document_type?.replace(/_/g, ' ')}
+                                                                </Badge>
+                                                                <Button
+                                                                    variant="outline"
+                                                                    size="sm"
+                                                                    onClick={() => handleDownloadDocument(doc)}
+                                                                    className="h-8 w-8 p-0"
+                                                                >
+                                                                    <Download className="w-4 h-4" />
+                                                                </Button>
+                                                            </div>
                                                         </div>
-                                                        <div className="flex items-center gap-2">
-                                                            <Badge variant="secondary" className="capitalize text-xs">
-                                                                {doc.document_type?.replace(/_/g, ' ')}
-                                                            </Badge>
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={() => handleDownloadDocument(doc)}
-                                                                className="h-8 w-8 p-0"
-                                                            >
-                                                                <Download className="w-4 h-4" />
-                                                            </Button>
-                                                        </div>
+                                                        <ScacCarrierMatch document={doc} />
                                                     </div>
                                                 ))}
                                             </div>

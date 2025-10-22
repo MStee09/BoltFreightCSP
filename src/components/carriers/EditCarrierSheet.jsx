@@ -11,12 +11,13 @@ import { Loader2 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 
-export default function EditCarrierSheet({ carrierId, isOpen, onOpenChange }) {
+export default function EditCarrierSheet({ carrierId, isOpen, onOpenChange, prefillData }) {
     const queryClient = useQueryClient();
     const isCreating = !carrierId;
     const [formData, setFormData] = useState({
         service_countries: 'US',
-        coverage_type: 'regional'
+        coverage_type: 'regional',
+        ...prefillData
     });
 
     const { data: carrier, isLoading } = useQuery({
@@ -38,10 +39,11 @@ export default function EditCarrierSheet({ carrierId, isOpen, onOpenChange }) {
         } else if (isCreating) {
             setFormData({
                 service_countries: 'US',
-                coverage_type: 'regional'
+                coverage_type: 'regional',
+                ...prefillData
             });
         }
-    }, [carrier, isCreating]);
+    }, [carrier, isCreating, prefillData]);
 
     const mutation = useMutation({
         mutationFn: (updatedData) => {
