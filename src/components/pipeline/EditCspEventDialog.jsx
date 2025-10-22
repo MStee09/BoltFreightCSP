@@ -84,7 +84,9 @@ export default function EditCspEventDialog({ isOpen, onOpenChange, eventId }) {
             const { description, ...rest } = data;
             const updateData = {
                 ...rest,
-                notes: description
+                notes: description,
+                go_live_date: rest.go_live_date || null,
+                due_date: rest.due_date || null
             };
             const updatedEvent = await CSPEvent.update(eventId, updateData);
 

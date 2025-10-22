@@ -70,7 +70,8 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers: custome
             const { description, ...rest } = eventData;
             const createData = {
                 ...rest,
-                notes: description
+                notes: description,
+                due_date: rest.due_date || null
             };
             const createdEvent = await CSPEvent.create(createData);
 
