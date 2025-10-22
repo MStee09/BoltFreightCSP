@@ -25,7 +25,6 @@ const STAGES = [
   "final_offers",
   "awarded",
   "implementation",
-  "validation",
   "live",
   "renewal_watch"
 ];
@@ -39,7 +38,6 @@ const STAGE_DEFINITIONS = {
   final_offers: "Final pricing negotiations and carrier selection in progress",
   awarded: "Contract awarded, awaiting tariff finalization",
   implementation: "Tariff being implemented in systems",
-  validation: "Testing and validating new rates before go-live",
   live: "New tariff is active and in production",
   renewal_watch: "Monitoring for upcoming renewal opportunities"
 };
@@ -415,17 +413,44 @@ export default function PipelinePage() {
     <>
       <div className="h-full flex flex-col overflow-hidden">
         <div className="p-4 lg:p-6 flex-shrink-0 bg-white border-b border-slate-200">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-slate-900">CSP Pipeline</h1>
-              <Button className="bg-blue-600 hover:bg-blue-700 whitespace-nowrap" onClick={() => setIsNewEventSheetOpen(true)}>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                New Event
-              </Button>
+          <div className="flex items-center gap-3 mb-3">
+            <h1 className="text-2xl font-bold text-slate-900">CSP Pipeline</h1>
+            <Button className="bg-blue-600 hover:bg-blue-700 whitespace-nowrap" onClick={() => setIsNewEventSheetOpen(true)}>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              New Event
+            </Button>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 flex items-center gap-3 text-sm flex-shrink-0">
+              <div className="flex items-center gap-1.5">
+                <span className="font-semibold text-slate-700">Active:</span>
+                <span className="text-slate-900 font-bold">{metrics.activeCount}</span>
+              </div>
+              <div className="w-px h-4 bg-slate-300"></div>
+              <div className="flex items-center gap-1.5">
+                <span className="font-semibold text-slate-700">Avg Days:</span>
+                <span className="text-slate-900 font-bold">{metrics.avgDays}</span>
+              </div>
+              <div className="w-px h-4 bg-slate-300"></div>
+              <div className="flex items-center gap-1.5">
+                <span className="font-semibold text-slate-700">Win:</span>
+                <span className="text-slate-900 font-bold">{metrics.winRate}%</span>
+              </div>
+              {metrics.staleCount > 0 && (
+                <>
+                  <div className="w-px h-4 bg-slate-300"></div>
+                  <div className="flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4 text-red-600" />
+                    <span className="font-semibold text-red-700">{metrics.staleCount} Stale</span>
+                  </div>
+                </>
+              )}
             </div>
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="whitespace-nowrap">
+                <Button variant="outline" size="sm" className="whitespace-nowrap flex-shrink-0">
                   <Filter className="w-4 h-4 mr-2" />
                   Filters
                   {activeFilterCount > 0 && (
@@ -516,32 +541,6 @@ export default function PipelinePage() {
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
-          </div>
-
-          <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 flex items-center gap-4 text-sm">
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-slate-700">Active CSPs:</span>
-              <span className="text-slate-900 font-bold">{metrics.activeCount}</span>
-            </div>
-            <div className="w-px h-4 bg-slate-300"></div>
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-slate-700">Avg Days:</span>
-              <span className="text-slate-900 font-bold">{metrics.avgDays}</span>
-            </div>
-            <div className="w-px h-4 bg-slate-300"></div>
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-slate-700">Win Rate:</span>
-              <span className="text-slate-900 font-bold">{metrics.winRate}%</span>
-            </div>
-            {metrics.staleCount > 0 && (
-              <>
-                <div className="w-px h-4 bg-slate-300"></div>
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-red-600" />
-                  <span className="font-semibold text-red-700">{metrics.staleCount} Stale</span>
-                </div>
-              </>
-            )}
           </div>
         </div>
         <div ref={containerRef} className="flex-1 p-4 lg:p-6 overflow-x-auto overflow-y-hidden">
