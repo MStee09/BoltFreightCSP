@@ -11,6 +11,7 @@ import { Skeleton } from '../components/ui/skeleton';
 import { ArrowLeft, Edit, File, UploadCloud, Download, X, Loader2, BookMarked } from 'lucide-react';
 import { Input } from '../components/ui/input';
 import { Badge } from "../components/ui/badge";
+import EditTariffDialog from '../components/tariffs/EditTariffDialog';
 
 const TariffDocumentManager = ({ tariff }) => {
     const queryClient = useQueryClient();
@@ -103,6 +104,7 @@ const InfoItem = ({ label, value, children }) => (
 export default function TariffDetailPage() {
     const [searchParams] = useSearchParams();
     const tariffId = searchParams.get('id');
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
     const { data: tariff, isLoading: isLoadingTariff } = useQuery({
         queryKey: ['tariff', tariffId],
@@ -161,7 +163,7 @@ export default function TariffDetailPage() {
                     </div>
                     <p className="text-slate-600 mt-1">{headerDescription}</p>
                 </div>
-                <Button variant="outline">
+                <Button variant="outline" onClick={() => setIsEditDialogOpen(true)}>
                     <Edit className="w-4 h-4 mr-2" /> Edit Details
                 </Button>
             </div>
@@ -205,6 +207,12 @@ export default function TariffDetailPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            <EditTariffDialog
+                open={isEditDialogOpen}
+                onOpenChange={setIsEditDialogOpen}
+                tariff={tariff}
+            />
         </div>
     );
 }
