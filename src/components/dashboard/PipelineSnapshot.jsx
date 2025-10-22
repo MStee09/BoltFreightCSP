@@ -69,7 +69,7 @@ export default function PipelineSnapshot({ events }) {
                         return (
                             <React.Fragment key={stage}>
                                 <Link to={`${createPageUrl("Pipeline")}?stage=${stage}`} className="flex flex-col items-center group">
-                                    <div className="text-2xl font-bold text-blue-600">
+                                    <div className="text-2xl font-bold text-blue-600 group-hover:scale-110 transition-transform">
                                         {count}
                                     </div>
                                     <div className="text-xs uppercase font-semibold text-slate-500 group-hover:text-blue-600 transition-colors">
@@ -77,9 +77,9 @@ export default function PipelineSnapshot({ events }) {
                                     </div>
                                 </Link>
                                 {index < STAGES.length - 1 && (
-                                    <div className="flex-1 px-2">
+                                    <div className="flex-1 px-2 group">
                                         <div className="w-full h-px bg-slate-200 relative">
-                                            <ArrowRight className="w-4 h-4 text-slate-300 absolute -top-2 right-1/2" />
+                                            <ArrowRight className="w-4 h-4 text-slate-300 absolute -top-2 right-1/2 group-hover:text-blue-500 group-hover:animate-pulse transition-colors" />
                                         </div>
                                     </div>
                                 )}

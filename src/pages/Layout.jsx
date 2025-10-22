@@ -5,6 +5,9 @@ import { Link, useLocation } from "react-router-dom";
 import { createPageUrl } from "../utils";
 import { useUserRole } from "../hooks/useUserRole";
 import { supabase } from "../api/supabaseClient";
+import { useQuery } from "@tanstack/react-query";
+import { Tariff, CSPEvent, Alert } from "../api/entities";
+import { differenceInDays } from "date-fns";
 import {
   LayoutDashboard,
   Users,
@@ -87,6 +90,21 @@ export default function Layout({ children, currentPageName }) {
   const { isAdmin, userProfile } = useUserRole();
   const [currentUser, setCurrentUser] = useState(null);
 
+  const { data: rawTariffs = [] } = useQuery({
+    queryKey: ['tariffs'],
+    queryFn: () => Tariff.list(),
+  });
+
+  const { data: rawCspEvents = [] } = useQuery({
+    queryKey: ['csp_events'],
+    queryFn: () => CSPEvent.list(),
+  });
+
+  const { data: rawAlerts = [] } = useQuery({
+    queryKey: ['alerts'],
+    queryFn: () => Alert.filter({ status: 'active' }),
+  });
+
   useEffect(() => {
     fetchCurrentUser();
   }, []);
@@ -95,6 +113,28 @@ export default function Layout({ children, currentPageName }) {
     const { data: { user } } = await supabase.auth.getUser();
     setCurrentUser(user);
   };
+
+  const toArray = (data) => {
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    if (data.data && Array.isArray(data.data)) return data.data;
+    return [];
+  };
+
+  const tariffs = toArray(rawTariffs);
+  const cspEvents = toArray(rawCspEvents);
+  const alerts = toArray(rawAlerts);
+
+  const expiringTariffsCount = tariffs.filter(t => {
+    if (!t?.expiry_date || t.status !== 'active') return false;
+    const daysUntilExpiry = differenceInDays(new Date(t.expiry_date), new Date());
+    return daysUntilExpiry <= 90 && daysUntilExpiry >= 0;
+  }).length;
+
+  const staleNegotiationsCount = cspEvents.filter(e => {
+    if (!e?.days_in_stage) return false;
+    return e.days_in_stage > 14 && (e.stage === 'rfp_sent' || e.stage === 'qa_round');
+  }).length;
 
   return (
     <SidebarProvider>
@@ -119,23 +159,41 @@ export default function Layout({ children, currentPageName }) {
               </SidebarGroupLabel>
               <SidebarGroupContent>
                 <SidebarMenu>
-                  {navigationItems.map((item) => (
-                    <SidebarMenuItem key={item.title}>
-                      <SidebarMenuButton 
-                        asChild 
-                        className={`hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 rounded-xl mb-1 ${
-                          location.pathname === item.url 
-                            ? 'bg-blue-50 text-blue-700 font-medium shadow-sm' 
-                            : 'text-slate-600'
-                        }`}
-                      >
-                        <Link to={item.url} className="flex items-center gap-3 px-4 py-3">
-                          <item.icon className="w-5 h-5" />
-                          <span>{item.title}</span>
-                        </Link>
-                      </SidebarMenuButton>
-                    </SidebarMenuItem>
-                  ))}
+                  {navigationItems.map((item) => {
+                    let badgeCount = null;
+                    let badgeVariant = "destructive";
+
+                    if (item.title === "Pipeline" && staleNegotiationsCount > 0) {
+                      badgeCount = staleNegotiationsCount;
+                      badgeVariant = "default";
+                    } else if (item.title === "Tariffs" && expiringTariffsCount > 0) {
+                      badgeCount = expiringTariffsCount;
+                      badgeVariant = "destructive";
+                    }
+
+                    return (
+                      <SidebarMenuItem key={item.title}>
+                        <SidebarMenuButton
+                          asChild
+                          className={`hover:bg-blue-50 hover:text-blue-700 transition-all duration-200 rounded-xl mb-1 ${
+                            location.pathname === item.url
+                              ? 'bg-blue-50 text-blue-700 font-medium shadow-sm'
+                              : 'text-slate-600'
+                          }`}
+                        >
+                          <Link to={item.url} className="flex items-center gap-3 px-4 py-3">
+                            <item.icon className="w-5 h-5" />
+                            <span className="flex-1">{item.title}</span>
+                            {badgeCount && (
+                              <Badge variant={badgeVariant} className="ml-auto text-xs">
+                                {badgeCount}
+                              </Badge>
+                            )}
+                          </Link>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  })}
                 </SidebarMenu>
               </SidebarGroupContent>
             </SidebarGroup>

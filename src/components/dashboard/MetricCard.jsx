@@ -15,7 +15,8 @@ export default function MetricCard({
   filterParam
 }) {
   const CardWrapper = linkTo ? Link : 'div';
-  const cardProps = linkTo ? { to: createPageUrl(linkTo), className: "block" } : {};
+  const linkUrl = linkTo ? `${createPageUrl(linkTo)}${filterParam ? `?filter=${filterParam}` : ''}` : '';
+  const cardProps = linkTo ? { to: linkUrl, className: "block" } : {};
 
   return (
     <CardWrapper {...cardProps}>

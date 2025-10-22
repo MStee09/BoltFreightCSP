@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Customer, Carrier, Tariff, CSPEvent, Task, Interaction, Alert, Shipment, LostOpportunity, ReportSnapshot } from "../api/entities";
 import { format, differenceInDays } from "date-fns";
@@ -9,8 +9,9 @@ import TodayTasks from "../components/dashboard/TodayTasks";
 import PipelineSnapshot from "../components/dashboard/PipelineSnapshot";
 import ReportUploadPrompt from "../components/dashboard/ReportUploadPrompt";
 import MetricCard from "../components/dashboard/MetricCard";
+import DailyFocusBanner from "../components/dashboard/DailyFocusBanner";
 import { DashboardChatbot } from "../components/dashboard/DashboardChatbot";
-import { Users, Truck, FileText, Trash2 } from "lucide-react";
+import { Users, Truck, FileText, Trash2, RefreshCw } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { useToast } from "../components/ui/use-toast";
 import { clearMockData } from "../utils/mockData";
@@ -25,15 +26,22 @@ function toArray(data) {
 
 export default function Dashboard() {
   const [isLoadingMockData, setIsLoadingMockData] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState(new Date());
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: rawCustomers, isLoading: loadingCustomers } = useQuery({ queryKey: ['customers'], queryFn: () => Customer.list() });
+  const { data: rawCustomers, isLoading: loadingCustomers, dataUpdatedAt: customersUpdatedAt } = useQuery({ queryKey: ['customers'], queryFn: () => Customer.list() });
   const { data: rawCarriers } = useQuery({ queryKey: ['carriers'], queryFn: () => Carrier.list() });
   const { data: rawTariffs } = useQuery({ queryKey: ['tariffs'], queryFn: () => Tariff.list() });
   const { data: rawCspEvents } = useQuery({ queryKey: ['csp_events'], queryFn: () => CSPEvent.list() });
   const { data: rawTasks } = useQuery({ queryKey: ['tasks'], queryFn: () => Task.list('-due_date') });
   const { data: rawAlerts } = useQuery({ queryKey: ['alerts'], queryFn: () => Alert.filter({ status: 'active', order_by: '-created_date' }) });
+
+  useEffect(() => {
+    if (customersUpdatedAt) {
+      setLastSyncTime(new Date(customersUpdatedAt));
+    }
+  }, [customersUpdatedAt]);
 
   const customers = toArray(rawCustomers);
   const carriers = toArray(rawCarriers);
@@ -89,6 +97,19 @@ export default function Dashboard() {
     }
   };
 
+  const getTimeSinceSync = () => {
+    const now = new Date();
+    const diffMs = now - lastSyncTime;
+    const diffMins = Math.floor(diffMs / 60000);
+
+    if (diffMins < 1) return 'just now';
+    if (diffMins === 1) return '1 min ago';
+    if (diffMins < 60) return `${diffMins} mins ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours === 1) return '1 hour ago';
+    return `${diffHours} hours ago`;
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
       <div className="p-4 lg:p-6 max-w-[1800px] mx-auto">
@@ -111,6 +132,18 @@ export default function Dashboard() {
           </div>
         </div>
 
+        <DailyFocusBanner
+          alerts={alerts}
+          expiringTariffs={expiringTariffs}
+          idleNegotiations={idleNegotiations}
+          todayTasks={todayTasks}
+        />
+
+        <div className="flex items-center gap-2 text-xs text-slate-500 mb-3">
+          <RefreshCw className="w-3.5 h-3.5" />
+          <span>Data last updated {getTimeSinceSync()}</span>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
           <MetricCard
             title="Active Customers"
@@ -129,6 +162,7 @@ export default function Dashboard() {
             value={tariffs.filter(t => t.status === 'active').length}
             icon={FileText}
             linkTo="Tariffs"
+            filterParam="active"
           />
           <MetricCard
             title="Open CSP Events"
@@ -136,6 +170,7 @@ export default function Dashboard() {
             icon={Users}
             linkTo="Pipeline"
             iconColor="bg-blue-500"
+            filterParam="in_progress"
           />
         </div>
 
