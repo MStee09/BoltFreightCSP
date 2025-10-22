@@ -1,5 +1,5 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Customer, Carrier, Tariff, CSPEvent, Task, Interaction, Alert, Shipment, LostOpportunity, ReportSnapshot, Document, User } from '../../api/entities';
 import { supabase } from '../../api/supabaseClient';
@@ -9,15 +9,21 @@ import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
-import { Upload, X, FileText } from 'lucide-react';
+import { Upload, X, FileText, Calendar as CalendarIcon } from 'lucide-react';
 import { Card, CardContent } from '../ui/card';
 import { useToast } from '../ui/use-toast';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
+import { Calendar } from '../ui/calendar';
+import { format } from 'date-fns';
+import { cn } from '../../lib/utils';
+import { useAuth } from '../../contexts/AuthContext';
 
 const STAGES = ["discovery", "data_room_ready", "rfp_sent", "qa_round", "round_1", "final_offers", "awarded", "implementation", "validation", "live", "renewal_watch"];
 const MOCK_USER_ID = '00000000-0000-0000-0000-000000000000';
 
 export default function NewEventSheet({ isOpen, onOpenChange, customers: customersProp = [] }) {
     const { toast } = useToast();
+    const { user } = useAuth();
     const queryClient = useQueryClient();
     const fileInputRef = useRef(null);
     const [newEvent, setNewEvent] = useState({
@@ -26,7 +32,8 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers: custome
         stage: 'discovery',
         priority: 'medium',
         description: '',
-        assigned_to: ''
+        assigned_to: '',
+        due_date: null
     });
 
     const { data: customers = [], isLoading: isLoadingCustomers } = useQuery({
@@ -44,6 +51,15 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers: custome
     });
     const [attachedFiles, setAttachedFiles] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+        if (isOpen && user?.email && !newEvent.assigned_to) {
+            setNewEvent(prev => ({
+                ...prev,
+                assigned_to: user.email
+            }));
+        }
+    }, [isOpen, user]);
 
     const createEventMutation = useMutation({
         mutationFn: async (eventData) => {
@@ -96,7 +112,7 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers: custome
             queryClient.invalidateQueries({ queryKey: ['documents'] });
             setIsLoading(false);
             onOpenChange(false);
-            setNewEvent({ title: '', customer_id: '', stage: 'discovery', priority: 'medium', description: '', assigned_to: '' });
+            setNewEvent({ title: '', customer_id: '', stage: 'discovery', priority: 'medium', description: '', assigned_to: '', due_date: null });
             setAttachedFiles([]);
             toast({
                 title: "Success!",
@@ -209,6 +225,32 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers: custome
                                 )}
                             </SelectContent>
                         </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="due_date">Expected Due Date</Label>
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button
+                                    id="due_date"
+                                    variant="outline"
+                                    className={cn(
+                                        "w-full justify-start text-left font-normal",
+                                        !newEvent.due_date && "text-muted-foreground"
+                                    )}
+                                >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {newEvent.due_date ? format(new Date(newEvent.due_date), "PPP") : "Select due date"}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                    mode="single"
+                                    selected={newEvent.due_date ? new Date(newEvent.due_date) : undefined}
+                                    onSelect={(date) => handleValueChange('due_date', date ? format(date, 'yyyy-MM-dd') : null)}
+                                    initialFocus
+                                />
+                            </PopoverContent>
+                        </Popover>
                     </div>
                      <div className="space-y-2">
                         <Label htmlFor="description">Description</Label>
