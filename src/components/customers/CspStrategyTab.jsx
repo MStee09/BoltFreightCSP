@@ -26,11 +26,36 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
     const [txnDocType, setTxnDocType] = useState('transaction_detail');
     const [loDocType, setLoDocType] = useState('low_cost_opportunity');
     const [error, setError] = useState(null);
+    const [txnHeaders, setTxnHeaders] = useState([]);
+    const [loHeaders, setLoHeaders] = useState([]);
+    const [txnMapping, setTxnMapping] = useState({});
+    const [loMapping, setLoMapping] = useState({});
+    const [showMapping, setShowMapping] = useState(false);
     const { toast } = useToast();
     const { user } = useAuth();
     const queryClient = useQueryClient();
 
-    const parseCSV = (text) => {
+    const requiredTxnFields = {
+        load_id: 'Load ID',
+        carrier: 'Carrier Name',
+        cost: 'Cost/Bill Amount',
+        ownership: 'Pricing Ownership'
+    };
+
+    const requiredLoFields = {
+        load_id: 'Load ID',
+        selected_carrier: 'Selected Carrier Name',
+        selected_cost: 'Selected Carrier Cost',
+        opportunity_carrier: 'Low Cost Carrier Name',
+        opportunity_cost: 'Low Cost Carrier Cost'
+    };
+
+    const extractHeaders = (text) => {
+        const lines = text.trim().split('\n');
+        return lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+    };
+
+    const parseCSVWithMapping = (text, mapping) => {
         const lines = text.trim().split('\n');
         const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
         const data = [];
@@ -40,11 +65,14 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
             if (values.length === headers.length) {
                 const row = {};
                 headers.forEach((header, index) => {
-                    let value = values[index].trim().replace(/^"|"$/g, '');
-                    if (!isNaN(value) && value !== '') {
-                        value = parseFloat(value);
+                    const mappedKey = Object.keys(mapping).find(key => mapping[key] === header);
+                    if (mappedKey) {
+                        let value = values[index].trim().replace(/^"|"$/g, '');
+                        if (!isNaN(value) && value !== '') {
+                            value = parseFloat(value);
+                        }
+                        row[mappedKey] = value;
                     }
-                    row[header] = value;
                 });
                 data.push(row);
             }
@@ -52,9 +80,58 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
         return data;
     };
 
+    const handleFileSelect = async (file, type) => {
+        if (!file) return;
+
+        try {
+            const text = await file.text();
+            const headers = extractHeaders(text);
+
+            if (type === 'txn') {
+                setTxnFile(file);
+                setTxnHeaders(headers);
+                const autoMapping = {};
+                Object.keys(requiredTxnFields).forEach(key => {
+                    const match = headers.find(h =>
+                        h.toLowerCase().includes(key.toLowerCase()) ||
+                        requiredTxnFields[key].toLowerCase().includes(h.toLowerCase())
+                    );
+                    if (match) autoMapping[key] = match;
+                });
+                setTxnMapping(autoMapping);
+            } else {
+                setLoFile(file);
+                setLoHeaders(headers);
+                const autoMapping = {};
+                Object.keys(requiredLoFields).forEach(key => {
+                    const match = headers.find(h =>
+                        h.toLowerCase().includes(key.replace('_', ' ').toLowerCase()) ||
+                        requiredLoFields[key].toLowerCase().includes(h.toLowerCase())
+                    );
+                    if (match) autoMapping[key] = match;
+                });
+                setLoMapping(autoMapping);
+            }
+
+            setShowMapping(true);
+        } catch (err) {
+            setError(`Failed to read ${type === 'txn' ? 'transaction' : 'low cost opportunity'} file: ${err.message}`);
+        }
+    };
+
     const mutation = useMutation({
-        mutationFn: async ({ txnFile, loFile }) => {
+        mutationFn: async ({ txnFile, loFile, txnMapping, loMapping }) => {
             setError(null);
+
+            const missingTxnFields = Object.keys(requiredTxnFields).filter(key => !txnMapping[key]);
+            const missingLoFields = Object.keys(requiredLoFields).filter(key => !loMapping[key]);
+
+            if (missingTxnFields.length > 0) {
+                throw new Error(`Missing Transaction Detail mappings: ${missingTxnFields.map(k => requiredTxnFields[k]).join(', ')}`);
+            }
+            if (missingLoFields.length > 0) {
+                throw new Error(`Missing Low Cost Opportunity mappings: ${missingLoFields.map(k => requiredLoFields[k]).join(', ')}`);
+            }
 
             const timestamp = Date.now();
             const txnPath = `${user?.id || '00000000-0000-0000-0000-000000000000'}/${timestamp}_${txnFile.name}`;
@@ -73,8 +150,8 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
                 loFile.text()
             ]);
 
-            const txnData = parseCSV(txnText);
-            const loData = parseCSV(loText);
+            const txnData = parseCSVWithMapping(txnText, txnMapping);
+            const loData = parseCSVWithMapping(loText, loMapping);
 
             if (cspEventId) {
                 const { data: { publicUrl: txnUrl } } = supabase.storage.from('documents').getPublicUrl(txnPath);
@@ -146,7 +223,7 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
         }
     });
 
-    const FileDropzone = ({ file, setFile, title, docType, setDocType }) => (
+    const FileDropzone = ({ file, setFile, title, docType, setDocType, type }) => (
         <div className="w-full space-y-2">
             <div className="flex items-center justify-between">
                 <Label className="text-sm font-medium text-slate-700">{title}</Label>
@@ -174,9 +251,42 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
                 <div className="relative p-6 border-2 border-dashed rounded-lg text-center cursor-pointer hover:border-blue-500 transition-colors">
                     <UploadCloud className="w-6 h-6 mx-auto text-slate-400 mb-1" />
                     <p className="text-sm text-slate-500">Drag & drop or click</p>
-                    <Input type="file" className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer" onChange={(e) => e.target.files[0] && setFile(e.target.files[0])} />
+                    <Input
+                        type="file"
+                        accept=".csv"
+                        className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
+                        onChange={(e) => e.target.files[0] && handleFileSelect(e.target.files[0], type)}
+                    />
                 </div>
             )}
+        </div>
+    );
+
+    const ColumnMapper = ({ fields, headers, mapping, setMapping, title }) => (
+        <div className="space-y-3">
+            <h4 className="text-sm font-semibold text-slate-700">{title}</h4>
+            <div className="space-y-2">
+                {Object.entries(fields).map(([key, label]) => (
+                    <div key={key} className="flex items-center gap-2">
+                        <Label className="text-xs w-1/3">{label}</Label>
+                        <Select
+                            value={mapping[key] || ''}
+                            onValueChange={(value) => setMapping({ ...mapping, [key]: value })}
+                        >
+                            <SelectTrigger className="w-2/3 h-8 text-xs">
+                                <SelectValue placeholder="Select column..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {headers.map(header => (
+                                    <SelectItem key={header} value={header} className="text-xs">
+                                        {header}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 
@@ -188,11 +298,58 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FileDropzone file={txnFile} setFile={setTxnFile} title="File A" docType={txnDocType} setDocType={setTxnDocType} />
-                    <FileDropzone file={loFile} setFile={setLoFile} title="File B" docType={loDocType} setDocType={setLoDocType} />
+                    <FileDropzone
+                        file={txnFile}
+                        setFile={setTxnFile}
+                        title="File A"
+                        docType={txnDocType}
+                        setDocType={setTxnDocType}
+                        type="txn"
+                    />
+                    <FileDropzone
+                        file={loFile}
+                        setFile={setLoFile}
+                        title="File B"
+                        docType={loDocType}
+                        setDocType={setLoDocType}
+                        type="lo"
+                    />
                 </div>
+
+                {showMapping && txnFile && loFile && (
+                    <div className="border rounded-lg p-4 space-y-4 bg-slate-50">
+                        <div className="flex items-center gap-2 mb-3">
+                            <Info className="w-4 h-4 text-blue-600" />
+                            <h3 className="text-sm font-semibold text-slate-700">Map Your CSV Columns</h3>
+                        </div>
+                        <p className="text-xs text-slate-600 mb-4">
+                            Match your CSV columns to the required fields. We've auto-detected some mappings, but please verify they're correct.
+                        </p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <ColumnMapper
+                                fields={requiredTxnFields}
+                                headers={txnHeaders}
+                                mapping={txnMapping}
+                                setMapping={setTxnMapping}
+                                title="Transaction Detail Columns"
+                            />
+                            <ColumnMapper
+                                fields={requiredLoFields}
+                                headers={loHeaders}
+                                mapping={loMapping}
+                                setMapping={setLoMapping}
+                                title="Low Cost Opportunity Columns"
+                            />
+                        </div>
+                    </div>
+                )}
+
                 {error && <Alert variant="destructive"><AlertTitle>Error</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
-                <Button onClick={() => mutation.mutate({ txnFile, loFile })} disabled={!txnFile || !loFile || mutation.isLoading} className="w-full">
+                <Button
+                    onClick={() => mutation.mutate({ txnFile, loFile, txnMapping, loMapping })}
+                    disabled={!txnFile || !loFile || mutation.isLoading}
+                    className="w-full"
+                >
                     {mutation.isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {mutation.isLoading ? 'Processing & Generating AI Summary...' : 'Upload & Analyze'}
                 </Button>
