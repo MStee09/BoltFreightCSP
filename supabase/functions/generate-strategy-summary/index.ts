@@ -42,6 +42,7 @@ Deno.serve(async (req: Request) => {
 
     const carrierCounts: Record<string, number> = {};
     const carrierSpend: Record<string, number> = {};
+    const carrierOwnership: Record<string, string> = {};
     const laneCounts: Record<string, number> = {};
     const laneSpend: Record<string, number> = {};
 
@@ -49,12 +50,14 @@ Deno.serve(async (req: Request) => {
       txnData.forEach((txn: any) => {
         const carrier = txn.carrier || txn.Carrier || 'Unknown';
         const cost = parseFloat(txn.cost || txn.Bill || txn.bill || 0);
+        const ownership = txn.ownership || txn.Pricing_Ownership || txn['Pricing Ownership'] || 'Unknown';
         const originCity = txn.origin_city || txn['Origin City'] || txn.OriginCity || '';
         const destCity = txn.dest_city || txn['Dest City'] || txn.DestCity || '';
         const lane = originCity && destCity ? `${originCity} → ${destCity}` : 'Unknown';
 
         carrierCounts[carrier] = (carrierCounts[carrier] || 0) + 1;
         carrierSpend[carrier] = (carrierSpend[carrier] || 0) + cost;
+        carrierOwnership[carrier] = ownership;
         laneCounts[lane] = (laneCounts[lane] || 0) + 1;
         laneSpend[lane] = (laneSpend[lane] || 0) + cost;
       });
@@ -77,6 +80,7 @@ Deno.serve(async (req: Request) => {
         shipments: count,
         spend: carrierSpend[carrier] || 0,
         percentage: totalShipments > 0 ? parseFloat(((count / totalShipments) * 100).toFixed(1)) : 0,
+        ownership: carrierOwnership[carrier] || 'Unknown',
       }));
 
     const topLanes = Object.entries(laneCounts)

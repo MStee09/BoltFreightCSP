@@ -38,6 +38,46 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
     const { user } = useAuth();
     const queryClient = useQueryClient();
 
+    const loadSavedMappings = async (docType) => {
+        if (!user?.id) return null;
+
+        try {
+            const { data, error } = await supabase
+                .from('field_mappings')
+                .select('mapping')
+                .eq('user_id', user.id)
+                .eq('document_type', docType)
+                .maybeSingle();
+
+            if (error) throw error;
+            return data?.mapping || null;
+        } catch (err) {
+            console.error('Error loading saved mappings:', err);
+            return null;
+        }
+    };
+
+    const saveMappings = async (docType, mapping) => {
+        if (!user?.id || !mapping || Object.keys(mapping).length === 0) return;
+
+        try {
+            const { error } = await supabase
+                .from('field_mappings')
+                .upsert({
+                    user_id: user.id,
+                    document_type: docType,
+                    mapping: mapping,
+                    updated_at: new Date().toISOString()
+                }, {
+                    onConflict: 'user_id,document_type'
+                });
+
+            if (error) throw error;
+        } catch (err) {
+            console.error('Error saving mappings:', err);
+        }
+    };
+
     const requiredTxnFields = {
         load_id: 'Load ID',
         carrier: 'Carrier Name',
@@ -99,8 +139,29 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
             if (type === 'txn') {
                 setTxnFile(file);
                 setTxnHeaders(headers);
-                const autoMapping = {};
 
+                const savedMapping = await loadSavedMappings('transaction_detail');
+
+                if (savedMapping && Object.keys(savedMapping).length > 0) {
+                    const validMapping = {};
+                    Object.entries(savedMapping).forEach(([key, value]) => {
+                        if (headers.includes(value)) {
+                            validMapping[key] = value;
+                        }
+                    });
+
+                    if (Object.keys(validMapping).length > 0) {
+                        setTxnMapping(validMapping);
+                        setTxnAdditionalFields([]);
+                        toast({
+                            title: "Mapping Loaded",
+                            description: "Previously saved field mapping has been applied.",
+                        });
+                        return;
+                    }
+                }
+
+                const autoMapping = {};
                 const defaultMappings = {
                     'load_id': ['Load', 'LoadID', 'Load ID', 'Load_ID'],
                     'carrier': ['Carrier', 'Carrier Name', 'Carrier_Name', 'CarrierName'],
@@ -127,8 +188,29 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
             } else {
                 setLoFile(file);
                 setLoHeaders(headers);
-                const autoMapping = {};
 
+                const savedMapping = await loadSavedMappings('low_cost_opportunity');
+
+                if (savedMapping && Object.keys(savedMapping).length > 0) {
+                    const validMapping = {};
+                    Object.entries(savedMapping).forEach(([key, value]) => {
+                        if (headers.includes(value)) {
+                            validMapping[key] = value;
+                        }
+                    });
+
+                    if (Object.keys(validMapping).length > 0) {
+                        setLoMapping(validMapping);
+                        setLoAdditionalFields([]);
+                        toast({
+                            title: "Mapping Loaded",
+                            description: "Previously saved field mapping has been applied.",
+                        });
+                        return;
+                    }
+                }
+
+                const autoMapping = {};
                 const defaultMappings = {
                     'load_id': ['LoadId', 'LoadID', 'Load ID', 'Load_ID', 'Load'],
                     'selected_carrier': ['Selected_Carrier_Name', 'Selected Carrier Name', 'SelectedCarrierName'],
@@ -188,6 +270,11 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
 
             const txnData = parseCSVWithMapping(txnText, txnMapping);
             const loData = parseCSVWithMapping(loText, loMapping);
+
+            await Promise.all([
+                saveMappings('transaction_detail', txnMapping),
+                saveMappings('low_cost_opportunity', loMapping)
+            ]);
 
             if (cspEventId) {
                 const { data: { publicUrl: txnUrl } } = supabase.storage.from('documents').getPublicUrl(txnPath);
@@ -795,9 +882,16 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                             <p className="text-sm font-medium">Carrier Distribution</p>
                             <div className="space-y-1">
                                 {strategySummary.carrier_breakdown?.slice(0, 10).map((item, idx) => (
-                                    <div key={idx} className="flex items-center justify-between text-sm">
-                                        <span className="text-slate-600">{getCarrierName(item.carrier)}</span>
-                                        <span className="font-medium">{item.percentage}% ({item.shipments} shipments)</span>
+                                    <div key={idx} className="flex items-center justify-between text-sm gap-2">
+                                        <div className="flex items-center gap-2 min-w-0 flex-1">
+                                            <span className="text-slate-600 truncate">{getCarrierName(item.carrier)}</span>
+                                            {item.ownership && item.ownership !== 'Unknown' && (
+                                                <Badge variant="outline" className="text-xs shrink-0">
+                                                    {item.ownership}
+                                                </Badge>
+                                            )}
+                                        </div>
+                                        <span className="font-medium shrink-0">{item.percentage}% ({item.shipments})</span>
                                     </div>
                                 ))}
                             </div>
@@ -833,7 +927,16 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                             <TableBody>
                                 {strategySummary.carrier_breakdown?.slice(0, 5).map((item, idx) => (
                                     <TableRow key={idx}>
-                                        <TableCell className="font-medium">{getCarrierName(item.carrier)}</TableCell>
+                                        <TableCell>
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-medium">{getCarrierName(item.carrier)}</span>
+                                                {item.ownership && item.ownership !== 'Unknown' && (
+                                                    <Badge variant="outline" className="text-xs">
+                                                        {item.ownership}
+                                                    </Badge>
+                                                )}
+                                            </div>
+                                        </TableCell>
                                         <TableCell className="text-right">{item.shipments.toLocaleString()}</TableCell>
                                         <TableCell className="text-right">${Math.round(item.spend).toLocaleString()}</TableCell>
                                     </TableRow>
@@ -1003,9 +1106,16 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                                     const isHighConcentration = item.percentage > 15;
                                     return (
                                         <div key={idx} className="space-y-1">
-                                            <div className="flex items-center justify-between text-sm">
-                                                <span className="font-medium text-slate-700">{getCarrierName(item.carrier)}</span>
-                                                <span className="text-slate-600">{item.percentage}% ({item.shipments} loads)</span>
+                                            <div className="flex items-center justify-between text-sm gap-2">
+                                                <div className="flex items-center gap-2 min-w-0">
+                                                    <span className="font-medium text-slate-700 truncate">{getCarrierName(item.carrier)}</span>
+                                                    {item.ownership && item.ownership !== 'Unknown' && (
+                                                        <Badge variant="outline" className="text-xs shrink-0">
+                                                            {item.ownership}
+                                                        </Badge>
+                                                    )}
+                                                </div>
+                                                <span className="text-slate-600 shrink-0">{item.percentage}% ({item.shipments})</span>
                                             </div>
                                             <div className="w-full bg-slate-200 rounded-full h-2">
                                                 <div
