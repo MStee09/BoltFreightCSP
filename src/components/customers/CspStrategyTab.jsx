@@ -418,6 +418,7 @@ const DocumentsPanel = ({ cspEventId }) => {
             toast({
                 title: "Document Deleted",
                 description: "Document removed successfully.",
+                duration: 3000,
             });
         },
         onError: (error) => {
@@ -425,6 +426,7 @@ const DocumentsPanel = ({ cspEventId }) => {
                 title: "Error",
                 description: error.message || "Failed to delete document.",
                 variant: "destructive",
+                duration: 5000,
             });
         }
     });
