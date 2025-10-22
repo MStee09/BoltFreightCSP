@@ -262,13 +262,44 @@ export default function PipelinePage() {
     if (!isLoadingEvents && containerRef.current) {
       const searchParams = new URLSearchParams(location.search);
       const targetStage = searchParams.get('stage');
+      const targetEventId = searchParams.get('event');
 
       console.log('Scroll effect triggered', {
         isLoadingEvents,
         hasContainer: !!containerRef.current,
         targetStage,
+        targetEventId,
         hasTargetRef: targetStage ? !!stageRefs.current[targetStage] : 'N/A'
       });
+
+      if (targetEventId) {
+        const event = events.find(e => e.id === targetEventId);
+        if (event) {
+          setSelectedEventId(targetEventId);
+          setIsDetailSheetOpen(true);
+
+          const eventStage = event.stage;
+          if (eventStage && stageRefs.current[eventStage]) {
+            setTimeout(() => {
+              const element = stageRefs.current[eventStage];
+              const container = containerRef.current;
+
+              if (element && container) {
+                const elementLeft = element.offsetLeft;
+                const containerWidth = container.offsetWidth;
+                const elementWidth = element.offsetWidth;
+                const scrollPosition = elementLeft - (containerWidth / 2) + (elementWidth / 2);
+
+                container.scrollTo({
+                  left: Math.max(0, scrollPosition),
+                  behavior: 'smooth'
+                });
+              }
+            }, 100);
+          }
+        }
+        return;
+      }
 
       setTimeout(() => {
         if (targetStage && stageRefs.current[targetStage]) {
@@ -317,7 +348,7 @@ export default function PipelinePage() {
         }
       }, 200);
     }
-  }, [isLoadingEvents, location.search]);
+  }, [isLoadingEvents, location.search, events]);
 
   const updateEventMutation = useMutation({
       mutationFn: ({id, data}) => CSPEvent.update(id, data),

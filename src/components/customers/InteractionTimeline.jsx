@@ -1,10 +1,11 @@
 
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { Customer, Carrier, Tariff, CSPEvent, Task, Interaction, Alert, Shipment, LostOpportunity, ReportSnapshot } from '../../api/entities';
 import { Skeleton } from '../ui/skeleton';
 import { format, formatDistanceToNow } from 'date-fns';
-import { GitBranch, MessageSquare, Phone, Users, FileText, FilePlus, Mail, Send } from 'lucide-react';
+import { GitBranch, MessageSquare, Phone, Users, FileText, FilePlus, Mail, Send, ExternalLink } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { Input } from '../ui/input';
@@ -14,6 +15,8 @@ import { Card, CardContent } from '../ui/card';
 const ICONS = {
     csp_stage_update: <GitBranch className="w-5 h-5 text-slate-500" />,
     csp_created: <FilePlus className="w-5 h-5 text-slate-500" />,
+    csp_event: <GitBranch className="w-5 h-5 text-blue-500" />,
+    tariff: <FileText className="w-5 h-5 text-green-500" />,
     document_upload: <FileText className="w-5 h-5 text-blue-500" />,
     note: <MessageSquare className="w-5 h-5 text-slate-500" />,
     call: <Phone className="w-5 h-5 text-slate-500" />,
@@ -87,8 +90,19 @@ const LogInteractionForm = ({ entityId, entityType }) => {
 };
 
 const InteractionItem = ({ interaction }) => {
+    const navigate = useNavigate();
     const icon = ICONS[interaction.interaction_type] || ICONS.default;
     const fromNow = formatDistanceToNow(new Date(interaction.created_date), { addSuffix: true });
+
+    const cspEventId = interaction.metadata?.csp_event_id;
+    const tariffId = interaction.metadata?.tariff_id;
+    const isClickable = interaction.interaction_type === 'csp_event' && cspEventId;
+
+    const handleClick = () => {
+        if (isClickable) {
+            navigate(`/pipeline?event=${cspEventId}`);
+        }
+    };
 
     return (
         <div className="flex gap-4">
@@ -98,7 +112,14 @@ const InteractionItem = ({ interaction }) => {
             </div>
             <div className="flex-1 pb-8">
                 <div className="flex items-center justify-between">
-                    <p className="font-medium text-slate-800">{interaction.summary}</p>
+                    <div className="flex items-center gap-2 flex-1">
+                        <p className={`font-medium text-slate-800 ${isClickable ? 'cursor-pointer hover:text-blue-600 transition-colors' : ''}`} onClick={handleClick}>
+                            {interaction.summary}
+                        </p>
+                        {isClickable && (
+                            <ExternalLink className="w-4 h-4 text-slate-400 hover:text-blue-600 cursor-pointer transition-colors" onClick={handleClick} />
+                        )}
+                    </div>
                     <p className="text-xs text-slate-500">{fromNow}</p>
                 </div>
                 {interaction.details && (
