@@ -25,6 +25,7 @@ const STAGES = [
   "final_offers",
   "awarded",
   "implementation",
+  "validation",
   "live",
   "renewal_watch"
 ];
@@ -38,6 +39,7 @@ const STAGE_DEFINITIONS = {
   final_offers: "Final pricing negotiations and carrier selection in progress",
   awarded: "Contract awarded, awaiting tariff finalization",
   implementation: "Tariff being implemented in systems",
+  validation: "Verifying tariff accuracy and data integrity",
   live: "New tariff is active and in production",
   renewal_watch: "Monitoring for upcoming renewal opportunities"
 };

@@ -183,7 +183,7 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
                                 }}
                                 disabled={moveToNextStage.isPending}
                             >
-                                <SelectTrigger className="h-9 w-[180px]">
+                                <SelectTrigger className="h-9 w-[200px]">
                                     <SelectValue>
                                         {event?.stage ? getCurrentStageLabel(event.stage) : 'Select Stage'}
                                     </SelectValue>
