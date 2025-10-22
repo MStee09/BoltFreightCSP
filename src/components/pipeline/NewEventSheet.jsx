@@ -205,7 +205,7 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers: custome
                                 {users.length > 0 ? (
                                     users.map(user => <SelectItem key={user.id} value={user.email}>{user.email}</SelectItem>)
                                 ) : (
-                                    <SelectItem value="" disabled>No users available</SelectItem>
+                                    <div className="p-2 text-sm text-slate-500">No users available</div>
                                 )}
                             </SelectContent>
                         </Select>
