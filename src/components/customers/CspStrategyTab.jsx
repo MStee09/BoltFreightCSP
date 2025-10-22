@@ -412,9 +412,30 @@ const DocumentsPanel = ({ cspEventId }) => {
                 .eq('id', docId);
 
             if (error) throw error;
+
+            const { data: remainingDocs, error: checkError } = await supabase
+                .from('documents')
+                .select('id')
+                .eq('entity_id', cspEventId)
+                .in('document_type', ['transaction_detail', 'low_cost_opportunity']);
+
+            if (checkError) throw checkError;
+
+            if (!remainingDocs || remainingDocs.length === 0) {
+                const { error: updateError } = await supabase
+                    .from('csp_events')
+                    .update({
+                        strategy_summary: {},
+                        strategy_summary_updated_at: null
+                    })
+                    .eq('id', cspEventId);
+
+                if (updateError) throw updateError;
+            }
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['documents', cspEventId] });
+            queryClient.invalidateQueries({ queryKey: ['cspEvent', cspEventId] });
             toast({
                 title: "Document Deleted",
                 description: "Document removed successfully.",
