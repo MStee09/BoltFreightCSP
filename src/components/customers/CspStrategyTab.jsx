@@ -510,6 +510,17 @@ const AiSummaryPanel = ({ cspEvent }) => {
     const [showChat, setShowChat] = useState(false);
     const { toast } = useToast();
 
+    const { data: carriers = [] } = useQuery({
+        queryKey: ['carriers'],
+        queryFn: () => Carrier.list(),
+        initialData: []
+    });
+
+    const getCarrierName = (scac) => {
+        const carrier = carriers.find(c => c.scac_code?.toUpperCase() === scac?.toUpperCase());
+        return carrier ? carrier.name : scac;
+    };
+
     if (!strategySummary || !strategySummary.summary_text) {
         return null;
     }
@@ -651,6 +662,17 @@ const AiSummaryPanel = ({ cspEvent }) => {
 const DataVisualizationPanel = ({ cspEvent }) => {
     const strategySummary = cspEvent?.strategy_summary;
 
+    const { data: carriers = [] } = useQuery({
+        queryKey: ['carriers'],
+        queryFn: () => Carrier.list(),
+        initialData: []
+    });
+
+    const getCarrierName = (scac) => {
+        const carrier = carriers.find(c => c.scac_code?.toUpperCase() === scac?.toUpperCase());
+        return carrier ? carrier.name : scac;
+    };
+
     if (!strategySummary || !strategySummary.carrier_breakdown) {
         return null;
     }
@@ -658,16 +680,19 @@ const DataVisualizationPanel = ({ cspEvent }) => {
     const COLORS = ['#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#84cc16'];
 
     const carrierPieData = strategySummary.carrier_breakdown?.slice(0, 6).map((item, idx) => ({
-        name: item.carrier,
+        name: getCarrierName(item.carrier),
         value: item.percentage,
         shipments: item.shipments,
     })) || [];
 
-    const carrierBarData = strategySummary.carrier_breakdown?.slice(0, 5).map(item => ({
-        carrier: item.carrier.length > 15 ? item.carrier.substring(0, 15) + '...' : item.carrier,
-        spend: Math.round(item.spend),
-        shipments: item.shipments,
-    })) || [];
+    const carrierBarData = strategySummary.carrier_breakdown?.slice(0, 5).map(item => {
+        const carrierName = getCarrierName(item.carrier);
+        return {
+            carrier: carrierName.length > 15 ? carrierName.substring(0, 15) + '...' : carrierName,
+            spend: Math.round(item.spend),
+            shipments: item.shipments,
+        };
+    }) || [];
 
     const laneData = strategySummary.top_lanes?.map(item => ({
         lane: item.lane.length > 20 ? item.lane.substring(0, 20) + '...' : item.lane,
@@ -771,7 +796,7 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                             <div className="space-y-1">
                                 {strategySummary.carrier_breakdown?.slice(0, 10).map((item, idx) => (
                                     <div key={idx} className="flex items-center justify-between text-sm">
-                                        <span className="text-slate-600">{item.carrier}</span>
+                                        <span className="text-slate-600">{getCarrierName(item.carrier)}</span>
                                         <span className="font-medium">{item.percentage}% ({item.shipments} shipments)</span>
                                     </div>
                                 ))}
@@ -808,7 +833,7 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                             <TableBody>
                                 {strategySummary.carrier_breakdown?.slice(0, 5).map((item, idx) => (
                                     <TableRow key={idx}>
-                                        <TableCell className="font-medium">{item.carrier}</TableCell>
+                                        <TableCell className="font-medium">{getCarrierName(item.carrier)}</TableCell>
                                         <TableCell className="text-right">{item.shipments.toLocaleString()}</TableCell>
                                         <TableCell className="text-right">${Math.round(item.spend).toLocaleString()}</TableCell>
                                     </TableRow>
@@ -979,7 +1004,7 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                                     return (
                                         <div key={idx} className="space-y-1">
                                             <div className="flex items-center justify-between text-sm">
-                                                <span className="font-medium text-slate-700">{item.carrier}</span>
+                                                <span className="font-medium text-slate-700">{getCarrierName(item.carrier)}</span>
                                                 <span className="text-slate-600">{item.percentage}% ({item.shipments} loads)</span>
                                             </div>
                                             <div className="w-full bg-slate-200 rounded-full h-2">
@@ -999,7 +1024,7 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                                 <div>
                                     <p className="font-semibold text-blue-900">Concentration Analysis</p>
                                     <p className="text-sm text-blue-800 mt-1">
-                                        Your top carrier ({strategySummary.carrier_breakdown?.[0]?.carrier}) handles {strategySummary.carrier_breakdown?.[0]?.percentage}% of volume.
+                                        Your top carrier ({getCarrierName(strategySummary.carrier_breakdown?.[0]?.carrier)}) handles {strategySummary.carrier_breakdown?.[0]?.percentage}% of volume.
                                         {(strategySummary.carrier_breakdown?.[0]?.percentage || 0) > 30
                                             ? ' This concentration provides strong negotiating power but also creates dependency risk.'
                                             : ' Consider consolidating volume for better rates and leverage.'}
