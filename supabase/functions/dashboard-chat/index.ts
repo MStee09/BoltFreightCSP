@@ -62,29 +62,29 @@ Deno.serve(async (req: Request) => {
     }
 
     const [customersData, carriersData, cspEventsData, tariffsData, alertsData] = await Promise.all([
-      supabase.from('customers').select('id, name, segment, total_spend, active_lanes').limit(20),
-      supabase.from('carriers').select('id, name, scac, service_quality_score, on_time_percentage').limit(20),
-      supabase.from('csp_events').select('id, name, status, stage, target_savings, actual_savings').limit(10),
-      supabase.from('tariffs').select('id, carrier_name, customer_name, rate, effective_date, expiration_date, status').limit(20),
-      supabase.from('alerts').select('id, type, priority, title, entity_type').eq('status', 'active').limit(10),
+      supabase.from('customers').select('id, name, segment, total_spend, active_lanes').limit(50),
+      supabase.from('carriers').select('id, name, scac, service_quality_score, on_time_percentage').limit(50),
+      supabase.from('csp_events').select('id, title, status, stage, target_savings, actual_savings, customer:customers(id, name)').limit(50),
+      supabase.from('tariffs').select('id, carrier_name, customer_name, rate, effective_date, expiration_date, status, customer:customers(id, name)').limit(50),
+      supabase.from('alerts').select('id, type, priority, title, entity_type').eq('status', 'active').limit(50),
     ]);
 
     const customerCount = customersData.data?.length || 0;
     const carrierCount = carriersData.data?.length || 0;
-    const activeCSPs = cspEventsData.data?.filter(e => e.status === 'active').length || 0;
+    const activeCSPs = cspEventsData.data?.filter(e => e.status === 'active' || e.status === 'in_progress').length || 0;
     const activeTariffs = tariffsData.data?.filter(t => t.status === 'active').length || 0;
     const activeAlerts = alertsData.data?.length || 0;
 
-    const topCustomers = customersData.data?.slice(0, 5).map(c =>
+    const topCustomers = customersData.data?.slice(0, 10).map(c =>
       `- ${c.name}: ${c.segment || 'N/A'} segment, $${(c.total_spend || 0).toLocaleString()} spend, ${c.active_lanes || 0} lanes`
     ).join('\n') || 'No customer data available';
 
-    const topCarriers = carriersData.data?.slice(0, 5).map(c =>
+    const topCarriers = carriersData.data?.slice(0, 10).map(c =>
       `- ${c.name} (${c.scac || 'N/A'}): Quality ${c.service_quality_score || 'N/A'}/5, ${c.on_time_percentage || 'N/A'}% on-time`
     ).join('\n') || 'No carrier data available';
 
-    const recentCSPs = cspEventsData.data?.slice(0, 5).map(e =>
-      `- ${e.name}: ${e.status} (${e.stage || 'N/A'}), Target: $${(e.target_savings || 0).toLocaleString()}, Actual: $${(e.actual_savings || 0).toLocaleString()}`
+    const recentCSPs = cspEventsData.data?.slice(0, 10).map(e =>
+      `- "${e.title}" for ${e.customer?.name || 'Unknown'}: ${e.status} (${e.stage || 'N/A'}), Target: $${(e.target_savings || 0).toLocaleString()}, Actual: $${(e.actual_savings || 0).toLocaleString()}`
     ).join('\n') || 'No CSP data available';
 
     const expiringTariffs = tariffsData.data?.filter(t => {
