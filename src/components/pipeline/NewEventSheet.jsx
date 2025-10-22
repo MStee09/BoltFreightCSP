@@ -16,7 +16,7 @@ import { useToast } from '../ui/use-toast';
 const STAGES = ["discovery", "data_room_ready", "rfp_sent", "qa_round", "round_1", "final_offers", "awarded", "implementation", "validation", "live", "renewal_watch"];
 const MOCK_USER_ID = '00000000-0000-0000-0000-000000000000';
 
-export default function NewEventSheet({ isOpen, onOpenChange, customers = [] }) {
+export default function NewEventSheet({ isOpen, onOpenChange, customers: customersProp = [] }) {
     const { toast } = useToast();
     const queryClient = useQueryClient();
     const fileInputRef = useRef(null);
@@ -27,6 +27,13 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers = [] }) 
         priority: 'medium',
         description: '',
         assigned_to: ''
+    });
+
+    const { data: customers = [], isLoading: isLoadingCustomers } = useQuery({
+        queryKey: ['customers'],
+        queryFn: () => Customer.list(),
+        enabled: isOpen,
+        initialData: customersProp
     });
 
     const { data: users = [] } = useQuery({
@@ -108,7 +115,11 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers = [] }) 
 
     const handleSubmit = () => {
         if (!newEvent.title || !newEvent.customer_id) {
-            // Add validation feedback
+            toast({
+                title: "Validation Error",
+                description: "Please fill in the event title and select a customer.",
+                variant: "destructive",
+            });
             return;
         }
         setIsLoading(true);
