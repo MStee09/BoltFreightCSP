@@ -24,7 +24,7 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
     const [txnFile, setTxnFile] = useState(null);
     const [loFile, setLoFile] = useState(null);
     const [txnDocType, setTxnDocType] = useState('transaction_detail');
-    const [loDocType, setLoDocType] = useState('lost_opportunity');
+    const [loDocType, setLoDocType] = useState('low_cost_opportunity');
     const [error, setError] = useState(null);
     const { toast } = useToast();
     const { user } = useAuth();
@@ -145,7 +145,7 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
                     </SelectTrigger>
                     <SelectContent>
                         <SelectItem value="transaction_detail">Transaction Detail</SelectItem>
-                        <SelectItem value="lost_opportunity">Lost Opportunity</SelectItem>
+                        <SelectItem value="low_cost_opportunity">Low Cost Opportunity</SelectItem>
                         <SelectItem value="general">General</SelectItem>
                     </SelectContent>
                 </Select>
@@ -173,7 +173,7 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
         <Card>
             <CardHeader>
                 <CardTitle className="flex items-center gap-2"><FileUp className="w-5 h-5 text-blue-600" />Upload Strategy Files</CardTitle>
-                <CardDescription>Upload shipment and lost opportunity data to generate AI-powered insights.</CardDescription>
+                <CardDescription>Upload shipment and low cost opportunity data to generate AI-powered insights.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -264,7 +264,7 @@ const DocumentsPanel = ({ cspEventId }) => {
     const getDocTypeLabel = (docType) => {
         const labels = {
             transaction_detail: 'Transaction Detail',
-            lost_opportunity: 'Lost Opportunity',
+            low_cost_opportunity: 'Low Cost Opportunity',
             summary: 'Summary',
             general: 'General',
         };
@@ -274,7 +274,7 @@ const DocumentsPanel = ({ cspEventId }) => {
     const getDocTypeBadge = (docType) => {
         const variants = {
             transaction_detail: 'default',
-            lost_opportunity: 'secondary',
+            low_cost_opportunity: 'secondary',
             summary: 'outline',
             general: 'outline',
         };
@@ -593,7 +593,7 @@ export default function CspStrategyTab({ customer, cspEventId = null, cspEvent =
                     <Info className="h-4 w-4" />
                     <AlertTitle>Event-Specific Analysis</AlertTitle>
                     <AlertDescription>
-                        Run a strategy analysis for this specific bid opportunity. Upload transaction and lost-lane data relevant to this event's timeframe and lanes.
+                        Run a strategy analysis for this specific bid opportunity. Upload transaction and low cost opportunity data relevant to this event's timeframe and lanes.
                     </AlertDescription>
                 </Alert>
             )}
@@ -614,7 +614,7 @@ export default function CspStrategyTab({ customer, cspEventId = null, cspEvent =
                     <Info className="h-4 w-4" />
                     <AlertTitle>Awaiting Data</AlertTitle>
                     <AlertDescription>
-                        Upload both a Transaction Detail and a Lost Opportunity file to run the CSP strategy analysis. The results will appear here.
+                        Upload both a Transaction Detail and a Low Cost Opportunity file to run the CSP strategy analysis. The results will appear here.
                     </AlertDescription>
                 </Alert>
             )}
