@@ -1,13 +1,13 @@
 import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Customer, Carrier, Tariff } from "../api/entities";
+import { Customer, Carrier, Tariff, CSPEvent } from "../api/entities";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "../utils";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
-import { PlusCircle, Search, Upload, ChevronDown, ChevronRight, AlertCircle, Eye, GitCompare, Download, FileText, Plus } from "lucide-react";
+import { PlusCircle, Search, Upload, ChevronDown, ChevronRight, AlertCircle, Eye, GitCompare, Download, FileText, Plus, Calendar, Link2, UploadCloud } from "lucide-react";
 import { format, isAfter, isBefore, differenceInDays } from "date-fns";
 import { Skeleton } from "../components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
@@ -72,7 +72,13 @@ export default function TariffsPage() {
     initialData: [],
   });
 
-  const isLoading = isTariffsLoading || isCustomersLoading || isCarriersLoading;
+  const { data: cspEvents = [], isLoading: isCspEventsLoading } = useQuery({
+    queryKey: ["csp_events"],
+    queryFn: () => CSPEvent.list(),
+    initialData: [],
+  });
+
+  const isLoading = isTariffsLoading || isCustomersLoading || isCarriersLoading || isCspEventsLoading;
 
   const getStatusBadge = (tariff) => {
     const today = new Date();
@@ -206,6 +212,32 @@ export default function TariffsPage() {
       return 'bg-yellow-50';
     }
     return 'bg-white';
+  };
+
+  const getCspEventBadge = (tariff) => {
+    if (tariff.csp_event_id) {
+      const cspEvent = cspEvents.find(e => e.id === tariff.csp_event_id);
+      if (cspEvent) {
+        return (
+          <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-200 flex items-center gap-1">
+            <Link2 className="w-3 h-3" />
+            {cspEvent.title}
+          </Badge>
+        );
+      }
+      return (
+        <Badge variant="outline" className="text-xs bg-slate-50 text-slate-600 border-slate-200 flex items-center gap-1">
+          <Link2 className="w-3 h-3" />
+          RFP Event
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="outline" className="text-xs bg-orange-50 text-orange-700 border-orange-200 flex items-center gap-1">
+        <UploadCloud className="w-3 h-3" />
+        Manual Upload
+      </Badge>
+    );
   };
 
   const totalCount = groupedTariffs.reduce((sum, g) => sum + g.tariffs.length, 0);
@@ -461,6 +493,7 @@ export default function TariffsPage() {
                               <tr>
                                 <th className="text-left p-3 text-xs font-semibold text-slate-600">Version</th>
                                 <th className="text-left p-3 text-xs font-semibold text-slate-600">Status</th>
+                                <th className="text-left p-3 text-xs font-semibold text-slate-600">Source</th>
                                 <th className="text-left p-3 text-xs font-semibold text-slate-600">Carrier</th>
                                 <th className="text-right p-3 text-xs font-semibold text-slate-600">Effective Date</th>
                                 <th className="text-right p-3 text-xs font-semibold text-slate-600">Expiry Date</th>
@@ -492,6 +525,9 @@ export default function TariffsPage() {
                                 </td>
                                 <td className="p-3">
                                   {getStatusBadge(tariff)}
+                                </td>
+                                <td className="p-3">
+                                  {getCspEventBadge(tariff)}
                                 </td>
                                 <td className="p-3 text-sm text-slate-600">
                                   {tariffCarriers.length > 0 ? (
@@ -556,7 +592,7 @@ export default function TariffsPage() {
                               </tr>
                               {isExpanded && (
                                 <tr className={`${getRowColorClass(tariff)}`}>
-                                  <td colSpan="6" className="px-4 py-2 bg-slate-50/50 border-b last:border-b-0">
+                                  <td colSpan="7" className="px-4 py-2 bg-slate-50/50 border-b last:border-b-0">
                                     <div className="text-sm space-y-1">
                                       <div className="font-medium text-slate-700">All Carriers:</div>
                                       {tariffCarriers.map((carrier, idx) => (
