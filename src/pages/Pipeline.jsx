@@ -139,33 +139,57 @@ export default function PipelinePage() {
       const searchParams = new URLSearchParams(location.search);
       const targetStage = searchParams.get('stage');
 
+      console.log('Scroll effect triggered', {
+        isLoadingEvents,
+        hasContainer: !!containerRef.current,
+        targetStage,
+        hasTargetRef: targetStage ? !!stageRefs.current[targetStage] : 'N/A'
+      });
+
       setTimeout(() => {
         if (targetStage && stageRefs.current[targetStage]) {
           const element = stageRefs.current[targetStage];
           const container = containerRef.current;
-          const elementLeft = element.offsetLeft;
-          const containerWidth = container.offsetWidth;
-          const elementWidth = element.offsetWidth;
 
-          const scrollPosition = elementLeft - (containerWidth / 2) + (elementWidth / 2);
+          console.log('Element exists:', !!element);
+          console.log('Container exists:', !!container);
 
-          container.scrollTo({
-            left: Math.max(0, scrollPosition),
-            behavior: 'smooth'
-          });
+          if (element && container) {
+            const elementLeft = element.offsetLeft;
+            const containerWidth = container.offsetWidth;
+            const elementWidth = element.offsetWidth;
+
+            const scrollPosition = elementLeft - (containerWidth / 2) + (elementWidth / 2);
+
+            console.log('Scroll calculations:', {
+              elementLeft,
+              containerWidth,
+              elementWidth,
+              scrollPosition,
+              finalPosition: Math.max(0, scrollPosition)
+            });
+
+            container.scrollTo({
+              left: Math.max(0, scrollPosition),
+              behavior: 'smooth'
+            });
+          }
         } else if (rfpSentRef.current) {
           const element = rfpSentRef.current;
           const container = containerRef.current;
-          const elementLeft = element.offsetLeft;
-          const containerWidth = container.offsetWidth;
-          const elementWidth = element.offsetWidth;
 
-          const scrollPosition = elementLeft - (containerWidth / 2) + (elementWidth / 2);
+          if (element && container) {
+            const elementLeft = element.offsetLeft;
+            const containerWidth = container.offsetWidth;
+            const elementWidth = element.offsetWidth;
 
-          container.scrollTo({
-            left: Math.max(0, scrollPosition),
-            behavior: 'smooth'
-          });
+            const scrollPosition = elementLeft - (containerWidth / 2) + (elementWidth / 2);
+
+            container.scrollTo({
+              left: Math.max(0, scrollPosition),
+              behavior: 'smooth'
+            });
+          }
         }
       }, 200);
     }
