@@ -261,7 +261,7 @@ export default function EditCspEventDialog({ isOpen, onOpenChange, eventId }) {
                                             </SelectItem>
                                         ))
                                     ) : (
-                                        <SelectItem value="" disabled>No users available</SelectItem>
+                                        <div className="px-2 py-1.5 text-sm text-slate-500">No users available</div>
                                     )}
                                 </SelectContent>
                             </Select>
