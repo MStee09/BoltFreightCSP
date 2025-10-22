@@ -336,7 +336,7 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
                             </TabsContent>
 
                             <TabsContent value="strategy" className="mt-4">
-                                <CspStrategyTab customer={customer} cspEventId={eventId} />
+                                <CspStrategyTab customer={customer} cspEventId={eventId} cspEvent={event} />
                             </TabsContent>
 
                             <TabsContent value="emails" className="mt-4">

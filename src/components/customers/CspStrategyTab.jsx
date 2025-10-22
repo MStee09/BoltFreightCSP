@@ -1,34 +1,46 @@
 
 import React, { useState, useMemo } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Customer, Carrier, Tariff, CSPEvent, Task, Interaction, Alert as EntityAlert, Shipment, LostOpportunity, ReportSnapshot } from '../../api/entities';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Customer, Carrier, Tariff, CSPEvent, Task, Interaction, Alert as EntityAlert, Shipment, LostOpportunity, ReportSnapshot, Document } from '../../api/entities';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
 import { Input } from '../ui/input';
-import { UploadCloud, File, X, Loader2, BrainCircuit, BarChart, FileUp, Info } from 'lucide-react';
+import { Label } from '../ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { UploadCloud, File, X, Loader2, BrainCircuit, BarChart, FileUp, Info, FileText, Calendar, User, Download, Trash2, Sparkles } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
+import { Badge } from '../ui/badge';
 import { Bar, BarChart as RechartsBarChart, Line, LineChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../ui/table";
+import { Separator } from '../ui/separator';
+import { format } from 'date-fns';
+import { useToast } from '../ui/use-toast';
+import { supabase } from '../../api/supabaseClient';
+import { useAuth } from '../../contexts/AuthContext';
 import _ from 'lodash';
 
-// Panel A: File Upload
-const UploadPanel = ({ onAnalysisComplete }) => {
+const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
     const [txnFile, setTxnFile] = useState(null);
     const [loFile, setLoFile] = useState(null);
+    const [txnDocType, setTxnDocType] = useState('transaction_detail');
+    const [loDocType, setLoDocType] = useState('lost_opportunity');
     const [error, setError] = useState(null);
+    const { toast } = useToast();
+    const { user } = useAuth();
+    const queryClient = useQueryClient();
 
     const mutation = useMutation({
         mutationFn: async ({ txnFile, loFile }) => {
             setError(null);
-            
+
             const txnSchema = {
                 type: "object",
                 properties: {
                     Load: { type: "string" },
                     Pricing_Ownership: { type: "string" },
-                    Carrier: { type: "string" }, // This is the Carrier Name from the transaction
-                    Bill: { type: "number" }, // Assuming a bill value for the selected carrier
+                    Carrier: { type: "string" },
+                    Bill: { type: "number" },
                 }
             };
             const loSchema = {
@@ -56,9 +68,66 @@ const UploadPanel = ({ onAnalysisComplete }) => {
                 throw new Error(`Data extraction failed. TXN: ${txnDataResult.details}, LO: ${loDataResult.details}`);
             }
 
+            if (cspEventId) {
+                await Document.create({
+                    entity_type: 'csp_event',
+                    entity_id: cspEventId,
+                    csp_event_id: cspEventId,
+                    file_name: txnFile.name,
+                    file_path: txnUploadResult.file_url,
+                    file_size: txnFile.size,
+                    file_type: txnFile.type,
+                    document_type: txnDocType,
+                    uploaded_by: user?.email || 'Unknown',
+                    user_id: user?.id || '00000000-0000-0000-0000-000000000000',
+                    ai_processing_status: 'processing',
+                });
+
+                await Document.create({
+                    entity_type: 'csp_event',
+                    entity_id: cspEventId,
+                    csp_event_id: cspEventId,
+                    file_name: loFile.name,
+                    file_path: loUploadResult.file_url,
+                    file_size: loFile.size,
+                    file_type: loFile.type,
+                    document_type: loDocType,
+                    uploaded_by: user?.email || 'Unknown',
+                    user_id: user?.id || '00000000-0000-0000-0000-000000000000',
+                    ai_processing_status: 'processing',
+                });
+            }
+
             return { txnData: txnDataResult.output, loData: loDataResult.output };
         },
-        onSuccess: ({ txnData, loData }) => {
+        onSuccess: async ({ txnData, loData }) => {
+            if (cspEventId) {
+                queryClient.invalidateQueries({ queryKey: ['documents', cspEventId] });
+
+                try {
+                    const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-strategy-summary`;
+                    const { data: { session } } = await supabase.auth.getSession();
+
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${session?.access_token}`,
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            cspEventId,
+                            analysisData: { txnData, loData }
+                        })
+                    });
+
+                    if (response.ok) {
+                        queryClient.invalidateQueries({ queryKey: ['csp_event', cspEventId] });
+                    }
+                } catch (err) {
+                    console.error('Failed to generate AI summary:', err);
+                }
+            }
+
             onAnalysisComplete(txnData, loData);
         },
         onError: (err) => {
@@ -66,19 +135,32 @@ const UploadPanel = ({ onAnalysisComplete }) => {
         }
     });
 
-    const FileDropzone = ({ file, setFile, title }) => (
-        <div className="w-full">
-            <label className="text-sm font-medium text-slate-700 block mb-2">{title}</label>
+    const FileDropzone = ({ file, setFile, title, docType, setDocType }) => (
+        <div className="w-full space-y-2">
+            <div className="flex items-center justify-between">
+                <Label className="text-sm font-medium text-slate-700">{title}</Label>
+                <Select value={docType} onValueChange={setDocType}>
+                    <SelectTrigger className="w-[180px] h-8">
+                        <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                        <SelectItem value="transaction_detail">Transaction Detail</SelectItem>
+                        <SelectItem value="lost_opportunity">Lost Opportunity</SelectItem>
+                        <SelectItem value="general">General</SelectItem>
+                    </SelectContent>
+                </Select>
+            </div>
             {file ? (
                 <div className="p-2 border rounded-lg flex items-center justify-between bg-slate-50">
                     <div className="flex items-center gap-2 text-sm">
                         <File className="w-4 h-4 text-blue-500" />
                         <span className="font-medium">{file.name}</span>
+                        <span className="text-slate-500">({(file.size / 1024).toFixed(1)} KB)</span>
                     </div>
                     <Button variant="ghost" size="icon" onClick={() => setFile(null)}><X className="w-4 h-4" /></Button>
                 </div>
             ) : (
-                <div className="relative p-6 border-2 border-dashed rounded-lg text-center cursor-pointer hover:border-blue-500">
+                <div className="relative p-6 border-2 border-dashed rounded-lg text-center cursor-pointer hover:border-blue-500 transition-colors">
                     <UploadCloud className="w-6 h-6 mx-auto text-slate-400 mb-1" />
                     <p className="text-sm text-slate-500">Drag & drop or click</p>
                     <Input type="file" className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer" onChange={(e) => e.target.files[0] && setFile(e.target.files[0])} />
@@ -86,35 +168,213 @@ const UploadPanel = ({ onAnalysisComplete }) => {
             )}
         </div>
     );
-    
+
     return (
         <Card>
             <CardHeader>
-                <CardTitle className="flex items-center gap-2"><FileUp className="w-5 h-5 text-blue-600" />Upload & Map</CardTitle>
-                <CardDescription>Upload shipment and lost opportunity data to run the analysis.</CardDescription>
+                <CardTitle className="flex items-center gap-2"><FileUp className="w-5 h-5 text-blue-600" />Upload Strategy Files</CardTitle>
+                <CardDescription>Upload shipment and lost opportunity data to generate AI-powered insights.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FileDropzone file={txnFile} setFile={setTxnFile} title="Transaction Detail File" />
-                    <FileDropzone file={loFile} setFile={setLoFile} title="Lost Opportunity File" />
+                    <FileDropzone file={txnFile} setFile={setTxnFile} title="File A" docType={txnDocType} setDocType={setTxnDocType} />
+                    <FileDropzone file={loFile} setFile={setLoFile} title="File B" docType={loDocType} setDocType={setLoDocType} />
                 </div>
                 {error && <Alert variant="destructive"><AlertTitle>Error</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
                 <Button onClick={() => mutation.mutate({ txnFile, loFile })} disabled={!txnFile || !loFile || mutation.isLoading} className="w-full">
                     {mutation.isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    {mutation.isLoading ? 'Analyzing...' : 'Run Strategy Analysis'}
+                    {mutation.isLoading ? 'Processing & Generating AI Summary...' : 'Upload & Analyze'}
                 </Button>
             </CardContent>
         </Card>
     );
 };
 
-// Panel B: Analysis & Visuals
+const AiSummaryPanel = ({ cspEvent }) => {
+    const strategySummary = cspEvent?.strategy_summary;
+
+    if (!strategySummary || !strategySummary.summary_text) {
+        return null;
+    }
+
+    return (
+        <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-white">
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-blue-600" />
+                    AI Strategy Summary
+                </CardTitle>
+                <CardDescription>
+                    Generated {strategySummary.generated_at ? format(new Date(strategySummary.generated_at), 'MMM dd, yyyy') : 'recently'}
+                </CardDescription>
+            </CardHeader>
+            <CardContent>
+                <div className="prose prose-sm max-w-none whitespace-pre-line text-slate-700 leading-relaxed">
+                    {strategySummary.summary_text}
+                </div>
+            </CardContent>
+        </Card>
+    );
+};
+
+const DocumentsPanel = ({ cspEventId }) => {
+    const { toast } = useToast();
+    const queryClient = useQueryClient();
+
+    const { data: documents = [], isLoading } = useQuery({
+        queryKey: ['documents', cspEventId],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from('documents')
+                .select('*')
+                .eq('csp_event_id', cspEventId)
+                .order('created_date', { ascending: false });
+
+            if (error) throw error;
+            return data || [];
+        },
+        enabled: !!cspEventId,
+    });
+
+    const deleteMutation = useMutation({
+        mutationFn: async (docId) => {
+            const { error } = await supabase
+                .from('documents')
+                .delete()
+                .eq('id', docId);
+
+            if (error) throw error;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['documents', cspEventId] });
+            toast({
+                title: "Document Deleted",
+                description: "Document removed successfully.",
+            });
+        },
+        onError: (error) => {
+            toast({
+                title: "Error",
+                description: error.message || "Failed to delete document.",
+                variant: "destructive",
+            });
+        }
+    });
+
+    const getDocTypeLabel = (docType) => {
+        const labels = {
+            transaction_detail: 'Transaction Detail',
+            lost_opportunity: 'Lost Opportunity',
+            summary: 'Summary',
+            general: 'General',
+        };
+        return labels[docType] || docType;
+    };
+
+    const getDocTypeBadge = (docType) => {
+        const variants = {
+            transaction_detail: 'default',
+            lost_opportunity: 'secondary',
+            summary: 'outline',
+            general: 'outline',
+        };
+        return variants[docType] || 'outline';
+    };
+
+    if (!cspEventId) return null;
+
+    if (isLoading) {
+        return (
+            <Card>
+                <CardHeader>
+                    <CardTitle>Related Documents</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="space-y-2">
+                        {[1, 2, 3].map(i => (
+                            <div key={i} className="h-12 bg-slate-100 animate-pulse rounded" />
+                        ))}
+                    </div>
+                </CardContent>
+            </Card>
+        );
+    }
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                    <FileText className="w-5 h-5" />
+                    Related Documents
+                </CardTitle>
+                <CardDescription>Files uploaded and stored for this CSP event</CardDescription>
+            </CardHeader>
+            <CardContent>
+                {documents.length === 0 ? (
+                    <Alert>
+                        <Info className="h-4 w-4" />
+                        <AlertTitle>No Documents</AlertTitle>
+                        <AlertDescription>
+                            Upload files above to track them here.
+                        </AlertDescription>
+                    </Alert>
+                ) : (
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>File</TableHead>
+                                <TableHead>Type</TableHead>
+                                <TableHead>Uploaded</TableHead>
+                                <TableHead>Size</TableHead>
+                                <TableHead></TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {documents.map((doc) => (
+                                <TableRow key={doc.id}>
+                                    <TableCell>
+                                        <div className="flex items-center gap-2">
+                                            <File className="w-4 h-4 text-blue-500" />
+                                            <span className="font-medium">{doc.file_name}</span>
+                                        </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        <Badge variant={getDocTypeBadge(doc.document_type)}>
+                                            {getDocTypeLabel(doc.document_type)}
+                                        </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-sm text-slate-600">
+                                        {format(new Date(doc.created_date), 'MMM dd, yyyy')}
+                                    </TableCell>
+                                    <TableCell className="text-sm text-slate-600">
+                                        {(doc.file_size / 1024).toFixed(1)} KB
+                                    </TableCell>
+                                    <TableCell>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() => deleteMutation.mutate(doc.id)}
+                                            disabled={deleteMutation.isPending}
+                                        >
+                                            <Trash2 className="w-4 h-4 text-red-500" />
+                                        </Button>
+                                    </TableCell>
+                                </TableRow>
+                            ))}
+                        </TableBody>
+                    </Table>
+                )}
+            </CardContent>
+        </Card>
+    );
+};
+
 const AnalysisPanel = ({ result }) => {
     const { renegotiate, target_csp, missed_savings_30d, ownership_mix_30d, adoption_pct } = result;
     const ownershipData = Object.entries(ownership_mix_30d || {}).map(([name, value]) => ({ name, value: value * 100 }));
 
     const formatCurrency = (value) => value ? `$${Math.round(value).toLocaleString()}` : '$0';
-    
+
     return (
         <Card>
             <CardHeader>
@@ -175,7 +435,6 @@ const AnalysisPanel = ({ result }) => {
     );
 };
 
-// Panel C: Recommendation
 const RecommendationPanel = ({ result, onRunCSP }) => {
     const { run_csp_now, renegotiate, target_csp, missed_savings_30d } = result;
 
@@ -230,7 +489,7 @@ const RecommendationPanel = ({ result, onRunCSP }) => {
     );
 };
 
-export default function CspStrategyTab({ customer, cspEventId = null }) {
+export default function CspStrategyTab({ customer, cspEventId = null, cspEvent = null }) {
     const queryClient = useQueryClient();
     const [analysisResult, setAnalysisResult] = useState(customer?.strategy_result || null);
 
@@ -245,7 +504,6 @@ export default function CspStrategyTab({ customer, cspEventId = null }) {
     });
 
     const runAnalysis = (txnData, loData) => {
-        // Ensure data is always an array
         const safeTxnData = Array.isArray(txnData) ? txnData : (txnData ? [txnData] : []);
         const safeLoData = Array.isArray(loData) ? loData : (loData ? [loData] : []);
 
@@ -274,7 +532,7 @@ export default function CspStrategyTab({ customer, cspEventId = null }) {
             }))
             .orderBy('total_opportunity', 'desc')
             .value();
-        
+
         const target_csp = _(cheaper)
             .groupBy('LO_Carrier_Name')
             .map((group, carrier) => ({
@@ -285,7 +543,7 @@ export default function CspStrategyTab({ customer, cspEventId = null }) {
             }))
             .orderBy('total_savings', 'desc')
             .value();
-        
+
         const missed_savings_30d = _.sumBy(cheaper, 'Cost_Diff');
         const ownership_mix_30d = _.countBy(merged, 'Pricing_Ownership');
         const totalLoads = merged.length;
@@ -309,9 +567,9 @@ export default function CspStrategyTab({ customer, cspEventId = null }) {
             target_csp: target_csp.slice(0, 5),
             missed_savings_30d,
             ownership_mix_30d: normalized_ownership_mix,
-            adoption_pct // Add new adoption percentage to result
+            adoption_pct
         };
-        
+
         setAnalysisResult(result);
         updateCustomerMutation.mutate({ strategy_result: result, last_strategy_run_at: new Date().toISOString() });
     };
@@ -339,7 +597,12 @@ export default function CspStrategyTab({ customer, cspEventId = null }) {
                     </AlertDescription>
                 </Alert>
             )}
-            <UploadPanel onAnalysisComplete={runAnalysis} />
+
+            {cspEvent && <AiSummaryPanel cspEvent={cspEvent} />}
+
+            <UploadPanel cspEventId={cspEventId} onAnalysisComplete={runAnalysis} />
+
+            {cspEventId && <DocumentsPanel cspEventId={cspEventId} />}
 
             {analysisResult ? (
                 <>
