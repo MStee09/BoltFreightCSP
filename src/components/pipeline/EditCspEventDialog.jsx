@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Customer, Carrier, CSPEvent, User, Tariff } from '../../api/entities';
+import { Customer, CSPEvent, Tariff } from '../../api/entities';
+import { supabase } from '../../api/supabaseClient';
 import { createHoneymoonEvents } from '../../utils/calendarHelpers';
 import { format } from 'date-fns';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
@@ -37,7 +38,6 @@ export default function EditCspEventDialog({ isOpen, onOpenChange, eventId }) {
         priority: 'medium',
         description: '',
         assigned_to: '',
-        carrier_ids: [],
         go_live_date: '',
         honeymoon_monitoring: false
     });
@@ -54,16 +54,14 @@ export default function EditCspEventDialog({ isOpen, onOpenChange, eventId }) {
         initialData: []
     });
 
-    const { data: carriers = [] } = useQuery({
-        queryKey: ['carriers'],
-        queryFn: () => Carrier.list(),
-        initialData: []
-    });
-
     const { data: users = [] } = useQuery({
         queryKey: ['users'],
-        queryFn: () => User.listAll(),
-        initialData: []
+        queryFn: async () => {
+            const { data, error } = await supabase.rpc('get_all_users');
+            if (error) throw error;
+            return data || [];
+        },
+        enabled: isOpen
     });
 
     useEffect(() => {
@@ -75,7 +73,6 @@ export default function EditCspEventDialog({ isOpen, onOpenChange, eventId }) {
                 priority: event.priority || 'medium',
                 description: event.description || '',
                 assigned_to: event.assigned_to || '',
-                carrier_ids: event.carrier_ids || [],
                 go_live_date: event.go_live_date || '',
                 honeymoon_monitoring: event.honeymoon_monitoring || false
             });
@@ -94,7 +91,6 @@ export default function EditCspEventDialog({ isOpen, onOpenChange, eventId }) {
 
                 await Tariff.create({
                     customer_id: data.customer_id,
-                    carrier_ids: data.carrier_ids || [],
                     version: `${customer?.name || 'Event'} - ${format(today, 'yyyy-MM-dd')}`,
                     ownership_type: 'Direct',
                     status: 'proposed',
@@ -156,14 +152,6 @@ export default function EditCspEventDialog({ isOpen, onOpenChange, eventId }) {
         setFormData(prev => ({ ...prev, [field]: value }));
     };
 
-    const toggleCarrier = (carrierId) => {
-        setFormData(prev => ({
-            ...prev,
-            carrier_ids: prev.carrier_ids.includes(carrierId)
-                ? prev.carrier_ids.filter(id => id !== carrierId)
-                : [...prev.carrier_ids, carrierId]
-        }));
-    };
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -265,30 +253,6 @@ export default function EditCspEventDialog({ isOpen, onOpenChange, eventId }) {
                                     )}
                                 </SelectContent>
                             </Select>
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label>Carriers Involved</Label>
-                            <div className="border rounded-lg p-3 max-h-48 overflow-y-auto space-y-2">
-                                {carriers.length > 0 ? (
-                                    carriers.map(carrier => (
-                                        <label
-                                            key={carrier.id}
-                                            className="flex items-center gap-2 p-2 hover:bg-slate-50 rounded cursor-pointer"
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                checked={formData.carrier_ids.includes(carrier.id)}
-                                                onChange={() => toggleCarrier(carrier.id)}
-                                                className="rounded"
-                                            />
-                                            <span className="text-sm">{carrier.name}</span>
-                                        </label>
-                                    ))
-                                ) : (
-                                    <p className="text-sm text-slate-500 text-center py-2">No carriers available</p>
-                                )}
-                            </div>
                         </div>
 
                         <div className="space-y-2">

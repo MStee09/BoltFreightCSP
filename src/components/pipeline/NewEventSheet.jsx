@@ -43,6 +43,16 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers: custome
         initialData: customersProp
     });
 
+    const { data: users = [] } = useQuery({
+        queryKey: ['users'],
+        queryFn: async () => {
+            const { data, error } = await supabase.rpc('get_all_users');
+            if (error) throw error;
+            return data || [];
+        },
+        enabled: isOpen
+    });
+
     const [attachedFiles, setAttachedFiles] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
 
@@ -207,12 +217,18 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers: custome
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="assigned_to">Assigned To</Label>
-                        <Input
-                            id="assigned_to"
-                            value={newEvent.assigned_to || user?.email || ''}
-                            disabled
-                            className="bg-slate-50 text-slate-600"
-                        />
+                        <Select onValueChange={value => handleValueChange('assigned_to', value)} value={newEvent.assigned_to}>
+                            <SelectTrigger id="assigned_to">
+                                <SelectValue placeholder="Select a user" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {users.length > 0 ? (
+                                    users.map(u => <SelectItem key={u.id} value={u.email}>{u.email}</SelectItem>)
+                                ) : (
+                                    <div className="p-2 text-sm text-slate-500">No users available</div>
+                                )}
+                            </SelectContent>
+                        </Select>
                     </div>
                     <div className="space-y-2">
                         <Label htmlFor="due_date">Expected Due Date</Label>
