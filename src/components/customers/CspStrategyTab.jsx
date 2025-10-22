@@ -901,16 +901,16 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                     </TabsList>
 
                     <TabsContent value="carriers" className="space-y-4">
-                        <div className="h-[400px]">
+                        <div className="h-[450px]">
                             <ResponsiveContainer width="100%" height="100%">
                                 <PieChart>
                                     <Pie
                                         data={carrierPieData}
                                         cx="50%"
-                                        cy="50%"
-                                        labelLine={true}
-                                        label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                                        outerRadius={120}
+                                        cy="45%"
+                                        labelLine={false}
+                                        label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                                        outerRadius={100}
                                         fill="#8884d8"
                                         dataKey="value"
                                     >
@@ -923,6 +923,11 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                                             `${value}% (${props.payload.shipments} shipments)`,
                                             'Share'
                                         ]}
+                                    />
+                                    <Legend
+                                        verticalAlign="bottom"
+                                        height={80}
+                                        formatter={(value, entry) => `${value}: ${entry.payload.value}%`}
                                     />
                                 </PieChart>
                             </ResponsiveContainer>
@@ -1063,10 +1068,10 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                                         <Pie
                                             data={savingsData}
                                             cx="50%"
-                                            cy="50%"
-                                            labelLine={true}
-                                            label={({ carrier, percent }) => `${carrier.length > 15 ? carrier.substring(0, 12) + '...' : carrier}: ${(percent * 100).toFixed(0)}%`}
-                                            outerRadius={100}
+                                            cy="40%"
+                                            labelLine={false}
+                                            label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                                            outerRadius={80}
                                             fill="#8884d8"
                                             dataKey="savings"
                                         >
@@ -1074,7 +1079,17 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                                                 <Cell key={`cell-${index}`} fill={['#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16'][index % 5]} />
                                             ))}
                                         </Pie>
-                                        <Tooltip formatter={(value) => [`$${value.toLocaleString()}`, 'Savings']} />
+                                        <Tooltip
+                                            formatter={(value, name, props) => [
+                                                `$${value.toLocaleString()}`,
+                                                props.payload.carrier
+                                            ]}
+                                        />
+                                        <Legend
+                                            verticalAlign="bottom"
+                                            height={60}
+                                            formatter={(value, entry) => `${entry.payload.carrier}`}
+                                        />
                                     </PieChart>
                                 </ResponsiveContainer>
                             </div>
