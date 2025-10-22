@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
-import { PlusCircle, Search, Upload, ChevronDown, ChevronRight, AlertCircle } from "lucide-react";
+import { PlusCircle, Search, Upload, ChevronDown, ChevronRight, AlertCircle, Eye, GitCompare, Download, FileText, Plus } from "lucide-react";
 import { format, isAfter, isBefore, differenceInDays } from "date-fns";
 import { Skeleton } from "../components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
@@ -38,6 +38,8 @@ export default function TariffsPage() {
     priority1_blanket: 'all'
   });
   const [expandedGroups, setExpandedGroups] = useState(new Set());
+  const [expandedCarriers, setExpandedCarriers] = useState(new Set());
+  const [hoveredRowId, setHoveredRowId] = useState(null);
 
   const statusFilter = filtersByTab[ownershipTab];
 
@@ -182,6 +184,30 @@ export default function TariffsPage() {
     setExpandedGroups(newExpanded);
   };
 
+  const toggleCarriers = (tariffId) => {
+    const newExpanded = new Set(expandedCarriers);
+    if (newExpanded.has(tariffId)) {
+      newExpanded.delete(tariffId);
+    } else {
+      newExpanded.add(tariffId);
+    }
+    setExpandedCarriers(newExpanded);
+  };
+
+  const getRowColorClass = (tariff) => {
+    const today = new Date();
+    const expiryDate = tariff.expiry_date ? new Date(tariff.expiry_date) : null;
+    const daysUntilExpiry = expiryDate ? differenceInDays(expiryDate, today) : null;
+
+    if (tariff.status === 'expired' || (expiryDate && daysUntilExpiry !== null && daysUntilExpiry < 0)) {
+      return 'bg-slate-100 text-slate-600';
+    }
+    if (expiryDate && daysUntilExpiry !== null && daysUntilExpiry <= 90 && daysUntilExpiry >= 0) {
+      return 'bg-yellow-50';
+    }
+    return 'bg-white';
+  };
+
   const totalCount = groupedTariffs.reduce((sum, g) => sum + g.tariffs.length, 0);
 
   const getTabCounts = useMemo(() => {
@@ -300,11 +326,13 @@ export default function TariffsPage() {
       </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="sticky top-0 bg-white z-10 border-b">
           <CardTitle className="text-lg flex items-center justify-between">
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-3">
-                <span>{OWNERSHIP_TYPES.find(t => t.value === ownershipTab)?.label}</span>
+                <Badge variant="outline" className={`text-sm ${OWNERSHIP_TYPES.find(t => t.value === ownershipTab)?.color.replace('bg-', 'bg-').replace('border-l-4 border-l-', 'border-')}`}>
+                  {OWNERSHIP_TYPES.find(t => t.value === ownershipTab)?.label}
+                </Badge>
                 <span className="text-sm font-normal text-slate-500">
                   {totalCount} {totalCount === 1 ? 'Tariff' : 'Tariffs'}
                 </span>
@@ -340,10 +368,11 @@ export default function TariffsPage() {
                 const isExpanded = expandedGroups.has(group.key);
                 return (
                   <div key={group.key} className="border rounded-lg overflow-hidden group/card">
-                    <button
-                      onClick={() => toggleGroup(group.key)}
-                      className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors"
-                    >
+                    <div className="group/header">
+                      <button
+                        onClick={() => toggleGroup(group.key)}
+                        className="w-full flex items-center justify-between p-4 hover:bg-slate-50 transition-colors"
+                      >
                       <div className="flex items-center gap-3">
                         {isExpanded ? (
                           <ChevronDown className="w-5 h-5 text-slate-400" />
@@ -398,11 +427,31 @@ export default function TariffsPage() {
                               }
                             }}
                           >
+                            <FileText className="w-3 h-3 mr-1" />
                             View All
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Plus className="w-3 h-3 mr-1" />
+                            Add Tariff
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <GitCompare className="w-3 h-3 mr-1" />
+                            Compare
                           </Button>
                         </div>
                       </div>
-                    </button>
+                      </button>
+                    </div>
 
                     {isExpanded && (
                       <div className="border-t">
@@ -413,8 +462,9 @@ export default function TariffsPage() {
                                 <th className="text-left p-3 text-xs font-semibold text-slate-600">Version</th>
                                 <th className="text-left p-3 text-xs font-semibold text-slate-600">Status</th>
                                 <th className="text-left p-3 text-xs font-semibold text-slate-600">Carrier</th>
-                                <th className="text-left p-3 text-xs font-semibold text-slate-600">Effective Date</th>
-                                <th className="text-left p-3 text-xs font-semibold text-slate-600">Expiry Date</th>
+                                <th className="text-right p-3 text-xs font-semibold text-slate-600">Effective Date</th>
+                                <th className="text-right p-3 text-xs font-semibold text-slate-600">Expiry Date</th>
+                                <th className="text-right p-3 text-xs font-semibold text-slate-600 w-32">Actions</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -423,38 +473,102 @@ export default function TariffsPage() {
                           const tariffCarriers = (tariff.carrier_ids || [])
                             .map(id => carriers.find(c => c.id === id))
                             .filter(Boolean);
-                          const firstCarrier = tariffCarriers[0];
+                          const isExpanded = expandedCarriers.has(tariff.id);
 
                           return (
-                            <tr key={tariff.id} className={`hover:bg-slate-50 transition-colors border-b last:border-b-0 ${getOwnershipColor(tariff.ownership_type)}`}>
-                              <td className="p-3">
-                                <Link
-                                  to={createPageUrl(`TariffDetail?id=${tariff.id}`)}
-                                  className="font-medium text-slate-900 hover:text-blue-600 hover:underline"
-                                >
-                                  {tariff.version || 'No Version'}
-                                </Link>
-                              </td>
-                              <td className="p-3">
-                                {getStatusBadge(tariff)}
-                              </td>
-                              <td className="p-3 text-sm text-slate-600">
-                                {firstCarrier ? (
-                                  <span>
-                                    {firstCarrier.name}
-                                    {tariffCarriers.length > 1 && ` +${tariffCarriers.length - 1}`}
-                                  </span>
-                                ) : (
-                                  <span className="text-slate-400">—</span>
-                                )}
-                              </td>
-                              <td className="p-3 text-sm text-slate-600">
-                                {tariff.effective_date ? format(new Date(tariff.effective_date), 'MMM dd, yyyy') : '—'}
-                              </td>
-                              <td className="p-3 text-sm text-slate-600">
-                                {tariff.expiry_date ? format(new Date(tariff.expiry_date), 'MMM dd, yyyy') : '—'}
-                              </td>
-                            </tr>
+                            <React.Fragment key={tariff.id}>
+                              <tr
+                                className={`transition-colors border-b last:border-b-0 ${getOwnershipColor(tariff.ownership_type)} ${getRowColorClass(tariff)} ${hoveredRowId === tariff.id ? 'ring-1 ring-inset ring-blue-300' : ''}`}
+                                onMouseEnter={() => setHoveredRowId(tariff.id)}
+                                onMouseLeave={() => setHoveredRowId(null)}
+                              >
+                                <td className="p-3">
+                                  <Link
+                                    to={createPageUrl(`TariffDetail?id=${tariff.id}`)}
+                                    className="font-medium text-slate-900 hover:text-blue-600 hover:underline"
+                                  >
+                                    {tariff.version || 'No Version'}
+                                  </Link>
+                                </td>
+                                <td className="p-3">
+                                  {getStatusBadge(tariff)}
+                                </td>
+                                <td className="p-3 text-sm text-slate-600">
+                                  {tariffCarriers.length > 0 ? (
+                                    <div className="flex items-center gap-1">
+                                      <span>{tariffCarriers[0].name}</span>
+                                      {tariffCarriers.length > 1 && (
+                                        <button
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            toggleCarriers(tariff.id);
+                                          }}
+                                          className="text-xs text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
+                                        >
+                                          +{tariffCarriers.length - 1} more
+                                        </button>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span className="text-slate-400">—</span>
+                                  )}
+                                </td>
+                                <td className="p-3 text-sm text-slate-600 text-right">
+                                  {tariff.effective_date ? format(new Date(tariff.effective_date), 'MMM dd, yyyy') : '—'}
+                                </td>
+                                <td className="p-3 text-sm text-slate-600 text-right">
+                                  {tariff.expiry_date ? format(new Date(tariff.expiry_date), 'MMM dd, yyyy') : '—'}
+                                </td>
+                                <td className="p-3 text-right">
+                                  <div className={`flex items-center justify-end gap-1 transition-opacity ${hoveredRowId === tariff.id ? 'opacity-100' : 'opacity-0'}`}>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7"
+                                      asChild
+                                    >
+                                      <Link to={createPageUrl(`TariffDetail?id=${tariff.id}`)}>
+                                        <Eye className="w-3.5 h-3.5" />
+                                      </Link>
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                      }}
+                                    >
+                                      <GitCompare className="w-3.5 h-3.5" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                      }}
+                                    >
+                                      <Download className="w-3.5 h-3.5" />
+                                    </Button>
+                                  </div>
+                                </td>
+                              </tr>
+                              {isExpanded && (
+                                <tr className={`${getRowColorClass(tariff)}`}>
+                                  <td colSpan="6" className="px-4 py-2 bg-slate-50/50 border-b last:border-b-0">
+                                    <div className="text-sm space-y-1">
+                                      <div className="font-medium text-slate-700">All Carriers:</div>
+                                      {tariffCarriers.map((carrier, idx) => (
+                                        <div key={carrier.id} className="text-slate-600 pl-3">
+                                          {idx + 1}. {carrier.name} {carrier.scac && `(${carrier.scac})`}
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
                           );
                         })}
                             </tbody>
