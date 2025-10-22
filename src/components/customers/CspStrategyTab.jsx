@@ -39,7 +39,11 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
         load_id: 'Load ID',
         carrier: 'Carrier Name',
         cost: 'Cost/Bill Amount',
-        ownership: 'Pricing Ownership'
+        ownership: 'Pricing Ownership',
+        weight: 'Weight',
+        class: 'Class',
+        miles: 'Miles',
+        mode: 'Mode'
     };
 
     const requiredLoFields = {
@@ -92,10 +96,21 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
                 setTxnHeaders(headers);
                 const autoMapping = {};
                 Object.keys(requiredTxnFields).forEach(key => {
-                    const match = headers.find(h =>
-                        h.toLowerCase().includes(key.toLowerCase()) ||
-                        requiredTxnFields[key].toLowerCase().includes(h.toLowerCase())
-                    );
+                    const keyVariations = [
+                        key,
+                        key.replace('_', ' '),
+                        key.replace('_', '')
+                    ];
+
+                    const match = headers.find(h => {
+                        const headerLower = h.toLowerCase();
+                        return keyVariations.some(variant =>
+                            headerLower.includes(variant.toLowerCase()) ||
+                            headerLower === variant.toLowerCase()
+                        ) || requiredTxnFields[key].toLowerCase().split('/').some(label =>
+                            headerLower.includes(label.trim().toLowerCase())
+                        );
+                    });
                     if (match) autoMapping[key] = match;
                 });
                 setTxnMapping(autoMapping);
@@ -104,10 +119,21 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
                 setLoHeaders(headers);
                 const autoMapping = {};
                 Object.keys(requiredLoFields).forEach(key => {
-                    const match = headers.find(h =>
-                        h.toLowerCase().includes(key.replace('_', ' ').toLowerCase()) ||
-                        requiredLoFields[key].toLowerCase().includes(h.toLowerCase())
-                    );
+                    const keyVariations = [
+                        key,
+                        key.replace('_', ' '),
+                        key.replace('_', '')
+                    ];
+
+                    const match = headers.find(h => {
+                        const headerLower = h.toLowerCase();
+                        return keyVariations.some(variant =>
+                            headerLower.includes(variant.toLowerCase()) ||
+                            headerLower === variant.toLowerCase()
+                        ) || requiredLoFields[key].toLowerCase().split('/').some(label =>
+                            headerLower.includes(label.trim().toLowerCase())
+                        );
+                    });
                     if (match) autoMapping[key] = match;
                 });
                 setLoMapping(autoMapping);
@@ -316,33 +342,51 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
                     />
                 </div>
 
-                {showMapping && txnFile && loFile && (
-                    <div className="border rounded-lg p-4 space-y-4 bg-slate-50">
-                        <div className="flex items-center gap-2 mb-3">
-                            <Info className="w-4 h-4 text-blue-600" />
-                            <h3 className="text-sm font-semibold text-slate-700">Map Your CSV Columns</h3>
+                {showMapping && txnFile && loFile && (() => {
+                    const missingTxnFields = Object.keys(requiredTxnFields).filter(key => !txnMapping[key]);
+                    const missingLoFields = Object.keys(requiredLoFields).filter(key => !loMapping[key]);
+                    const hasUnmappedFields = missingTxnFields.length > 0 || missingLoFields.length > 0;
+
+                    if (!hasUnmappedFields) {
+                        return (
+                            <Alert>
+                                <Info className="h-4 w-4" />
+                                <AlertTitle>Column Mapping Complete</AlertTitle>
+                                <AlertDescription>
+                                    All required columns have been automatically mapped. Click "Upload & Analyze" to continue.
+                                </AlertDescription>
+                            </Alert>
+                        );
+                    }
+
+                    return (
+                        <div className="border rounded-lg p-4 space-y-4 bg-slate-50">
+                            <div className="flex items-center gap-2 mb-3">
+                                <Info className="w-4 h-4 text-blue-600" />
+                                <h3 className="text-sm font-semibold text-slate-700">Map Your CSV Columns</h3>
+                            </div>
+                            <p className="text-xs text-slate-600 mb-4">
+                                Match your CSV columns to the required fields. We've auto-detected some mappings, but please verify they're correct.
+                            </p>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <ColumnMapper
+                                    fields={requiredTxnFields}
+                                    headers={txnHeaders}
+                                    mapping={txnMapping}
+                                    setMapping={setTxnMapping}
+                                    title="Transaction Detail Columns"
+                                />
+                                <ColumnMapper
+                                    fields={requiredLoFields}
+                                    headers={loHeaders}
+                                    mapping={loMapping}
+                                    setMapping={setLoMapping}
+                                    title="Low Cost Opportunity Columns"
+                                />
+                            </div>
                         </div>
-                        <p className="text-xs text-slate-600 mb-4">
-                            Match your CSV columns to the required fields. We've auto-detected some mappings, but please verify they're correct.
-                        </p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <ColumnMapper
-                                fields={requiredTxnFields}
-                                headers={txnHeaders}
-                                mapping={txnMapping}
-                                setMapping={setTxnMapping}
-                                title="Transaction Detail Columns"
-                            />
-                            <ColumnMapper
-                                fields={requiredLoFields}
-                                headers={loHeaders}
-                                mapping={loMapping}
-                                setMapping={setLoMapping}
-                                title="Low Cost Opportunity Columns"
-                            />
-                        </div>
-                    </div>
-                )}
+                    );
+                })()}
 
                 {error && <Alert variant="destructive"><AlertTitle>Error</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
                 <Button
