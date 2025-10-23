@@ -77,6 +77,21 @@ export default function Dashboard() {
   const today = new Date().toISOString().split('T')[0];
   const todayTasks = tasks.filter(t => t.due_date === today && t.status !== 'completed');
 
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const sevenDaysAgoStr = sevenDaysAgo.toISOString();
+
+  const previousWeekCustomers = customers.filter(c => new Date(c.created_date) < sevenDaysAgo).length;
+  const previousWeekCarriers = carriers.filter(c => new Date(c.created_date) < sevenDaysAgo).length;
+  const previousWeekActiveTariffs = tariffs.filter(t =>
+    t.status === 'active' &&
+    new Date(t.created_date || t.effective_date) < sevenDaysAgo
+  ).length;
+  const previousWeekOpenEvents = cspEvents.filter(e =>
+    e.status === 'in_progress' &&
+    new Date(e.created_date) < sevenDaysAgo
+  ).length;
+
   const handleClearMockData = async () => {
     setIsLoadingMockData(true);
     const result = await clearMockData();
@@ -137,6 +152,8 @@ export default function Dashboard() {
           expiringTariffs={expiringTariffs}
           idleNegotiations={idleNegotiations}
           todayTasks={todayTasks}
+          customers={customers}
+          cspEvents={cspEvents}
         />
 
         <div className="flex items-center gap-2 text-xs text-slate-500 mb-3">
@@ -150,12 +167,14 @@ export default function Dashboard() {
             value={customers.length}
             icon={Users}
             linkTo="Customers"
+            previousValue={previousWeekCustomers}
           />
           <MetricCard
             title="Managed Carriers"
             value={carriers.length}
             icon={Truck}
             linkTo="Carriers"
+            previousValue={previousWeekCarriers}
           />
           <MetricCard
             title="Active Tariffs"
@@ -163,6 +182,7 @@ export default function Dashboard() {
             icon={FileText}
             linkTo="Tariffs"
             filterParam="active"
+            previousValue={previousWeekActiveTariffs}
           />
           <MetricCard
             title="Open CSP Events"
@@ -171,6 +191,7 @@ export default function Dashboard() {
             linkTo="Pipeline"
             iconColor="bg-blue-500"
             filterParam="in_progress"
+            previousValue={previousWeekOpenEvents}
           />
         </div>
 

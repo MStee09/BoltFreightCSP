@@ -12,15 +12,23 @@ export default function MetricCard({
   trendUp = true,
   iconColor = "bg-blue-500",
   linkTo,
-  filterParam
+  filterParam,
+  previousValue
 }) {
   const CardWrapper = linkTo ? Link : 'div';
   const linkUrl = linkTo ? `${createPageUrl(linkTo)}${filterParam ? `?filter=${filterParam}` : ''}` : '';
   const cardProps = linkTo ? { to: linkUrl, className: "block" } : {};
 
+  const calculatedTrend = previousValue !== undefined && previousValue !== null && value !== previousValue
+    ? Math.round(((value - previousValue) / (previousValue || 1)) * 100)
+    : null;
+
+  const isTrendUp = calculatedTrend !== null ? calculatedTrend > 0 : trendUp;
+  const trendDisplay = calculatedTrend !== null ? `${calculatedTrend > 0 ? '+' : ''}${calculatedTrend}%` : trend;
+
   return (
     <CardWrapper {...cardProps}>
-      <Card className={`relative overflow-hidden shadow-lg border-0 bg-white/80 backdrop-blur ${linkTo ? 'hover:shadow-xl transition-shadow cursor-pointer' : ''}`}>
+      <Card className={`relative overflow-hidden shadow-lg border-0 bg-white/80 backdrop-blur ${linkTo ? 'hover:shadow-xl transition-all duration-200 cursor-pointer' : ''}`}>
         <div className={`absolute top-0 right-0 w-32 h-32 ${iconColor} opacity-5 rounded-full transform translate-x-12 -translate-y-12`} />
         <CardHeader className="pb-3">
           <div className="flex items-start justify-between">
@@ -35,18 +43,18 @@ export default function MetricCard({
             </div>
           </div>
         </CardHeader>
-        {trend && (
+        {(trendDisplay || calculatedTrend !== null) && (
           <CardContent className="pt-0">
             <div className="flex items-center gap-1.5 text-sm">
-              {trendUp ? (
+              {isTrendUp ? (
                 <TrendingUp className="w-4 h-4 text-green-500" />
               ) : (
                 <TrendingDown className="w-4 h-4 text-red-500" />
               )}
-              <span className={trendUp ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
-                {trend}
+              <span className={isTrendUp ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
+                {trendDisplay}
               </span>
-              <span className="text-slate-500">vs last period</span>
+              <span className="text-slate-500">vs last week</span>
             </div>
           </CardContent>
         )}
