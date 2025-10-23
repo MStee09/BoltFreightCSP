@@ -10,7 +10,6 @@ import PipelineSnapshot from "../components/dashboard/PipelineSnapshot";
 import ReportUploadPrompt from "../components/dashboard/ReportUploadPrompt";
 import MetricCard from "../components/dashboard/MetricCard";
 import DailyFocusBanner from "../components/dashboard/DailyFocusBanner";
-import { DashboardChatbot } from "../components/dashboard/DashboardChatbot";
 import { Users, Truck, FileText, Trash2, RefreshCw } from "lucide-react";
 import { Button } from "../components/ui/button";
 import { useToast } from "../components/ui/use-toast";
@@ -212,8 +211,6 @@ export default function Dashboard() {
         </div>
 
       </div>
-
-      <DashboardChatbot />
     </div>
   );
 }

@@ -35,6 +35,7 @@ import {
   SidebarTrigger,
 } from "../components/ui/sidebar";
 import { Badge } from "../components/ui/badge";
+import { DashboardChatbot } from "../components/dashboard/DashboardChatbot";
 
 
 const navigationItems = [
@@ -270,6 +271,7 @@ export default function Layout({ children, currentPageName }) {
             {children}
           </div>
         </main>
+        <DashboardChatbot />
       </div>
     </SidebarProvider>
   );
