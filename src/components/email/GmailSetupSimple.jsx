@@ -51,8 +51,8 @@ export function GmailSetupSimple() {
       return;
     }
 
-    if (!emailInput.includes('@gmail.com')) {
-      toast.error('Please use a Gmail address (e.g., you@gmail.com)');
+    if (!emailInput.includes('@')) {
+      toast.error('Please enter a valid email address');
       return;
     }
 
@@ -131,7 +131,7 @@ export function GmailSetupSimple() {
               Gmail Integration
             </CardTitle>
             <CardDescription>
-              Send tracked emails directly from the CRM
+              Send tracked emails using Gmail or Google Workspace
             </CardDescription>
           </div>
           {isConnected && (
@@ -155,13 +155,13 @@ export function GmailSetupSimple() {
                         Quick 2-Minute Setup
                       </p>
                       <p className="text-xs text-blue-800">
-                        Connect your Gmail account using an App Password. No complex OAuth setup required!
+                        Connect Gmail or Google Workspace using an App Password. No complex OAuth setup required!
                       </p>
                       <div className="mt-3 space-y-1">
                         <p className="text-xs font-medium text-blue-900">What you'll need:</p>
                         <ol className="text-xs text-blue-800 space-y-1 ml-4 list-decimal">
-                          <li>Your Gmail address (e.g., you@gmail.com)</li>
-                          <li>Gmail App Password (16-character code from Google)</li>
+                          <li>Your email address (Gmail or Google Workspace)</li>
+                          <li>Google App Password (16-character code)</li>
                         </ol>
                       </div>
                     </div>
@@ -212,15 +212,18 @@ export function GmailSetupSimple() {
 
                 <div className="space-y-3">
                   <div className="space-y-2">
-                    <Label htmlFor="gmail-email">Gmail Address</Label>
+                    <Label htmlFor="gmail-email">Email Address</Label>
                     <Input
                       id="gmail-email"
                       type="email"
-                      placeholder="you@gmail.com"
+                      placeholder="you@gmail.com or you@company.com"
                       value={emailInput}
                       onChange={(e) => setEmailInput(e.target.value)}
                       disabled={connecting}
                     />
+                    <p className="text-xs text-muted-foreground">
+                      Works with Gmail and Google Workspace (custom domain)
+                    </p>
                   </div>
 
                   <div className="space-y-2">

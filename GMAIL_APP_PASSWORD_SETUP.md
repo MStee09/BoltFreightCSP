@@ -1,8 +1,8 @@
-# Gmail App Password Setup - 2 Minutes
+# Google Email Setup - 2 Minutes
 
 ## What You Need
 
-- A Gmail account (e.g., you@gmail.com)
+- A Gmail or Google Workspace account (e.g., you@gmail.com or you@company.com)
 - 2-Factor Authentication enabled (required by Google)
 - 2 minutes of your time
 
@@ -47,7 +47,7 @@
    - You'll see a setup form
 
 3. **Enter your details:**
-   - **Gmail Address:** your@gmail.com
+   - **Email Address:** your@gmail.com or your@company.com
    - **App Password:** Paste the 16-character code
    - Click **"Connect"**
 
@@ -81,7 +81,7 @@
 │  Step 3: CRM Settings                           │
 │  Settings → Integrations → Connect Gmail        │
 │                                                  │
-│  Email: you@gmail.com                           │
+│  Email: you@gmail.com or you@company.com        │
 │  Password: [paste 16-char code]                 │
 │  → Click "Connect"                              │
 └─────────────────────────────────────────────────┘
@@ -144,10 +144,11 @@ Once connected, test it immediately:
 **Problem:** "Failed to send email" error
 
 **Solutions:**
-- Verify Gmail address is correct (must be @gmail.com)
+- Verify email address is correct (Gmail or Google Workspace)
 - Check that app password has no spaces or typos
 - Try disconnecting and reconnecting
 - Check browser console for detailed error messages
+- **For Google Workspace:** Make sure your admin hasn't disabled app passwords
 
 ### Email sends but doesn't appear in timeline
 
@@ -213,9 +214,25 @@ Both steps will immediately stop the CRM from sending emails using your account.
 
 ---
 
+## Google Workspace Users
+
+If you use a company email (e.g., you@company.com), the process is identical:
+
+1. **Same App Password process** - Use your company Google account
+2. **Same setup link** - https://myaccount.google.com/apppasswords
+3. **Works the same way** - SMTP settings are identical for Gmail and Workspace
+
+**Important for Google Workspace:**
+- Your admin might have disabled app passwords for security
+- Check with IT if you can't access the App Passwords page
+- Some organizations require admin approval for app passwords
+- Alternative: Ask your admin to enable "Less secure app access" for your account
+
+---
+
 ## Next Steps
 
-Once Gmail is connected:
+Once your email is connected:
 
 1. **Send your first tracked email** from a CSP Event
 2. **Check the Emails tab** to see the timeline
