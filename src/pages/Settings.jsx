@@ -4,6 +4,9 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { GmailSetup } from '@/components/email/GmailSetup';
 import { UserManagement } from '@/components/admin/UserManagement';
+import { SystemSettings } from '@/components/admin/SystemSettings';
+import { DatabaseManagement } from '@/components/admin/DatabaseManagement';
+import { SecurityAudit } from '@/components/admin/SecurityAudit';
 import { AISettings } from '@/components/settings/AISettings';
 import KnowledgeBaseSettings from '@/components/settings/KnowledgeBase';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -131,7 +134,7 @@ export default function Settings() {
 
         {isAdmin && (
           <TabsContent value="admin" className="space-y-4 mt-6">
-            <div className="max-w-4xl space-y-4">
+            <div className="max-w-6xl space-y-4">
               <Alert>
                 <Shield className="h-4 w-4" />
                 <AlertDescription>
@@ -139,47 +142,11 @@ export default function Settings() {
                 </AlertDescription>
               </Alert>
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>System Settings</CardTitle>
-                  <CardDescription>
-                    Configure system-wide preferences
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    Additional admin settings coming soon...
-                  </p>
-                </CardContent>
-              </Card>
+              <SystemSettings />
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Database Management</CardTitle>
-                  <CardDescription>
-                    Monitor and manage database resources
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    Database tools coming soon...
-                  </p>
-                </CardContent>
-              </Card>
+              <DatabaseManagement />
 
-              <Card>
-                <CardHeader>
-                  <CardTitle>Security & Audit</CardTitle>
-                  <CardDescription>
-                    View security logs and audit trails
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-muted-foreground">
-                    Audit logs coming soon...
-                  </p>
-                </CardContent>
-              </Card>
+              <SecurityAudit />
             </div>
           </TabsContent>
         )}
