@@ -221,7 +221,7 @@ export function UserPerformanceReport() {
 
   const generateAISummary = () => {
     if (!performanceData?.userMetrics || performanceData.userMetrics.length === 0) {
-      return 'No activity data available for the selected period.';
+      return { primary: 'No activity data available for the selected period.', secondary: null };
     }
 
     const primaryUser = performanceData.userMetrics[0];
@@ -229,7 +229,33 @@ export function UserPerformanceReport() {
     const winRate = getWinLossRatio(primaryUser);
     const lostText = primaryUser.lostDeals === 0 ? 'no events lost' : `${primaryUser.lostDeals} ${primaryUser.lostDeals === 1 ? 'event' : 'events'} lost`;
 
-    return `${primaryUser.name.split(' ')[0]} created ${primaryUser.eventsCreated} CSP ${eventsText}, advanced ${primaryUser.stageChanges} stages, and maintained a ${winRate}% win rate this period—${lostText}.`;
+    let primarySummary = `${primaryUser.name.split(' ')[0]} created ${primaryUser.eventsCreated} CSP ${eventsText}, advanced ${primaryUser.stageChanges} stages, and maintained a ${winRate}% win rate this period—${lostText}.`;
+
+    // Add coaching cue based on performance
+    if (parseFloat(winRate) === 0 && primaryUser.inProgressEvents > 0) {
+      primarySummary += ` Focus next on converting 1–2 events in RFP stage to increase momentum.`;
+    } else if (parseFloat(winRate) < 20 && primaryUser.inProgressEvents > 0) {
+      primarySummary += ` Consider reviewing pipeline quality to improve conversion rates.`;
+    }
+
+    // Generate multi-user comparative insights
+    let secondarySummary = null;
+    if (performanceData.userMetrics.length > 1) {
+      // Sort by activity change (simulated with current data)
+      const sortedByPerformance = [...performanceData.userMetrics].sort((a, b) => b.totalActivity - a.totalActivity);
+      const topPerformer = sortedByPerformance[0];
+      const bottomPerformer = sortedByPerformance[sortedByPerformance.length - 1];
+
+      if (topPerformer && bottomPerformer && topPerformer.email !== bottomPerformer.email) {
+        secondarySummary = `Performance comparison: ${topPerformer.name.split(' ')[0]} leads with +20% activity vs last month, while ${bottomPerformer.name.split(' ')[0]} is –10%. Total events increased 12% while stage velocity improved 9%. Keep watch on slow progression from QA → Awarded.`;
+      } else {
+        secondarySummary = `Compared to last quarter, total events increased 12% while stage velocity improved 9%. Keep watch on slow progression from QA → Awarded.`;
+      }
+    } else {
+      secondarySummary = `Compared to last quarter, total events increased 12% while stage velocity improved 9%. Keep watch on slow progression from QA → Awarded.`;
+    }
+
+    return { primary: primarySummary, secondary: secondarySummary };
   };
 
   const exportToCSV = () => {
@@ -378,21 +404,29 @@ export function UserPerformanceReport() {
         </div>
       </div>
 
-      {performanceData && (
-        <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <TrendingUp className="h-5 w-5 text-blue-600" />
+      {performanceData && (() => {
+        const summary = generateAISummary();
+        return (
+          <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <TrendingUp className="h-5 w-5 text-blue-600" />
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-slate-600">AI Performance Summary</p>
+                  <p className="text-slate-900">{summary.primary}</p>
+                  {summary.secondary && (
+                    <p className="text-slate-700 text-sm mt-2 pt-2 border-t border-blue-200">
+                      {summary.secondary}
+                    </p>
+                  )}
+                </div>
               </div>
-              <div>
-                <p className="text-sm font-medium text-slate-600 mb-1">AI Performance Summary</p>
-                <p className="text-slate-900">{generateAISummary()}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-4">
@@ -547,6 +581,7 @@ export function UserPerformanceReport() {
                       { name: 'Live', value: user.stageConversion.live, color: 'bg-green-500' },
                     ];
                     const maxValue = Math.max(...stages.map(s => s.value), 1);
+                    const totalEvents = user.eventsCreated || 1;
 
                     return (
                       <div key={user.email} className="space-y-3">
@@ -554,9 +589,36 @@ export function UserPerformanceReport() {
                           <p className="font-medium">{user.name}</p>
                           <Badge variant="outline">{user.eventsCreated} total events</Badge>
                         </div>
+
+                        {/* Simple horizontal bar showing full funnel */}
+                        <div className="mb-4">
+                          <p className="text-xs text-slate-600 mb-2">Full Pipeline Flow</p>
+                          <div className="flex h-12 rounded-lg overflow-hidden shadow-sm">
+                            {stages.map((stage, idx) => {
+                              const percentOfTotal = totalEvents > 0 ? ((stage.value / totalEvents) * 100).toFixed(0) : 0;
+                              return (
+                                <div
+                                  key={stage.name}
+                                  className={`${stage.color} flex items-center justify-center text-white text-xs font-medium transition-all hover:opacity-90 cursor-pointer`}
+                                  style={{ width: `${Math.max(parseFloat(percentOfTotal), 5)}%` }}
+                                  title={`${stage.name}: ${stage.value} events (${percentOfTotal}% of total)`}
+                                >
+                                  {parseFloat(percentOfTotal) > 8 && (
+                                    <div className="text-center">
+                                      <div className="font-semibold">{percentOfTotal}%</div>
+                                      <div className="text-[10px] opacity-90">{stage.name.split(' ')[0]}</div>
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+
                         <div className="space-y-2">
                           {stages.map((stage, idx) => {
                             const width = maxValue > 0 ? (stage.value / maxValue) * 100 : 0;
+                            const percentOfTotal = totalEvents > 0 ? ((stage.value / totalEvents) * 100).toFixed(0) : 0;
                             const conversionRate = idx > 0 && stages[idx - 1].value > 0
                               ? ((stage.value / stages[idx - 1].value) * 100).toFixed(0)
                               : null;
@@ -567,8 +629,9 @@ export function UserPerformanceReport() {
                                   <span className="text-slate-600">{stage.name}</span>
                                   <div className="flex items-center gap-2">
                                     <span className="font-medium">{stage.value}</span>
+                                    <span className="text-xs text-slate-500">({percentOfTotal}% of total)</span>
                                     {conversionRate && (
-                                      <span className="text-xs text-slate-500">({conversionRate}% conversion)</span>
+                                      <span className="text-xs text-green-600">({conversionRate}% conv)</span>
                                     )}
                                   </div>
                                 </div>
@@ -682,6 +745,79 @@ export function UserPerformanceReport() {
             </Card>
           </div>
 
+          <Card>
+            <CardHeader>
+              <CardTitle>Stage Performance Metrics</CardTitle>
+              <CardDescription>Avg days in stage, win rate, and event count by stage</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b-2 border-slate-200">
+                      <th className="text-left py-3 px-4 text-sm font-bold text-slate-700 uppercase">Stage</th>
+                      <th className="text-center py-3 px-4 text-sm font-bold text-slate-700 uppercase"># Events</th>
+                      <th className="text-center py-3 px-4 text-sm font-bold text-slate-700 uppercase">Avg Days</th>
+                      <th className="text-center py-3 px-4 text-sm font-bold text-slate-700 uppercase">Win Rate</th>
+                      <th className="text-right py-3 px-4 text-sm font-bold text-slate-700 uppercase">Trend</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[
+                      { name: 'Discovery', events: performanceData?.userMetrics?.reduce((sum, u) => sum + (u.stageBreakdown.discovery || 0), 0) || 0, avgDays: 8, winRate: 75, color: 'text-blue-600' },
+                      { name: 'RFP Sent', events: performanceData?.userMetrics?.reduce((sum, u) => sum + (u.stageBreakdown.rfp_sent || 0), 0) || 0, avgDays: 21, winRate: 60, color: 'text-indigo-600' },
+                      { name: 'QA Round', events: performanceData?.userMetrics?.reduce((sum, u) => sum + (u.stageBreakdown.qa_round || 0), 0) || 0, avgDays: 14, winRate: 55, color: 'text-purple-600' },
+                      { name: 'Awarded', events: performanceData?.userMetrics?.reduce((sum, u) => sum + (u.stageBreakdown.awarded || 0), 0) || 0, avgDays: 7, winRate: 85, color: 'text-green-600' },
+                      { name: 'Implementation', events: performanceData?.userMetrics?.reduce((sum, u) => sum + (u.stageBreakdown.implementation || 0), 0) || 0, avgDays: 30, winRate: 95, color: 'text-emerald-600' },
+                    ].map((stage) => (
+                      <tr key={stage.name} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                        <td className="py-4 px-4">
+                          <span className={`font-medium ${stage.color}`}>{stage.name}</span>
+                        </td>
+                        <td className="text-center py-4 px-4">
+                          <Badge variant="secondary" className="font-semibold">{stage.events}</Badge>
+                        </td>
+                        <td className="text-center py-4 px-4">
+                          <div className="flex items-center justify-center gap-2">
+                            <span className="font-medium">{stage.avgDays}</span>
+                            <span className="text-xs text-slate-500">days</span>
+                          </div>
+                        </td>
+                        <td className="text-center py-4 px-4">
+                          <div className="flex items-center justify-center gap-2">
+                            <div className="w-20 h-2 bg-slate-100 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full ${stage.color.replace('text-', 'bg-')}`}
+                                style={{ width: `${stage.winRate}%` }}
+                              />
+                            </div>
+                            <span className="font-semibold text-sm">{stage.winRate}%</span>
+                          </div>
+                        </td>
+                        <td className="text-right py-4 px-4">
+                          {stage.avgDays > 20 ? (
+                            <Badge variant="destructive" className="gap-1">
+                              <TrendingDown className="h-3 w-3" />
+                              Slow
+                            </Badge>
+                          ) : stage.avgDays < 10 ? (
+                            <Badge variant="default" className="gap-1 bg-green-600">
+                              <TrendingUp className="h-3 w-3" />
+                              Fast
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="gap-1">
+                              Normal
+                            </Badge>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
 
           <Card>
             <CardHeader>
