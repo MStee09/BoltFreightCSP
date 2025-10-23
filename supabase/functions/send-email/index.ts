@@ -1,5 +1,4 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
-import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -67,38 +66,28 @@ Deno.serve(async (req: Request) => {
       carrierId,
     } = requestData;
 
-    const client = new SMTPClient({
-      connection: {
-        hostname: 'smtp.gmail.com',
-        port: 587,
-        tls: true,
-        auth: {
-          username: credentials.email_address,
-          password: credentials.app_password,
-        },
+    const nodemailer = await import('npm:nodemailer@6.9.7');
+
+    const transporter = nodemailer.default.createTransport({
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false,
+      auth: {
+        user: credentials.email_address,
+        pass: credentials.app_password,
       },
     });
 
-    const ccEmails = cc && cc.length > 0 ? cc : undefined;
-
-    await client.send({
+    await transporter.sendMail({
       from: credentials.email_address,
       to: to.join(', '),
-      cc: ccEmails ? ccEmails.join(', ') : undefined,
+      cc: cc && cc.length > 0 ? cc.join(', ') : undefined,
       subject: subject,
-      content: 'auto',
-      mimeContent: [
-        {
-          contentType: 'text/plain; charset=utf-8',
-          content: body,
-        },
-      ],
+      text: body,
       headers: {
         'X-CSP-Tracking-Code': trackingCode,
       },
     });
-
-    await client.close();
 
     const { error: dbError } = await supabaseClient
       .from('email_activities')
