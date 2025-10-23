@@ -50,14 +50,19 @@ export function useUserRole() {
         return;
       }
 
+      console.log('Fetching profile for user ID:', user.id);
+
       const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('id', user.id)
         .maybeSingle();
 
+      console.log('User profile query result:', { data, error });
+
       if (error || !data) {
         console.error('Error fetching user role:', error);
+        console.error('No profile found, defaulting to basic');
         setRole('basic');
         setIsAdmin(false);
         setIsElite(false);
@@ -66,6 +71,7 @@ export function useUserRole() {
         setUserProfile(null);
         setPermissions([]);
       } else {
+        console.log('User role from database:', data.role);
         setRole(data.role);
         setIsAdmin(data.role === 'admin');
         setIsElite(data.role === 'elite');
@@ -73,13 +79,16 @@ export function useUserRole() {
         setIsBasic(data.role === 'basic');
         setUserProfile(data);
 
-        const { data: permsData } = await supabase
+        const { data: permsData, error: permsError } = await supabase
           .from('role_permissions')
           .select('permission_id, permissions(name)')
           .eq('role', data.role);
 
+        console.log('Permissions query result:', { permsData, permsError });
+
         if (permsData) {
           const permissionNames = permsData.map(p => p.permissions.name);
+          console.log('Loaded permissions:', permissionNames.length);
           setPermissions(permissionNames);
         }
       }
