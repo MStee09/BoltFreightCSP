@@ -50,6 +50,35 @@
    - Open email → Show original → Look for `X-CSP-Tracking-Code` header
    - Go to Emails tab in CSP Event → See your sent email
 
+### What Happens Without Setup?
+
+If you click "Connect Gmail Account" without configuring the Client ID:
+
+- ✅ **App won't break** - You'll see a helpful error message
+- ✅ **Clear instructions displayed** - Amber warning box with setup steps
+- ✅ **Button disabled** - Can't accidentally trigger the OAuth flow
+- ✅ **Link to this guide** - Directs you to setup instructions
+
+The Settings page will show:
+```
+┌────────────────────────────────────────────────────┐
+│ ⚠️  Gmail Client ID Not Configured                │
+│                                                     │
+│ To connect Gmail, you need to add                  │
+│ VITE_GMAIL_CLIENT_ID to your .env file.           │
+│                                                     │
+│ Setup Steps:                                        │
+│ 1. Go to Google Cloud Console                      │
+│ 2. Create OAuth 2.0 Client ID                      │
+│ 3. Add to .env: VITE_GMAIL_CLIENT_ID=your-id      │
+│ 4. Restart dev server                              │
+│                                                     │
+│ See QUICK_EMAIL_TEST.md for detailed instructions. │
+└────────────────────────────────────────────────────┘
+
+[Connect Gmail Account] (disabled)
+```
+
 ### Test Without Gmail API (No Setup Required)
 
 If you don't want to set up Gmail, test the UI and database:
@@ -133,10 +162,15 @@ If you don't want to set up Gmail, test the UI and database:
 
 ### Troubleshooting
 
-**"Gmail not connected" error:**
+**App breaks when clicking "Connect Gmail Account":**
+- **FIXED!** The app now shows a helpful error instead of breaking
+- You'll see an amber warning box with setup instructions
+- The button is disabled until you configure the Client ID
+
+**"Gmail not connected" error when sending email:**
 - Check `.env` has `VITE_GMAIL_CLIENT_ID`
 - Restart dev server after adding env var
-- Go to Settings and reconnect
+- Go to Settings → Integrations and connect Gmail
 
 **OAuth redirect fails:**
 - Verify redirect URI in Google Cloud Console: `http://localhost:5173/gmail-callback`

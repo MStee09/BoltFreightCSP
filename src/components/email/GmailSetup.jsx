@@ -57,6 +57,14 @@ export function GmailSetup() {
   };
 
   const handleConnectGmail = () => {
+    if (!GMAIL_CLIENT_ID) {
+      toast.error(
+        'Gmail Client ID not configured. Please add VITE_GMAIL_CLIENT_ID to your .env file.',
+        { duration: 5000 }
+      );
+      return;
+    }
+
     const redirectUri = `${window.location.origin}/gmail-callback`;
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
       `client_id=${GMAIL_CLIENT_ID}` +
@@ -191,6 +199,34 @@ export function GmailSetup() {
       <CardContent className="space-y-4">
         {!isConnected ? (
           <div className="space-y-4">
+            {!GMAIL_CLIENT_ID && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <AlertCircle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-amber-900">
+                      Gmail Client ID Not Configured
+                    </p>
+                    <p className="text-xs text-amber-800">
+                      To connect Gmail, you need to add <code className="bg-amber-100 px-1 py-0.5 rounded">VITE_GMAIL_CLIENT_ID</code> to your .env file.
+                    </p>
+                    <div className="mt-3 space-y-1">
+                      <p className="text-xs font-medium text-amber-900">Setup Steps:</p>
+                      <ol className="text-xs text-amber-800 space-y-1 ml-4 list-decimal">
+                        <li>Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener noreferrer" className="underline">Google Cloud Console</a></li>
+                        <li>Create OAuth 2.0 Client ID</li>
+                        <li>Add to .env: <code className="bg-amber-100 px-1 py-0.5 rounded">VITE_GMAIL_CLIENT_ID=your-id</code></li>
+                        <li>Restart dev server</li>
+                      </ol>
+                    </div>
+                    <p className="text-xs text-amber-700 mt-2">
+                      See <code className="bg-amber-100 px-1 py-0.5 rounded">QUICK_EMAIL_TEST.md</code> for detailed instructions.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="flex items-start gap-2 text-sm text-muted-foreground">
               <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
               <p>
@@ -198,7 +234,11 @@ export function GmailSetup() {
                 replies in customer and carrier timelines.
               </p>
             </div>
-            <Button onClick={handleConnectGmail} className="w-full">
+            <Button
+              onClick={handleConnectGmail}
+              className="w-full"
+              disabled={!GMAIL_CLIENT_ID}
+            >
               <Mail className="h-4 w-4 mr-2" />
               Connect Gmail Account
             </Button>
