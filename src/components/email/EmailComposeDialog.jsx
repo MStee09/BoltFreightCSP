@@ -146,14 +146,15 @@ Best regards`;
         throw new Error('Not authenticated');
       }
 
-      const { data: tokens } = await supabase
-        .from('user_gmail_tokens')
-        .select('access_token')
+      const { data: credentials } = await supabase
+        .from('user_gmail_credentials')
+        .select('email_address')
         .eq('user_id', user.id)
         .single();
 
-      if (!tokens) {
-        toast.error('Gmail not connected. Please connect your Gmail account in settings.');
+      if (!credentials) {
+        toast.error('Gmail not connected. Please connect your Gmail account in Settings → Integrations.');
+        setSending(false);
         return;
       }
 
@@ -177,7 +178,6 @@ Best regards`;
           cspEventId: cspEvent?.id,
           customerId: customer?.id,
           carrierId: carrier?.id,
-          gmailAccessToken: tokens.access_token,
         })
       });
 

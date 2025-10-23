@@ -1,4 +1,5 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { SMTPClient } from 'https://deno.land/x/denomailer@1.6.0/mod.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -15,7 +16,6 @@ interface SendEmailRequest {
   cspEventId?: string;
   customerId?: string;
   carrierId?: string;
-  gmailAccessToken: string;
 }
 
 Deno.serve(async (req: Request) => {
@@ -45,6 +45,16 @@ Deno.serve(async (req: Request) => {
       throw new Error('Unauthorized');
     }
 
+    const { data: credentials, error: credError } = await supabaseClient
+      .from('user_gmail_credentials')
+      .select('email_address, app_password')
+      .eq('user_id', user.id)
+      .single();
+
+    if (credError || !credentials) {
+      throw new Error('Gmail not connected. Please connect in Settings.');
+    }
+
     const requestData: SendEmailRequest = await req.json();
     const {
       trackingCode,
@@ -55,31 +65,32 @@ Deno.serve(async (req: Request) => {
       cspEventId,
       customerId,
       carrierId,
-      gmailAccessToken,
     } = requestData;
 
-    const emailContent = createEmail({ to, cc, subject, body, trackingCode });
-
-    const gmailResponse = await fetch(
-      'https://www.googleapis.com/gmail/v1/users/me/messages/send',
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${gmailAccessToken}`,
-          'Content-Type': 'application/json',
+    const client = new SMTPClient({
+      connection: {
+        hostname: 'smtp.gmail.com',
+        port: 587,
+        tls: true,
+        auth: {
+          username: credentials.email_address,
+          password: credentials.app_password,
         },
-        body: JSON.stringify({
-          raw: emailContent,
-        }),
-      }
-    );
+      },
+    });
 
-    if (!gmailResponse.ok) {
-      const error = await gmailResponse.text();
-      throw new Error(`Gmail API error: ${error}`);
-    }
+    await client.send({
+      from: credentials.email_address,
+      to: to.join(', '),
+      cc: cc.join(', '),
+      subject: subject,
+      content: body,
+      headers: {
+        'X-CSP-Tracking-Code': trackingCode,
+      },
+    });
 
-    const gmailData = await gmailResponse.json();
+    await client.close();
 
     const { error: dbError } = await supabaseClient
       .from('email_activities')
@@ -88,11 +99,9 @@ Deno.serve(async (req: Request) => {
         csp_event_id: cspEventId || null,
         customer_id: customerId || null,
         carrier_id: carrierId || null,
-        thread_id: gmailData.threadId,
-        message_id: gmailData.id,
         subject,
-        from_email: user.email,
-        from_name: user.user_metadata?.full_name || user.email,
+        from_email: credentials.email_address,
+        from_name: user.user_metadata?.full_name || credentials.email_address,
         to_emails: to,
         cc_emails: cc,
         body_text: body,
@@ -107,7 +116,7 @@ Deno.serve(async (req: Request) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, messageId: gmailData.id }),
+      JSON.stringify({ success: true }),
       {
         headers: {
           ...corsHeaders,
@@ -129,35 +138,3 @@ Deno.serve(async (req: Request) => {
     );
   }
 });
-
-function createEmail({ to, cc, subject, body, trackingCode }: {
-  to: string[];
-  cc: string[];
-  subject: string;
-  body: string;
-  trackingCode: string;
-}): string {
-  const toLine = to.join(', ');
-  const ccLine = cc.join(', ');
-
-  // Include tracking code in custom header, not subject line
-  const emailLines = [
-    `To: ${toLine}`,
-    `Cc: ${ccLine}`,
-    `Subject: ${subject}`,
-    `X-CSP-Tracking-Code: ${trackingCode}`,
-    'Content-Type: text/plain; charset=utf-8',
-    '',
-    body,
-  ];
-
-  const email = emailLines.join('\r\n');
-  const encoder = new TextEncoder();
-  const data = encoder.encode(email);
-  const base64 = btoa(String.fromCharCode(...data))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
-
-  return base64;
-}
