@@ -249,14 +249,74 @@ export function GmailSetup() {
           </div>
         )}
 
-        <div className="pt-4 border-t space-y-2">
-          <h4 className="text-sm font-medium">How it works:</h4>
-          <ul className="text-sm text-muted-foreground space-y-1 list-disc list-inside">
-            <li>CCs a tracking email to capture all conversation threads</li>
-            <li>Monitors your inbox for replies with tracking codes</li>
-            <li>Automatically logs all emails to customer/carrier timelines</li>
-            <li>Works even if recipients forget to "Reply All"</li>
-          </ul>
+        <div className="pt-4 border-t space-y-4">
+          <div>
+            <h4 className="text-sm font-semibold text-slate-900 mb-2">How Email Tracking Works:</h4>
+            <div className="space-y-3 text-sm text-slate-600">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="font-medium text-blue-900 mb-1">1. Send Tracked Email</p>
+                <p className="text-blue-800">
+                  When you compose an email from a CSP Event or Customer page, the system automatically:
+                </p>
+                <ul className="list-disc list-inside mt-2 ml-2 space-y-1 text-blue-700">
+                  <li>Generates a unique tracking code (e.g., CSP-1234)</li>
+                  <li>Adds the code to the subject line: [CSP-1234] Your Subject</li>
+                  <li>CCs a tracking email address to capture the thread</li>
+                  <li>Sends via your connected Gmail account</li>
+                  <li>Logs the email to the database with all context</li>
+                </ul>
+              </div>
+
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                <p className="font-medium text-purple-900 mb-1">2. Monitor Inbox (When Enabled)</p>
+                <p className="text-purple-800">
+                  Gmail Push Notifications watch your inbox and instantly notify our system when:
+                </p>
+                <ul className="list-disc list-inside mt-2 ml-2 space-y-1 text-purple-700">
+                  <li>Any new email arrives in your inbox</li>
+                  <li>The system checks for tracking codes in the subject</li>
+                  <li>If found, it links the reply to the original conversation</li>
+                  <li>Works even if recipients remove you from CC or forget Reply All</li>
+                </ul>
+              </div>
+
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                <p className="font-medium text-green-900 mb-1">3. Auto-Capture Replies</p>
+                <p className="text-green-800">
+                  The webhook automatically:
+                </p>
+                <ul className="list-disc list-inside mt-2 ml-2 space-y-1 text-green-700">
+                  <li>Extracts sender, subject, body, and all recipients</li>
+                  <li>Links to the correct CSP Event, Customer, or Carrier</li>
+                  <li>Shows up in the Email Timeline tab</li>
+                  <li>Creates interaction records for complete history</li>
+                </ul>
+              </div>
+
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                <p className="font-medium text-amber-900 mb-1">4. Complete Visibility</p>
+                <p className="text-amber-800">
+                  Every email thread is captured:
+                </p>
+                <ul className="list-disc list-inside mt-2 ml-2 space-y-1 text-amber-700">
+                  <li>Outbound: Your sent emails with context</li>
+                  <li>Inbound: All replies, even side conversations</li>
+                  <li>Timeline: Chronological view of all communications</li>
+                  <li>Search: Find emails by tracking code or contact</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-slate-100 border border-slate-300 rounded-lg p-3">
+            <p className="text-xs font-semibold text-slate-700 mb-2">Privacy & Security</p>
+            <ul className="text-xs text-slate-600 space-y-1">
+              <li>• Your Gmail credentials are encrypted and stored securely</li>
+              <li>• Only emails with tracking codes are processed</li>
+              <li>• Personal emails are never accessed or logged</li>
+              <li>• You can disconnect at any time</li>
+            </ul>
+          </div>
         </div>
       </CardContent>
     </Card>
