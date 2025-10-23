@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Mail, Check, AlertCircle, RefreshCw, Eye, EyeOff, ExternalLink } from 'lucide-react';
+import { Mail, Check, AlertCircle, RefreshCw, Eye, EyeOff, ExternalLink, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/api/supabaseClient';
 
@@ -18,6 +18,7 @@ export function GmailSetupSimple() {
   const [passwordInput, setPasswordInput] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [connecting, setConnecting] = useState(false);
+  const [sendingTest, setSendingTest] = useState(false);
 
   useEffect(() => {
     checkGmailConnection();
@@ -83,6 +84,51 @@ export function GmailSetupSimple() {
       toast.error('Failed to connect. Please check your credentials.');
     } finally {
       setConnecting(false);
+    }
+  };
+
+  const handleSendTestEmail = async () => {
+    setSendingTest(true);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const testTrackingCode = `TEST-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+      const testSubject = 'CRM Email Integration Test';
+      const testBody = `Hello!\n\nThis is a test email from your CRM system.\n\nIf you're reading this, your email integration is working perfectly! 🎉\n\nTest Details:\n- Tracking Code: ${testTrackingCode}\n- Sent At: ${new Date().toLocaleString()}\n- From: ${emailAddress}\n\nYou can now send tracked emails from CSP Events, Customers, and Carriers in your CRM.\n\nBest regards,\nYour CRM System`;
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+          'apikey': anonKey,
+        },
+        body: JSON.stringify({
+          trackingCode: testTrackingCode,
+          to: [emailAddress],
+          cc: [],
+          subject: testSubject,
+          body: testBody,
+        })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to send test email');
+      }
+
+      toast.success(`Test email sent to ${emailAddress}! Check your inbox.`, { duration: 5000 });
+    } catch (error) {
+      console.error('Error sending test email:', error);
+      toast.error(`Failed to send test email: ${error.message}`);
+    } finally {
+      setSendingTest(false);
     }
   };
 
@@ -310,14 +356,33 @@ export function GmailSetupSimple() {
               </div>
             </div>
 
-            <Button
-              variant="outline"
-              onClick={handleDisconnect}
-              className="w-full"
-              disabled={loading}
-            >
-              Disconnect Gmail
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                variant="default"
+                onClick={handleSendTestEmail}
+                className="flex-1"
+                disabled={sendingTest}
+              >
+                {sendingTest ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-4 w-4 mr-2" />
+                    Send Test Email
+                  </>
+                )}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleDisconnect}
+                disabled={loading || sendingTest}
+              >
+                Disconnect
+              </Button>
+            </div>
           </div>
         )}
 
