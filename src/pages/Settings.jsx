@@ -12,8 +12,64 @@ import KnowledgeBaseSettings from '@/components/settings/KnowledgeBase';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Settings as SettingsIcon, Shield, AlertCircle } from 'lucide-react';
 
+const ROLE_DESCRIPTIONS = {
+  admin: {
+    label: 'Administrator',
+    description: 'Full system access including user management, system settings, and database administration',
+    color: 'bg-red-100 text-red-700 border-red-200',
+    features: [
+      'All Elite permissions',
+      'User management and role assignment',
+      'System-wide settings configuration',
+      'Database management and backups',
+      'Security audit logs access'
+    ]
+  },
+  elite: {
+    label: 'Elite User',
+    description: 'Advanced access to all business features except deep system administration',
+    color: 'bg-purple-100 text-purple-700 border-purple-200',
+    features: [
+      'Full customer and carrier management',
+      'Complete tariff and CSP operations',
+      'Document management',
+      'User invitation and management',
+      'Advanced reporting and analytics',
+      'AI and integration configuration'
+    ]
+  },
+  tariff_master: {
+    label: 'Tariff Master',
+    description: 'Specialized role with complete control over tariff management',
+    color: 'bg-blue-100 text-blue-700 border-blue-200',
+    features: [
+      'View all customers and carriers',
+      'Full tariff CRUD operations',
+      'Upload and manage tariff files',
+      'Add and edit tariff notes',
+      'Document uploads',
+      'Calendar and task management',
+      'Generate reports'
+    ]
+  },
+  basic: {
+    label: 'Basic User',
+    description: 'View-only access to all system information',
+    color: 'bg-slate-100 text-slate-700 border-slate-200',
+    features: [
+      'View dashboard and metrics',
+      'View customers and carriers',
+      'View tariffs (read-only)',
+      'View CSP events and pipeline',
+      'View documents',
+      'View calendar and tasks',
+      'View reports'
+    ]
+  }
+};
+
 export default function Settings() {
-  const { isAdmin, loading, userProfile } = useUserRole();
+  const { isAdmin, isElite, role, loading, userProfile } = useUserRole();
 
   if (loading) {
     return (
@@ -39,10 +95,10 @@ export default function Settings() {
             <p className="text-slate-600">Manage your account and integrations</p>
           </div>
         </div>
-        {isAdmin && (
-          <Badge variant="default" className="gap-1">
+        {role && ROLE_DESCRIPTIONS[role] && (
+          <Badge variant="default" className={`gap-1 ${ROLE_DESCRIPTIONS[role].color} border`}>
             <Shield className="h-3 w-3" />
-            Administrator
+            {ROLE_DESCRIPTIONS[role].label}
           </Badge>
         )}
       </div>
@@ -53,7 +109,7 @@ export default function Settings() {
           <TabsTrigger value="ai">AI Assistant</TabsTrigger>
           <TabsTrigger value="knowledge">Knowledge Base</TabsTrigger>
           <TabsTrigger value="account">Account</TabsTrigger>
-          {isAdmin && <TabsTrigger value="users">Users</TabsTrigger>}
+          {(isAdmin || isElite) && <TabsTrigger value="users">Users</TabsTrigger>}
           {isAdmin && <TabsTrigger value="admin">Admin</TabsTrigger>}
         </TabsList>
 
@@ -96,9 +152,11 @@ export default function Settings() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Role</p>
-                    <Badge variant={isAdmin ? 'default' : 'secondary'} className="mt-1">
-                      {userProfile?.role}
-                    </Badge>
+                    {role && ROLE_DESCRIPTIONS[role] && (
+                      <Badge className={`mt-1 ${ROLE_DESCRIPTIONS[role].color} border`}>
+                        {ROLE_DESCRIPTIONS[role].label}
+                      </Badge>
+                    )}
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Status</p>
@@ -109,6 +167,30 @@ export default function Settings() {
                 </div>
               </CardContent>
             </Card>
+
+            {role && ROLE_DESCRIPTIONS[role] && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>Your Access Level</CardTitle>
+                  <CardDescription>
+                    {ROLE_DESCRIPTIONS[role].description}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-slate-900">Permissions:</p>
+                    <ul className="space-y-1">
+                      {ROLE_DESCRIPTIONS[role].features.map((feature, index) => (
+                        <li key={index} className="text-sm text-slate-600 flex items-start gap-2">
+                          <span className="text-green-600 mt-0.5">✓</span>
+                          <span>{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
 
             <Card>
               <CardHeader>
@@ -126,7 +208,7 @@ export default function Settings() {
           </div>
         </TabsContent>
 
-        {isAdmin && (
+        {(isAdmin || isElite) && (
           <TabsContent value="users" className="space-y-4 mt-6">
             <UserManagement />
           </TabsContent>

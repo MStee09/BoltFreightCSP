@@ -12,6 +12,8 @@ import { PlusCircle, Search, Upload, ChevronDown, ChevronRight, AlertCircle, Eye
 import { format, isAfter, isBefore, differenceInDays } from "date-fns";
 import { Skeleton } from "../components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
+import { IfHasPermission } from "../components/auth/PermissionGuard";
+import { useUserRole } from "../hooks/useUserRole";
 
 const OWNERSHIP_TYPES = [
   { value: 'rocket_csp', label: 'Rocket CSP', color: 'bg-purple-50 border-l-4 border-l-purple-500' },
@@ -331,16 +333,20 @@ export default function TariffsPage() {
           <p className="text-slate-600 mt-1">Manage customer and carrier pricing agreements</p>
         </div>
         <div className="flex gap-3">
-          <Link to={createPageUrl("/tariff-upload")}>
-            <Button variant="outline">
-              <Upload className="w-4 h-4 mr-2" />
-              Upload
+          <IfHasPermission permission="tariffs.upload">
+            <Link to={createPageUrl("/tariff-upload")}>
+              <Button variant="outline">
+                <Upload className="w-4 h-4 mr-2" />
+                Upload
+              </Button>
+            </Link>
+          </IfHasPermission>
+          <IfHasPermission permission="tariffs.create">
+            <Button>
+              <PlusCircle className="w-4 h-4 mr-2" />
+              New Tariff
             </Button>
-          </Link>
-          <Button>
-            <PlusCircle className="w-4 h-4 mr-2" />
-            New Tariff
-          </Button>
+          </IfHasPermission>
         </div>
       </div>
 
