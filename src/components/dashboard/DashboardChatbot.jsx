@@ -3,11 +3,100 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { ScrollArea } from '../ui/scroll-area';
+import { Badge } from '../ui/badge';
 import { useToast } from '../ui/use-toast';
-import { MessageCircle, Send, X, Minimize2, Maximize2, Loader2, Sparkles } from 'lucide-react';
+import { MessageCircle, Send, X, Minimize2, Maximize2, Loader2, Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../../api/supabaseClient';
 import { Customer, Carrier } from '../../api/entities';
 import { useQuery } from '@tanstack/react-query';
+
+function FormattedMessage({ content }) {
+  const formatContent = (text) => {
+    const lines = text.split('\n');
+    const formatted = [];
+    let inList = false;
+    let listItems = [];
+
+    const flushList = () => {
+      if (listItems.length > 0) {
+        formatted.push(
+          <ul key={`list-${formatted.length}`} className="space-y-2 my-3 ml-4">
+            {listItems.map((item, idx) => (
+              <li key={idx} className="flex items-start gap-2">
+                <span className="text-blue-600 mt-0.5">•</span>
+                <span className="flex-1">{item}</span>
+              </li>
+            ))}
+          </ul>
+        );
+        listItems = [];
+        inList = false;
+      }
+    };
+
+    lines.forEach((line, idx) => {
+      const trimmedLine = line.trim();
+
+      if (trimmedLine.startsWith('**⚠️') || trimmedLine.includes('DATA QUALITY ALERT')) {
+        flushList();
+        const cleanText = trimmedLine.replace(/\*\*/g, '');
+        formatted.push(
+          <div key={`alert-${idx}`} className="flex items-start gap-2 p-3 bg-amber-50 border-l-4 border-amber-400 rounded-r my-3">
+            <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+            <p className="text-sm font-semibold text-amber-900">{cleanText}</p>
+          </div>
+        );
+      } else if (trimmedLine.startsWith('**') && trimmedLine.endsWith('**')) {
+        flushList();
+        const text = trimmedLine.replace(/\*\*/g, '');
+        formatted.push(
+          <h4 key={`heading-${idx}`} className="font-semibold text-slate-900 mt-4 mb-2 text-sm">
+            {text}
+          </h4>
+        );
+      } else if (trimmedLine.match(/^\d+\.\s+\*\*/)) {
+        flushList();
+        const match = trimmedLine.match(/^(\d+)\.\s+\*\*(.+?)\*\*:?(.*)$/);
+        if (match) {
+          formatted.push(
+            <div key={`numbered-${idx}`} className="my-3">
+              <div className="flex items-start gap-3">
+                <Badge variant="default" className="h-6 w-6 p-0 flex items-center justify-center flex-shrink-0">
+                  {match[1]}
+                </Badge>
+                <div className="flex-1">
+                  <p className="font-semibold text-slate-900 text-sm">{match[2]}</p>
+                  {match[3] && <p className="text-sm text-slate-600 mt-1">{match[3]}</p>}
+                </div>
+              </div>
+            </div>
+          );
+        }
+      } else if (trimmedLine.startsWith('- ') || trimmedLine.startsWith('• ')) {
+        const itemText = trimmedLine.substring(2);
+        listItems.push(itemText);
+        inList = true;
+      } else if (trimmedLine === '') {
+        flushList();
+        if (formatted.length > 0 && formatted[formatted.length - 1]?.type !== 'br') {
+          formatted.push(<br key={`br-${idx}`} />);
+        }
+      } else {
+        flushList();
+        formatted.push(
+          <p key={`text-${idx}`} className="text-sm text-slate-700 leading-relaxed my-2">
+            {trimmedLine}
+          </p>
+        );
+      }
+    });
+
+    flushList();
+    return formatted;
+  };
+
+  return <div className="space-y-1">{formatContent(content)}</div>;
+}
 
 export function DashboardChatbot() {
   const [isOpen, setIsOpen] = useState(false);
@@ -272,13 +361,17 @@ export function DashboardChatbot() {
                   className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
                   <div
-                    className={`max-w-[85%] rounded-lg px-4 py-2 ${
+                    className={`max-w-[85%] rounded-lg px-4 py-3 ${
                       msg.role === 'user'
                         ? 'bg-blue-600 text-white'
-                        : 'bg-white border border-slate-200 text-slate-900'
+                        : 'bg-white border border-slate-200 text-slate-900 shadow-sm'
                     }`}
                   >
-                    <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                    {msg.role === 'assistant' ? (
+                      <FormattedMessage content={msg.content} />
+                    ) : (
+                      <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                    )}
                   </div>
                 </div>
               ))
