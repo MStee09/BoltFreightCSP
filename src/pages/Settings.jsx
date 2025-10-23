@@ -28,66 +28,57 @@ const ROLE_DESCRIPTIONS = {
   },
   elite: {
     label: 'Elite User',
-    description: 'Advanced access with CSP management and comprehensive reporting capabilities',
+    description: 'Advanced access to all business features except deep system administration',
     color: 'bg-purple-100 text-purple-700 border-purple-200',
     features: [
-      'Full CSP event management',
+      'Full customer and carrier management',
+      'Complete tariff and CSP operations',
+      'Document management',
+      'User invitation and management',
       'Advanced reporting and analytics',
-      'Tariff management',
-      'Customer and carrier management',
-      'Email integration',
-      'Document management'
+      'AI and integration configuration'
     ]
   },
   tariff_master: {
     label: 'Tariff Master',
-    description: 'Specialized role focused on tariff management, uploads, and pricing',
+    description: 'Specialized role with complete control over tariff management',
     color: 'bg-blue-100 text-blue-700 border-blue-200',
     features: [
-      'Upload and manage tariffs',
-      'Edit tariff details',
-      'View all tariffs',
-      'Access tariff reports',
-      'Manage pricing data',
-      'Document upload'
+      'View all customers and carriers',
+      'Full tariff CRUD operations',
+      'Upload and manage tariff files',
+      'Add and edit tariff notes',
+      'Document uploads',
+      'Calendar and task management',
+      'Generate reports'
     ]
   },
-  editor: {
-    label: 'Editor',
-    description: 'Can create and edit records with standard CRM access',
-    color: 'bg-green-100 text-green-700 border-green-200',
+  basic: {
+    label: 'Basic User',
+    description: 'Standard CRM access with ability to create and edit records',
+    color: 'bg-gray-100 text-gray-700 border-gray-200',
     features: [
       'Create and edit customers',
       'Create and edit carriers',
       'Manage assigned CSP events',
       'Upload documents',
       'Send emails',
-      'View reports'
-    ]
-  },
-  basic: {
-    label: 'Basic User',
-    description: 'Standard user with access to view and manage assigned records',
-    color: 'bg-gray-100 text-gray-700 border-gray-200',
-    features: [
-      'View assigned customers',
-      'View assigned carriers',
-      'View assigned CSP events',
-      'Basic reporting',
-      'Email communication',
-      'Document viewing'
+      'View reports',
+      'Calendar management'
     ]
   },
   viewer: {
     label: 'Viewer',
-    description: 'Read-only access to view records and reports',
+    description: 'Read-only access to all system information',
     color: 'bg-slate-100 text-slate-700 border-slate-200',
     features: [
-      'View customers',
-      'View carriers',
-      'View CSP events',
-      'View reports',
+      'View dashboard and metrics',
+      'View customers and carriers (read-only)',
+      'View tariffs (read-only)',
+      'View CSP events and pipeline',
       'View documents',
+      'View calendar and tasks',
+      'View reports',
       'No edit or delete permissions'
     ]
   }

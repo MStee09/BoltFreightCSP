@@ -37,7 +37,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Users, Plus, Edit, Trash2, Shield, User, CheckCircle, XCircle, Star, FileText, Edit as EditIcon, Eye } from 'lucide-react';
+import { Users, Plus, Edit, Trash2, Shield, User, CheckCircle, XCircle, Star, FileText, Eye } from 'lucide-react';
 import { supabase } from '@/api/supabaseClient';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -238,13 +238,11 @@ export function UserManagement() {
                         {user.role === 'admin' && <Shield className="h-3 w-3" />}
                         {user.role === 'elite' && <Star className="h-3 w-3" />}
                         {user.role === 'tariff_master' && <FileText className="h-3 w-3" />}
-                        {user.role === 'editor' && <EditIcon className="h-3 w-3" />}
                         {user.role === 'basic' && <User className="h-3 w-3" />}
                         {user.role === 'viewer' && <Eye className="h-3 w-3" />}
                         {user.role === 'admin' && 'Administrator'}
                         {user.role === 'elite' && 'Elite User'}
                         {user.role === 'tariff_master' && 'Tariff Master'}
-                        {user.role === 'editor' && 'Editor'}
                         {user.role === 'basic' && 'Basic User'}
                         {user.role === 'viewer' && 'Viewer'}
                       </Badge>
@@ -359,7 +357,6 @@ export function UserManagement() {
                     <SelectItem value="admin">Administrator</SelectItem>
                     <SelectItem value="elite">Elite User</SelectItem>
                     <SelectItem value="tariff_master">Tariff Master</SelectItem>
-                    <SelectItem value="editor">Editor</SelectItem>
                     <SelectItem value="basic">Basic User</SelectItem>
                     <SelectItem value="viewer">Viewer</SelectItem>
                   </SelectContent>

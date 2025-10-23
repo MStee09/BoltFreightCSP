@@ -166,18 +166,16 @@ export function InviteUserDialog({ open, onOpenChange, onInviteSent }) {
                 <SelectItem value="admin">Administrator</SelectItem>
                 <SelectItem value="elite">Elite User</SelectItem>
                 <SelectItem value="tariff_master">Tariff Master</SelectItem>
-                <SelectItem value="editor">Editor</SelectItem>
                 <SelectItem value="basic">Basic User</SelectItem>
                 <SelectItem value="viewer">Viewer</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
               {role === 'admin' && 'Full system access including user management and all features'}
-              {role === 'elite' && 'Advanced access with CSP management and reporting capabilities'}
-              {role === 'tariff_master' && 'Specialized access for tariff management and uploads'}
-              {role === 'editor' && 'Can create and edit records but has limited administrative access'}
-              {role === 'basic' && 'Standard access to view and manage assigned records'}
-              {role === 'viewer' && 'Read-only access to view records and reports'}
+              {role === 'elite' && 'Advanced access to all business features except deep system administration'}
+              {role === 'tariff_master' && 'Specialized role with complete control over tariff management'}
+              {role === 'basic' && 'Standard CRM access with ability to create and edit records'}
+              {role === 'viewer' && 'Read-only access to all system information'}
             </p>
           </div>
         </div>
