@@ -11,9 +11,10 @@ import {
 } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Calendar as CalendarIcon, TrendingUp, TrendingDown, Users, Activity, FileText, Download, Copy, ArrowUp, ArrowDown } from 'lucide-react';
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
+import { Calendar as CalendarIcon, TrendingUp, TrendingDown, Users, Activity, FileText, Download, Copy, ArrowUp, ArrowDown, Share2 } from 'lucide-react';
 import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
 import { supabase } from '@/api/supabaseClient';
 import { toast } from 'sonner';
@@ -610,7 +611,7 @@ export function UserPerformanceReport() {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="day" />
                     <YAxis />
-                    <Tooltip />
+                    <RechartsTooltip />
                     <Legend />
                     {users.slice(0, 5).map((user, index) => {
                       const colors = ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#ef4444'];
