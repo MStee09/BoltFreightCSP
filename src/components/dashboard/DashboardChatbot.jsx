@@ -6,6 +6,8 @@ import { ScrollArea } from '../ui/scroll-area';
 import { useToast } from '../ui/use-toast';
 import { MessageCircle, Send, X, Minimize2, Maximize2, Loader2, Sparkles } from 'lucide-react';
 import { supabase } from '../../api/supabaseClient';
+import { Customer, Carrier } from '../../api/entities';
+import { useQuery } from '@tanstack/react-query';
 
 export function DashboardChatbot() {
   const [isOpen, setIsOpen] = useState(false);
@@ -13,8 +15,60 @@ export function DashboardChatbot() {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
   const scrollRef = useRef(null);
   const { toast } = useToast();
+
+  const { data: rawCustomers } = useQuery({
+    queryKey: ['customers'],
+    queryFn: () => Customer.list(),
+  });
+
+  const { data: rawCarriers } = useQuery({
+    queryKey: ['carriers'],
+    queryFn: () => Carrier.list(),
+  });
+
+  useEffect(() => {
+    fetchCurrentUser();
+  }, []);
+
+  const fetchCurrentUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    setCurrentUser(user);
+  };
+
+  const getFirstName = () => {
+    if (!currentUser?.email) return '';
+    const emailPrefix = currentUser.email.split('@')[0];
+    return emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1);
+  };
+
+  const toArray = (data) => {
+    if (!data) return [];
+    if (Array.isArray(data)) return data;
+    if (data.data && Array.isArray(data.data)) return data.data;
+    return [];
+  };
+
+  const customers = toArray(rawCustomers);
+  const carriers = toArray(rawCarriers);
+
+  const checkDataQuality = () => {
+    const issues = [];
+
+    const customersWithMissingInfo = customers.filter(c => !c.name || !c.contact_name || !c.contact_email);
+    if (customersWithMissingInfo.length > 0) {
+      issues.push(`${customersWithMissingInfo.length} customer${customersWithMissingInfo.length > 1 ? 's have' : ' has'} incomplete contact information`);
+    }
+
+    const carriersWithMissingInfo = carriers.filter(c => !c.name || !c.scac || !c.contact_email);
+    if (carriersWithMissingInfo.length > 0) {
+      issues.push(`${carriersWithMissingInfo.length} carrier${carriersWithMissingInfo.length > 1 ? 's are' : ' is'} missing SCAC codes or contact details`);
+    }
+
+    return issues;
+  };
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -38,6 +92,17 @@ export function DashboardChatbot() {
         throw new Error('Not authenticated');
       }
 
+      const dataQualityIssues = checkDataQuality();
+      let enhancedMessage = userMessage;
+
+      if (userMessage.toLowerCase().includes('data quality') ||
+          userMessage.toLowerCase().includes('what should i') ||
+          userMessage.toLowerCase().includes('clean up')) {
+        if (dataQualityIssues.length > 0) {
+          enhancedMessage = `${userMessage}. IMPORTANT DATA QUALITY ISSUES FOUND: ${dataQualityIssues.join(', ')}. Please provide specific guidance on where to fix these in the UI (e.g., "Go to Customers page, find rows with missing contact info").`;
+        }
+      }
+
       const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/dashboard-chat`;
 
       const response = await fetch(apiUrl, {
@@ -47,8 +112,9 @@ export function DashboardChatbot() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          message: userMessage,
+          message: enhancedMessage,
           conversationHistory: messages.slice(-6),
+          userName: getFirstName(),
         }),
       });
 
@@ -87,11 +153,10 @@ export function DashboardChatbot() {
   };
 
   const suggestedQuestions = [
-    "What are my top customers?",
-    "Which carriers should I focus on?",
-    "Show me active alerts",
-    "What CSP events are in progress?",
-    "Which tariffs are expiring soon?"
+    "What should I focus on today?",
+    "Show me my top customers",
+    "Any data quality issues?",
+    "What's happening in my pipeline?"
   ];
 
   const handleSuggestedQuestion = (question) => {
@@ -117,7 +182,7 @@ export function DashboardChatbot() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Sparkles className="w-5 h-5" />
-              <CardTitle className="text-base">AI Assistant</CardTitle>
+              <CardTitle className="text-base">Freight AI Assistant</CardTitle>
             </div>
             <div className="flex items-center gap-1">
               <Button
@@ -143,13 +208,15 @@ export function DashboardChatbot() {
     );
   }
 
+  const firstName = getFirstName();
+
   return (
-    <Card className="fixed bottom-6 right-6 w-96 h-[600px] shadow-xl flex flex-col z-50">
+    <Card className="fixed bottom-6 right-6 w-96 h-[600px] shadow-2xl flex flex-col z-50 border-2 border-blue-100">
       <CardHeader className="p-4 bg-gradient-to-r from-blue-600 to-blue-700 text-white flex-shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5" />
-            <CardTitle className="text-base">AI Assistant</CardTitle>
+            <CardTitle className="text-base font-semibold">Freight AI Assistant</CardTitle>
           </div>
           <div className="flex items-center gap-1">
             <Button
@@ -170,7 +237,6 @@ export function DashboardChatbot() {
             </Button>
           </div>
         </div>
-        <p className="text-xs text-blue-100 mt-1">Ask me anything about your data</p>
       </CardHeader>
 
       <CardContent className="flex-1 flex flex-col p-4 overflow-hidden">
@@ -178,18 +244,21 @@ export function DashboardChatbot() {
           <div className="space-y-4">
             {messages.length === 0 ? (
               <div className="space-y-4">
-                <div className="text-center py-8">
-                  <MessageCircle className="w-12 h-12 mx-auto text-slate-300 mb-3" />
-                  <p className="text-sm text-slate-600 mb-4">
-                    Hi! I can help you understand your transportation data. Try asking me:
+                <div className="text-center py-6">
+                  <div className="w-20 h-20 mx-auto mb-4 bg-gradient-to-br from-blue-100 to-blue-50 rounded-full flex items-center justify-center">
+                    <Sparkles className="w-10 h-10 text-blue-600" />
+                  </div>
+                  <p className="text-base text-slate-700 font-medium mb-2">
+                    {firstName ? `Hi ${firstName}!` : 'Hi!'} I can help you understand your transportation data.
                   </p>
+                  <p className="text-sm text-slate-500">Try asking me:</p>
                 </div>
                 <div className="space-y-2">
                   {suggestedQuestions.map((question, idx) => (
                     <button
                       key={idx}
                       onClick={() => handleSuggestedQuestion(question)}
-                      className="w-full text-left px-3 py-2 text-sm bg-slate-50 hover:bg-slate-100 rounded-lg border border-slate-200 transition-colors"
+                      className="w-full text-left px-4 py-3 text-sm bg-white hover:bg-blue-50 rounded-lg border border-slate-200 hover:border-blue-300 transition-all shadow-sm hover:shadow"
                     >
                       {question}
                     </button>

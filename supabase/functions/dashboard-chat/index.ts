@@ -29,11 +29,13 @@ Deno.serve(async (req: Request) => {
       throw new Error("Not authenticated");
     }
 
-    const { message, conversationHistory } = await req.json();
+    const { message, conversationHistory, userName } = await req.json();
 
     if (!message) {
       throw new Error("Missing message parameter");
     }
+
+    const userFirstName = userName || user.email?.split('@')[0] || 'there';
 
     let aiSettings = null;
     const { data: settings } = await supabase
@@ -112,7 +114,15 @@ Deno.serve(async (req: Request) => {
       `- [${a.priority}] ${a.title} (${a.entity_type})`
     ).join('\n') || 'No active alerts';
 
-    const defaultInstructions = `You are a knowledgeable logistics and procurement assistant helping users understand their transportation management data. Provide clear, data-driven insights. Be conversational but professional. When asked about specific data, reference the actual numbers provided in the context. If you don't have specific information, say so and suggest where the user might find it.`;
+    const defaultInstructions = `You are a knowledgeable logistics and procurement assistant helping ${userFirstName} understand their transportation management data. Address them by their first name occasionally to keep the conversation personal and friendly. Provide clear, data-driven insights. Be conversational but professional. When asked about specific data, reference the actual numbers provided in the context.
+
+IMPORTANT: When the user asks about data quality or what they should focus on, actively look for issues in the data:
+- Missing contact information (email, phone, names)
+- Incomplete carrier information (missing SCAC codes)
+- Customers without segments or spend data
+- Tariffs without proper dates or rates
+
+If you notice data quality issues in the message context, proactively point them out and tell the user exactly where to fix them (e.g., "Go to the Customers page and fill in contact emails for 3 customers" or "Visit the Carriers page - 2 carriers are missing SCAC codes").`;
 
     const systemPrompt = aiSettings?.instructions || defaultInstructions;
     const knowledgeBase = aiSettings?.knowledge_base || '';
