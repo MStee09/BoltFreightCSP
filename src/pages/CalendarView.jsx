@@ -2,11 +2,14 @@ import React, { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Customer, Carrier, Tariff, CSPEvent, Task, Alert } from '../api/entities';
 import { supabase } from '../api/supabaseClient';
-import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isToday, isSameDay } from 'date-fns';
-import { ChevronLeft, ChevronRight, Calendar, AlertTriangle, CheckCircle, Clock, FileText, Users } from 'lucide-react';
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isToday, isSameDay, addWeeks, subWeeks, startOfDay, endOfDay } from 'date-fns';
+import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, AlertTriangle, CheckCircle, Clock, FileText, Users, LayoutGrid, LayoutList, X, ExternalLink, Sparkles } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
-import { Card } from '../components/ui/card';
+import { Card, CardContent } from '../components/ui/card';
+import { Tabs, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from '../components/ui/sheet';
+import { Separator } from '../components/ui/separator';
 
 const MOCK_USER_ID = '00000000-0000-0000-0000-000000000000';
 
@@ -62,33 +65,52 @@ const CalendarLegend = () => {
   );
 };
 
-const CalendarHeader = ({ currentMonth, onMonthChange }) => {
+const CalendarHeader = ({ currentDate, viewMode, onDateChange, onViewModeChange }) => {
+  const displayText = viewMode === 'month'
+    ? format(currentDate, 'MMMM yyyy')
+    : `Week of ${format(startOfWeek(currentDate), 'MMM d, yyyy')}`;
+
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex items-center justify-between flex-wrap gap-4">
       <h2 className="text-xl lg:text-2xl font-bold text-slate-800">
-        {format(currentMonth, 'MMMM yyyy')}
+        {displayText}
       </h2>
-      <div className="flex items-center gap-2">
-        <Button variant="outline" size="icon" onClick={() => onMonthChange('prev')}>
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => onMonthChange('today')}>
-          Today
-        </Button>
-        <Button variant="outline" size="icon" onClick={() => onMonthChange('next')}>
-          <ChevronRight className="h-4 w-4" />
-        </Button>
+      <div className="flex items-center gap-3">
+        <Tabs value={viewMode} onValueChange={onViewModeChange}>
+          <TabsList>
+            <TabsTrigger value="month" className="gap-2">
+              <LayoutGrid className="h-4 w-4" />
+              Month
+            </TabsTrigger>
+            <TabsTrigger value="week" className="gap-2">
+              <LayoutList className="h-4 w-4" />
+              Week
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="icon" onClick={() => onDateChange('prev')}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => onDateChange('today')}>
+            Today
+          </Button>
+          <Button variant="outline" size="icon" onClick={() => onDateChange('next')}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     </div>
   );
 };
 
-const EventBadge = ({ event }) => {
+const EventBadge = ({ event, onClick }) => {
   const type = EVENT_TYPES[event.type];
   const Icon = type.icon;
 
   return (
     <div
+      onClick={() => onClick(event)}
       className={`flex items-center gap-1.5 text-xs px-2 py-1.5 rounded-md border ${type.color} hover:shadow-sm transition-shadow cursor-pointer group`}
       title={event.description || event.title}
     >
@@ -101,13 +123,113 @@ const EventBadge = ({ event }) => {
   );
 };
 
-const CalendarGrid = ({ month, events }) => {
-  const monthStart = startOfMonth(month);
-  const monthEnd = endOfMonth(month);
-  const startDate = startOfWeek(monthStart);
-  const endDate = endOfWeek(monthEnd);
+const EventDetailPanel = ({ event, onClose }) => {
+  if (!event) return null;
 
-  const days = eachDayOfInterval({ start: startDate, end: endDate });
+  const type = EVENT_TYPES[event.type];
+  const Icon = type.icon;
+
+  return (
+    <Sheet open={!!event} onOpenChange={onClose}>
+      <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle className="flex items-center gap-3">
+            <div className={`p-3 rounded-lg ${type.color}`}>
+              <Icon className="w-5 h-5" />
+            </div>
+            <div className="flex-1">
+              <div className="font-semibold text-slate-900">{event.title}</div>
+              <div className="text-sm text-slate-600 font-normal mt-0.5">
+                {type.label}
+              </div>
+            </div>
+          </SheetTitle>
+        </SheetHeader>
+
+        <div className="mt-6 space-y-6">
+          <div>
+            <h4 className="text-sm font-semibold text-slate-900 mb-2">Date & Time</h4>
+            <div className="flex items-center gap-2 text-sm text-slate-700">
+              <Clock className="w-4 h-4 text-slate-500" />
+              {format(new Date(event.date), 'EEEE, MMMM d, yyyy')}
+            </div>
+          </div>
+
+          {event.description && (
+            <div>
+              <h4 className="text-sm font-semibold text-slate-900 mb-2">Description</h4>
+              <p className="text-sm text-slate-700 leading-relaxed">{event.description}</p>
+            </div>
+          )}
+
+          <div>
+            <h4 className="text-sm font-semibold text-slate-900 mb-2">Priority</h4>
+            <Badge variant={event.priority === 'high' ? 'destructive' : 'secondary'}>
+              {event.priority === 'high' ? 'High Priority' : 'Normal Priority'}
+            </Badge>
+          </div>
+
+          {event.entityName && (
+            <div>
+              <h4 className="text-sm font-semibold text-slate-900 mb-2">Related To</h4>
+              <div className="flex items-center gap-2">
+                <div className="text-sm text-slate-700">{event.entityName}</div>
+                {event.entityLink && (
+                  <Button variant="ghost" size="sm" className="h-7 px-2">
+                    <ExternalLink className="w-3 h-3" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {event.owner && (
+            <div>
+              <h4 className="text-sm font-semibold text-slate-900 mb-2">Owner</h4>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                  <span className="text-sm font-semibold text-blue-700">
+                    {event.owner.charAt(0).toUpperCase()}
+                  </span>
+                </div>
+                <span className="text-sm text-slate-700">{event.owner}</span>
+              </div>
+            </div>
+          )}
+
+          {event.autoGenerated && (
+            <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-start gap-2">
+                <Sparkles className="w-4 h-4 text-blue-600 mt-0.5" />
+                <div className="text-xs text-blue-800">
+                  <p className="font-semibold mb-1">Auto-Generated Event</p>
+                  <p>{event.autoGeneratedReason}</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+};
+
+const CalendarGrid = ({ date, viewMode, events, onEventClick }) => {
+  const getDateRange = () => {
+    if (viewMode === 'week') {
+      const startDate = startOfWeek(date);
+      const endDate = endOfWeek(date);
+      return { startDate, endDate, days: eachDayOfInterval({ start: startDate, end: endDate }) };
+    } else {
+      const monthStart = startOfMonth(date);
+      const monthEnd = endOfMonth(date);
+      const startDate = startOfWeek(monthStart);
+      const endDate = endOfWeek(monthEnd);
+      return { startDate, endDate, days: eachDayOfInterval({ start: startDate, end: endDate }), monthStart };
+    }
+  };
+
+  const { days, monthStart } = getDateRange();
   const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
   const getEventsForDay = (day) => {
@@ -119,6 +241,66 @@ const CalendarGrid = ({ month, events }) => {
     const types = [...new Set(dayEvents.map(e => e.type))];
     return types;
   };
+
+  if (viewMode === 'week') {
+    return (
+      <div className="mt-4">
+        <div className="grid grid-cols-7 gap-px bg-slate-200 border border-slate-200 rounded-lg overflow-hidden">
+          {weekdays.map(day => (
+            <div key={day} className="text-center text-xs font-semibold text-slate-700 py-3 bg-slate-50 border-b border-slate-200">
+              {day}
+            </div>
+          ))}
+          {days.map((day) => {
+            const eventsForDay = getEventsForDay(day);
+            const eventTypes = getEventTypesForDay(day);
+            const isTodayDate = isToday(day);
+
+            return (
+              <div
+                key={day.toString()}
+                className={`p-3 bg-white min-h-[400px] relative ${
+                  isTodayDate ? 'ring-2 ring-blue-500 ring-inset' : ''
+                }`}
+              >
+                <div className="flex items-start justify-between mb-3 pb-2 border-b border-slate-200">
+                  <time
+                    dateTime={format(day, 'yyyy-MM-dd')}
+                    className={`text-base font-semibold ${
+                      isTodayDate
+                        ? 'bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center'
+                        : 'text-slate-900'
+                    }`}
+                  >
+                    {format(day, 'd')}
+                  </time>
+                  {eventTypes.length > 0 && (
+                    <div className="flex gap-1">
+                      {eventTypes.map(type => (
+                        <div
+                          key={type}
+                          className={`w-2 h-2 rounded-full ${EVENT_TYPES[type].dotColor}`}
+                          title={EVENT_TYPES[type].label}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  {eventsForDay.map(event => (
+                    <EventBadge key={event.id} event={event} onClick={onEventClick} />
+                  ))}
+                  {eventsForDay.length === 0 && (
+                    <p className="text-xs text-slate-400 text-center py-4">No events</p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mt-4">
@@ -132,7 +314,7 @@ const CalendarGrid = ({ month, events }) => {
         {days.map((day) => {
           const eventsForDay = getEventsForDay(day);
           const eventTypes = getEventTypesForDay(day);
-          const isCurrentMonth = isSameMonth(day, monthStart);
+          const isCurrentMonth = monthStart ? isSameMonth(day, monthStart) : true;
           const isTodayDate = isToday(day);
 
           return (
@@ -169,7 +351,7 @@ const CalendarGrid = ({ month, events }) => {
               </div>
               <div className="space-y-1">
                 {eventsForDay.slice(0, 3).map(event => (
-                  <EventBadge key={event.id} event={event} />
+                  <EventBadge key={event.id} event={event} onClick={onEventClick} />
                 ))}
                 {eventsForDay.length > 3 && (
                   <button className="text-xs text-blue-600 hover:text-blue-700 font-medium w-full text-left px-2">
@@ -185,8 +367,66 @@ const CalendarGrid = ({ month, events }) => {
   );
 };
 
+const AIWeeklySummary = ({ events }) => {
+  const today = new Date();
+  const weekStart = startOfWeek(today);
+  const weekEnd = endOfWeek(today);
+
+  const thisWeekEvents = events.filter(e => {
+    const eventDate = new Date(e.date);
+    return eventDate >= weekStart && eventDate <= weekEnd;
+  });
+
+  const highPriorityCount = thisWeekEvents.filter(e => e.priority === 'high').length;
+  const eventsByType = thisWeekEvents.reduce((acc, e) => {
+    acc[e.type] = (acc[e.type] || 0) + 1;
+    return acc;
+  }, {});
+
+  return (
+    <Card className="mb-6 bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
+      <CardContent className="p-6">
+        <div className="flex items-start gap-4">
+          <div className="p-3 bg-white rounded-lg shadow-sm">
+            <Sparkles className="w-6 h-6 text-blue-600" />
+          </div>
+          <div className="flex-1">
+            <h3 className="text-lg font-semibold text-slate-900 mb-2">This Week's Overview</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+              <div className="bg-white/80 rounded-lg p-4 border border-blue-200">
+                <div className="text-2xl font-bold text-slate-900">{thisWeekEvents.length}</div>
+                <div className="text-sm text-slate-600">Total Events</div>
+              </div>
+              <div className="bg-white/80 rounded-lg p-4 border border-red-200">
+                <div className="text-2xl font-bold text-red-600">{highPriorityCount}</div>
+                <div className="text-sm text-slate-600">High Priority</div>
+              </div>
+              <div className="bg-white/80 rounded-lg p-4 border border-purple-200">
+                <div className="text-sm text-slate-600 mb-2">Event Breakdown</div>
+                <div className="space-y-1">
+                  {Object.entries(eventsByType).map(([type, count]) => (
+                    <div key={type} className="flex items-center justify-between text-xs">
+                      <span className="flex items-center gap-1">
+                        <div className={`w-2 h-2 rounded-full ${EVENT_TYPES[type].dotColor}`} />
+                        {EVENT_TYPES[type].label}
+                      </span>
+                      <span className="font-semibold">{count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
 export default function CalendarViewPage() {
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [viewMode, setViewMode] = useState('month');
+  const [selectedEvent, setSelectedEvent] = useState(null);
 
   const { data: tariffs = [] } = useQuery({
     queryKey: ["tariffs"],
@@ -235,11 +475,12 @@ export default function CalendarViewPage() {
 
   const allCalendarEvents = useMemo(() => {
     const events = [];
+    const today = new Date();
 
     tariffs.forEach(t => {
       if (t.expiry_date) {
         const expiryDate = new Date(t.expiry_date);
-        const daysUntilExpiry = Math.floor((expiryDate - new Date()) / (1000 * 60 * 60 * 24));
+        const daysUntilExpiry = Math.floor((expiryDate - today) / (1000 * 60 * 60 * 24));
 
         events.push({
           id: `t-${t.id}`,
@@ -248,7 +489,26 @@ export default function CalendarViewPage() {
           description: `Tariff ${t.version} expires`,
           type: 'TARIFF',
           priority: daysUntilExpiry <= 30 ? 'high' : 'normal',
+          entityName: t.carrier_name || t.customer_name,
+          owner: t.account_owner,
         });
+
+        if (daysUntilExpiry <= 90 && daysUntilExpiry > 60) {
+          const reviewDate = new Date(expiryDate);
+          reviewDate.setDate(reviewDate.getDate() - 60);
+          events.push({
+            id: `t-review-${t.id}`,
+            date: reviewDate.toISOString().split('T')[0],
+            title: `Review: ${t.carrier_name || 'Tariff'}`,
+            description: `Tariff review scheduled 60 days before expiration`,
+            type: 'TASK',
+            priority: 'normal',
+            entityName: t.carrier_name || t.customer_name,
+            owner: t.account_owner,
+            autoGenerated: true,
+            autoGeneratedReason: 'Auto-created for tariffs expiring within 90 days',
+          });
+        }
       }
     });
 
@@ -261,6 +521,8 @@ export default function CalendarViewPage() {
           description: t.description,
           type: 'TASK',
           priority: t.priority || 'normal',
+          owner: t.assigned_to,
+          entityName: t.related_to,
         });
       }
     });
@@ -274,6 +536,8 @@ export default function CalendarViewPage() {
           description: `${e.stage || 'CSP Event'} - ${e.title}`,
           type: 'CSP',
           priority: e.priority || 'normal',
+          owner: e.owner,
+          entityName: e.customer_name,
         });
       }
       if (e.rfp_due_date) {
@@ -284,6 +548,10 @@ export default function CalendarViewPage() {
           description: `RFP submission deadline for ${e.title}`,
           type: 'CSP',
           priority: 'high',
+          owner: e.owner,
+          entityName: e.customer_name,
+          autoGenerated: true,
+          autoGeneratedReason: 'Auto-synced from CSP pipeline RFP due date',
         });
       }
     });
@@ -297,6 +565,8 @@ export default function CalendarViewPage() {
           description: `Quarterly Business Review with ${c.name}`,
           type: 'MEETING',
           priority: 'normal',
+          entityName: c.name,
+          owner: c.account_manager,
         });
       }
     });
@@ -309,29 +579,57 @@ export default function CalendarViewPage() {
         description: e.description,
         type: e.event_type === 'csp_review' ? 'MEETING' : 'TASK',
         priority: 'normal',
+        owner: e.assigned_to,
       });
     });
 
     alerts
-      .filter(a => a.status === 'active' && a.due_date)
+      .filter(a => a.status === 'active')
       .forEach(a => {
-        events.push({
-          id: `alert-${a.id}`,
-          date: a.due_date,
-          title: a.title,
-          description: a.description,
-          type: 'ALERT',
-          priority: a.priority || 'high',
-        });
+        const createdDate = new Date(a.created_date);
+        const daysSinceCreated = Math.floor((today - createdDate) / (1000 * 60 * 60 * 24));
+
+        if (daysSinceCreated > 3) {
+          const dueDate = a.due_date || new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+          events.push({
+            id: `alert-${a.id}`,
+            date: dueDate,
+            title: a.title,
+            description: a.description,
+            type: 'ALERT',
+            priority: 'high',
+            owner: a.assigned_to,
+            entityName: a.entity_type,
+            autoGenerated: daysSinceCreated > 3,
+            autoGeneratedReason: `Alert unresolved for ${daysSinceCreated} days - auto-added to calendar`,
+          });
+        } else if (a.due_date) {
+          events.push({
+            id: `alert-${a.id}`,
+            date: a.due_date,
+            title: a.title,
+            description: a.description,
+            type: 'ALERT',
+            priority: a.priority || 'high',
+            owner: a.assigned_to,
+            entityName: a.entity_type,
+          });
+        }
       });
 
     return events;
   }, [tariffs, tasks, cspEvents, carriers, calendarEvents, alerts]);
 
-  const handleMonthChange = (direction) => {
-    if (direction === 'next') setCurrentMonth(addMonths(currentMonth, 1));
-    else if (direction === 'prev') setCurrentMonth(subMonths(currentMonth, 1));
-    else setCurrentMonth(new Date());
+  const handleDateChange = (direction) => {
+    if (viewMode === 'month') {
+      if (direction === 'next') setCurrentDate(addMonths(currentDate, 1));
+      else if (direction === 'prev') setCurrentDate(subMonths(currentDate, 1));
+      else setCurrentDate(new Date());
+    } else {
+      if (direction === 'next') setCurrentDate(addWeeks(currentDate, 1));
+      else if (direction === 'prev') setCurrentDate(subWeeks(currentDate, 1));
+      else setCurrentDate(new Date());
+    }
   };
 
   const upcomingEvents = useMemo(() => {
@@ -347,7 +645,7 @@ export default function CalendarViewPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-2">
-            <Calendar className="w-8 h-8" />
+            <CalendarIcon className="w-8 h-8" />
             Calendar
           </h1>
           <p className="text-slate-600 mt-1">View all critical dates and events in one place</p>
@@ -357,13 +655,25 @@ export default function CalendarViewPage() {
         </Badge>
       </div>
 
+      <AIWeeklySummary events={allCalendarEvents} />
+
       <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
         <div className="xl:col-span-3">
           <CalendarLegend />
 
           <Card className="p-4 sm:p-6">
-            <CalendarHeader currentMonth={currentMonth} onMonthChange={handleMonthChange} />
-            <CalendarGrid month={currentMonth} events={allCalendarEvents} />
+            <CalendarHeader
+              currentDate={currentDate}
+              viewMode={viewMode}
+              onDateChange={handleDateChange}
+              onViewModeChange={setViewMode}
+            />
+            <CalendarGrid
+              date={currentDate}
+              viewMode={viewMode}
+              events={allCalendarEvents}
+              onEventClick={setSelectedEvent}
+            />
           </Card>
         </div>
 
@@ -414,6 +724,8 @@ export default function CalendarViewPage() {
           </Card>
         </div>
       </div>
+
+      <EventDetailPanel event={selectedEvent} onClose={() => setSelectedEvent(null)} />
     </div>
   );
 }
