@@ -77,12 +77,20 @@ Deno.serve(async (req: Request) => {
     }
 
     const [customersData, carriersData, cspEventsData, tariffsData, alertsData] = await Promise.all([
-      supabase.from('customers').select('id, name, segment, total_spend, active_lanes').limit(50),
-      supabase.from('carriers').select('id, name, scac, service_quality_score, on_time_percentage').limit(50),
-      supabase.from('csp_events').select('id, title, status, stage, target_savings, actual_savings, customer:customers(id, name)').limit(50),
-      supabase.from('tariffs').select('id, carrier_name, customer_name, rate, effective_date, expiration_date, status, customer:customers(id, name)').limit(50),
-      supabase.from('alerts').select('id, type, priority, title, entity_type').eq('status', 'active').limit(50),
+      supabase.from('customers').select('*').limit(100),
+      supabase.from('carriers').select('*').limit(100),
+      supabase.from('csp_events').select('*, customer:customers(*)').limit(100),
+      supabase.from('tariffs').select('*, customer:customers(*)').limit(100),
+      supabase.from('alerts').select('*').eq('status', 'active').limit(50),
     ]);
+
+    console.log('Data fetched:', {
+      customers: customersData.data?.length || 0,
+      carriers: carriersData.data?.length || 0,
+      cspEvents: cspEventsData.data?.length || 0,
+      tariffs: tariffsData.data?.length || 0,
+      alerts: alertsData.data?.length || 0
+    });
 
     const customerCount = customersData.data?.length || 0;
     const carrierCount = carriersData.data?.length || 0;
@@ -90,16 +98,16 @@ Deno.serve(async (req: Request) => {
     const activeTariffs = tariffsData.data?.filter(t => t.status === 'active').length || 0;
     const activeAlerts = alertsData.data?.length || 0;
 
-    const topCustomers = customersData.data?.slice(0, 10).map(c =>
-      `- ${c.name}: ${c.segment || 'N/A'} segment, $${(c.total_spend || 0).toLocaleString()} spend, ${c.active_lanes || 0} lanes`
+    const allCustomers = customersData.data?.map(c =>
+      `- ${c.name}: Status=${c.status || 'N/A'}, Segment=${c.segment || 'N/A'}, Owner=${c.account_owner || 'N/A'}, Revenue=${c.revenue_tier || 'N/A'}, Spend=$${(c.total_spend || 0).toLocaleString()}, Lanes=${c.active_lanes || 0}`
     ).join('\n') || 'No customer data available';
 
-    const topCarriers = carriersData.data?.slice(0, 10).map(c =>
-      `- ${c.name} (${c.scac || 'N/A'}): Quality ${c.service_quality_score || 'N/A'}/5, ${c.on_time_percentage || 'N/A'}% on-time`
+    const allCarriers = carriersData.data?.map(c =>
+      `- ${c.name} (SCAC: ${c.scac || 'N/A'}): Quality ${c.service_quality_score || 'N/A'}/5, On-time ${c.on_time_percentage || 'N/A'}%`
     ).join('\n') || 'No carrier data available';
 
-    const recentCSPs = cspEventsData.data?.slice(0, 10).map(e =>
-      `- "${e.title}" for ${e.customer?.name || 'Unknown'}: ${e.status} (${e.stage || 'N/A'}), Target: $${(e.target_savings || 0).toLocaleString()}, Actual: $${(e.actual_savings || 0).toLocaleString()}`
+    const allCSPs = cspEventsData.data?.map(e =>
+      `- "${e.title}" for ${e.customer?.name || 'Unknown Customer'}: Status=${e.status}, Stage=${e.stage || 'N/A'}, Priority=${e.priority || 'N/A'}, Target=$${(e.target_savings || 0).toLocaleString()}, Actual=$${(e.actual_savings || 0).toLocaleString()}, Days in stage=${e.days_in_stage || 0}`
     ).join('\n') || 'No CSP data available';
 
     const expiringTariffs = tariffsData.data?.filter(t => {
@@ -129,7 +137,7 @@ If you notice data quality issues in the message context, proactively point them
     const temperature = aiSettings?.temperature || 0.7;
     const maxTokens = aiSettings?.max_tokens || 1000;
 
-    const dataContext = `You have access to the following application data:
+    const dataContext = `You have access to the following COMPLETE application data:
 
 **Overview Statistics:**
 - Total Customers: ${customerCount}
@@ -138,14 +146,14 @@ If you notice data quality issues in the message context, proactively point them
 - Active Tariffs: ${activeTariffs}
 - Active Alerts: ${activeAlerts}
 
-**Top Customers:**
-${topCustomers}
+**ALL CUSTOMERS (Complete List):**
+${allCustomers}
 
-**Top Carriers:**
-${topCarriers}
+**ALL CARRIERS (Complete List):**
+${allCarriers}
 
-**Recent CSP Events:**
-${recentCSPs}
+**ALL CSP EVENTS (Complete List):**
+${allCSPs}
 
 **Tariffs Expiring Soon (next 60 days):**
 ${expiringTariffs}
@@ -153,7 +161,7 @@ ${expiringTariffs}
 **Active Alerts:**
 ${alertsSummary}
 
-Use this data to answer questions about customers, carriers, CSP events, tariffs, and alerts. If asked about specific details not in this context, let the user know you can see high-level data but they may need to navigate to the specific page for more details.`;
+IMPORTANT: You have the COMPLETE list of all customers and CSP events above. When asked about a specific customer or CSP event, search through the COMPLETE lists above. For example, if asked about "Torque Fitness LLC", you should find it in the customers list and any related CSP events in the CSP events list. Do NOT say you don't have information about customers that are clearly listed above.`;
 
     const messages = [
       { role: "system", content: systemPrompt },
