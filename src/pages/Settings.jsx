@@ -7,6 +7,7 @@ import { UserManagement } from '@/components/admin/UserManagement';
 import { SystemSettings } from '@/components/admin/SystemSettings';
 import { DatabaseManagement } from '@/components/admin/DatabaseManagement';
 import { SecurityAudit } from '@/components/admin/SecurityAudit';
+import { RoleDescriptions } from '@/components/admin/RoleDescriptions';
 import { AISettings } from '@/components/settings/AISettings';
 import KnowledgeBaseSettings from '@/components/settings/KnowledgeBase';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -18,7 +19,7 @@ const ROLE_DESCRIPTIONS = {
     description: 'Full system access including user management, system settings, and database administration',
     color: 'bg-red-100 text-red-700 border-red-200',
     features: [
-      'All Elite permissions',
+      'All system permissions',
       'User management and role assignment',
       'System-wide settings configuration',
       'Database management and backups',
@@ -27,43 +28,67 @@ const ROLE_DESCRIPTIONS = {
   },
   elite: {
     label: 'Elite User',
-    description: 'Advanced access to all business features except deep system administration',
+    description: 'Advanced access with CSP management and comprehensive reporting capabilities',
     color: 'bg-purple-100 text-purple-700 border-purple-200',
     features: [
-      'Full customer and carrier management',
-      'Complete tariff and CSP operations',
-      'Document management',
-      'User invitation and management',
+      'Full CSP event management',
       'Advanced reporting and analytics',
-      'AI and integration configuration'
+      'Tariff management',
+      'Customer and carrier management',
+      'Email integration',
+      'Document management'
     ]
   },
   tariff_master: {
     label: 'Tariff Master',
-    description: 'Specialized role with complete control over tariff management',
+    description: 'Specialized role focused on tariff management, uploads, and pricing',
     color: 'bg-blue-100 text-blue-700 border-blue-200',
     features: [
-      'View all customers and carriers',
-      'Full tariff CRUD operations',
-      'Upload and manage tariff files',
-      'Add and edit tariff notes',
-      'Document uploads',
-      'Calendar and task management',
-      'Generate reports'
+      'Upload and manage tariffs',
+      'Edit tariff details',
+      'View all tariffs',
+      'Access tariff reports',
+      'Manage pricing data',
+      'Document upload'
+    ]
+  },
+  editor: {
+    label: 'Editor',
+    description: 'Can create and edit records with standard CRM access',
+    color: 'bg-green-100 text-green-700 border-green-200',
+    features: [
+      'Create and edit customers',
+      'Create and edit carriers',
+      'Manage assigned CSP events',
+      'Upload documents',
+      'Send emails',
+      'View reports'
     ]
   },
   basic: {
     label: 'Basic User',
-    description: 'View-only access to all system information',
+    description: 'Standard user with access to view and manage assigned records',
+    color: 'bg-gray-100 text-gray-700 border-gray-200',
+    features: [
+      'View assigned customers',
+      'View assigned carriers',
+      'View assigned CSP events',
+      'Basic reporting',
+      'Email communication',
+      'Document viewing'
+    ]
+  },
+  viewer: {
+    label: 'Viewer',
+    description: 'Read-only access to view records and reports',
     color: 'bg-slate-100 text-slate-700 border-slate-200',
     features: [
-      'View dashboard and metrics',
-      'View customers and carriers',
-      'View tariffs (read-only)',
-      'View CSP events and pipeline',
+      'View customers',
+      'View carriers',
+      'View CSP events',
+      'View reports',
       'View documents',
-      'View calendar and tasks',
-      'View reports'
+      'No edit or delete permissions'
     ]
   }
 };
@@ -223,6 +248,8 @@ export default function Settings() {
                   You have administrator privileges. Use these settings carefully as they affect the entire system.
                 </AlertDescription>
               </Alert>
+
+              <RoleDescriptions />
 
               <SystemSettings />
 
