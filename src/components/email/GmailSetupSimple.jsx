@@ -57,6 +57,13 @@ export function GmailSetupSimple() {
       return;
     }
 
+    const cleanPassword = passwordInput.replace(/\s/g, '');
+
+    if (cleanPassword.length !== 16) {
+      toast.error('App Password must be exactly 16 characters (spaces will be removed automatically)');
+      return;
+    }
+
     setConnecting(true);
 
     try {
@@ -68,7 +75,7 @@ export function GmailSetupSimple() {
         .upsert({
           user_id: user.id,
           email_address: emailInput.trim(),
-          app_password: passwordInput.trim(),
+          app_password: cleanPassword,
         });
 
       if (error) throw error;
@@ -250,8 +257,8 @@ export function GmailSetupSimple() {
                         </a>
                       </li>
                       <li>Type "CRM Email" as the app name</li>
-                      <li>Click "Generate" and copy the 16-character code</li>
-                      <li>Paste it below (spaces will be removed automatically)</li>
+                      <li>Click "Generate" - Google will show a 16-character code (like: abcd efgh ijkl mnop)</li>
+                      <li>Copy and paste the entire code below (spaces will be removed automatically)</li>
                     </ol>
                   </div>
                 </div>
