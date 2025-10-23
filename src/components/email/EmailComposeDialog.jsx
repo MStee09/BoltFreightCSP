@@ -17,7 +17,7 @@ export function EmailComposeDialog({
   carrier,
   defaultRecipients = [],
   defaultSubject = '',
-  trackingEmail = 'csp-tracking@yourdomain.com'
+  trackingEmail = 'tracking@csp-crm.app'
 }) {
   const [trackingCode, setTrackingCode] = useState('');
   const [toEmails, setToEmails] = useState([]);
@@ -38,19 +38,19 @@ export function EmailComposeDialog({
 
       setToEmails(recipients);
       setCcEmails([trackingEmail]);
-      setSubject(defaultSubject);
+
+      // Use CSP Event title as the subject line
+      const eventSubject = cspEvent?.title || defaultSubject || 'Follow up';
+      setSubject(eventSubject);
       setBody(generateEmailTemplate());
     }
-  }, [open, defaultRecipients, defaultSubject]);
-
-  useEffect(() => {
-    if (trackingCode && !subject.startsWith('[')) {
-      setSubject(`[${trackingCode}] ${defaultSubject || ''}`);
-    }
-  }, [trackingCode]);
+  }, [open, defaultRecipients, defaultSubject, cspEvent]);
 
   const generateTrackingCode = () => {
-    const code = `CSP-${Math.floor(Math.random() * 10000).toString().padStart(4, '0')}`;
+    // Generate unique tracking code using timestamp + random
+    const timestamp = Date.now().toString(36).toUpperCase();
+    const random = Math.random().toString(36).substring(2, 6).toUpperCase();
+    const code = `CSP-${timestamp}-${random}`;
     setTrackingCode(code);
   };
 
@@ -214,15 +214,20 @@ Best regards`;
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label>Tracking Code</Label>
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="text-sm font-mono">
-                {trackingCode}
-              </Badge>
-              <span className="text-xs text-muted-foreground">
-                This will be included in the email subject for tracking
-              </span>
+          <div className="space-y-2 bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <div className="flex items-start gap-2">
+              <div className="flex-1">
+                <Label className="text-blue-900">Tracking Code</Label>
+                <div className="flex items-center gap-2 mt-1">
+                  <Badge variant="secondary" className="text-sm font-mono">
+                    {trackingCode}
+                  </Badge>
+                </div>
+                <p className="text-xs text-blue-700 mt-2">
+                  This code links all replies to this conversation, even if recipients forget to CC you.
+                  It's hidden in email headers - recipients won't see it.
+                </p>
+              </div>
             </div>
           </div>
 
@@ -292,9 +297,12 @@ Best regards`;
                 className="flex-1 min-w-[200px] outline-none bg-transparent text-sm"
               />
             </div>
-            <p className="text-xs text-muted-foreground">
-              Tracking email is automatically CC'd to capture all replies
-            </p>
+            <div className="bg-purple-50 border border-purple-200 rounded p-2 mt-1">
+              <p className="text-xs text-purple-800">
+                <strong>tracking@csp-crm.app</strong> is automatically CC'd to capture all email replies.
+                This special email address is monitored by the system to log all conversation activity.
+              </p>
+            </div>
           </div>
 
           <div className="space-y-2">

@@ -58,7 +58,7 @@ Deno.serve(async (req: Request) => {
       gmailAccessToken,
     } = requestData;
 
-    const emailContent = createEmail({ to, cc, subject, body });
+    const emailContent = createEmail({ to, cc, subject, body, trackingCode });
 
     const gmailResponse = await fetch(
       'https://www.googleapis.com/gmail/v1/users/me/messages/send',
@@ -130,19 +130,22 @@ Deno.serve(async (req: Request) => {
   }
 });
 
-function createEmail({ to, cc, subject, body }: {
+function createEmail({ to, cc, subject, body, trackingCode }: {
   to: string[];
   cc: string[];
   subject: string;
   body: string;
+  trackingCode: string;
 }): string {
   const toLine = to.join(', ');
   const ccLine = cc.join(', ');
 
+  // Include tracking code in custom header, not subject line
   const emailLines = [
     `To: ${toLine}`,
     `Cc: ${ccLine}`,
     `Subject: ${subject}`,
+    `X-CSP-Tracking-Code: ${trackingCode}`,
     'Content-Type: text/plain; charset=utf-8',
     '',
     body,

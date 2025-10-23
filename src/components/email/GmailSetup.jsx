@@ -177,7 +177,7 @@ export function GmailSetup() {
               Gmail Integration
             </CardTitle>
             <CardDescription>
-              Send and track emails directly from the CRM
+              Send and track emails directly from the CRM using tracking@csp-crm.app
             </CardDescription>
           </div>
           {isConnected && (
@@ -259,11 +259,12 @@ export function GmailSetup() {
                   When you compose an email from a CSP Event or Customer page, the system automatically:
                 </p>
                 <ul className="list-disc list-inside mt-2 ml-2 space-y-1 text-blue-700">
-                  <li>Generates a unique tracking code (e.g., CSP-1234)</li>
-                  <li>Adds the code to the subject line: [CSP-1234] Your Subject</li>
-                  <li>CCs a tracking email address to capture the thread</li>
+                  <li>Generates unique tracking code (e.g., CSP-M7K2L1-AB3D)</li>
+                  <li>Subject uses your CSP Event title naturally</li>
+                  <li>Tracking code hidden in email headers (invisible to recipients)</li>
+                  <li>CCs tracking@csp-crm.app to capture all replies</li>
                   <li>Sends via your connected Gmail account</li>
-                  <li>Logs the email to the database with all context</li>
+                  <li>Logs the email to database with full context</li>
                 </ul>
               </div>
 
@@ -309,10 +310,23 @@ export function GmailSetup() {
           </div>
 
           <div className="bg-slate-100 border border-slate-300 rounded-lg p-3">
-            <p className="text-xs font-semibold text-slate-700 mb-2">Privacy & Security</p>
-            <ul className="text-xs text-slate-600 space-y-1">
+            <p className="text-xs font-semibold text-slate-700 mb-2">About tracking@csp-crm.app</p>
+            <p className="text-xs text-slate-600 mb-2">
+              This is a special email address monitored by the CRM system. When CC'd on emails, it:
+            </p>
+            <ul className="text-xs text-slate-600 space-y-1 ml-2">
+              <li>• Captures all email threads and replies automatically</li>
+              <li>• Links conversations to CSP Events, Customers, and Carriers</li>
+              <li>• Works even if recipients remove you from the thread</li>
+              <li>• Only processes emails with valid tracking codes</li>
+            </ul>
+          </div>
+
+          <div className="bg-green-50 border border-green-300 rounded-lg p-3">
+            <p className="text-xs font-semibold text-green-800 mb-2">Privacy & Security</p>
+            <ul className="text-xs text-green-700 space-y-1">
               <li>• Your Gmail credentials are encrypted and stored securely</li>
-              <li>• Only emails with tracking codes are processed</li>
+              <li>• Only tracked business emails are processed</li>
               <li>• Personal emails are never accessed or logged</li>
               <li>• You can disconnect at any time</li>
             </ul>

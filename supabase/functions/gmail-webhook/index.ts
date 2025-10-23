@@ -219,8 +219,18 @@ function parseMessage(message: GmailMessage) {
   const cc = getHeader('Cc');
   const date = getHeader('Date');
 
-  const trackingCodeMatch = subject.match(/\[CSP-\d+\]/);
-  const trackingCode = trackingCodeMatch ? trackingCodeMatch[0].slice(1, -1) : null;
+  // Look for tracking code in custom header first, then fall back to subject line
+  let trackingCode = getHeader('X-CSP-Tracking-Code');
+
+  // Also check In-Reply-To and References headers for thread tracking
+  const inReplyTo = getHeader('In-Reply-To');
+  const references = getHeader('References');
+
+  // If no custom header, try to extract from subject line (legacy support)
+  if (!trackingCode) {
+    const trackingCodeMatch = subject.match(/\[?(CSP-[A-Z0-9-]+)\]?/i);
+    trackingCode = trackingCodeMatch ? trackingCodeMatch[1] : null;
+  }
 
   const fromMatch = from.match(/<(.+?)>/);
   const fromEmail = fromMatch ? fromMatch[1] : from.trim();
