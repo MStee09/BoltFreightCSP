@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useLocation, Link } from "react-router-dom";
+import { useLocation, Link, useNavigate } from "react-router-dom";
 import { Customer, Carrier, Tariff, CSPEvent, Task, Interaction, Alert, Shipment, LostOpportunity, ReportSnapshot } from "../api/entities";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
@@ -12,7 +12,6 @@ import { Badge } from "../components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuSeparator, DropdownMenuLabel } from "../components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import NewEventSheet from "../components/pipeline/NewEventSheet";
-import CspEventDetailSheet from "../components/pipeline/CspEventDetailSheet";
 import { createPageUrl } from "../utils";
 import { differenceInDays } from "date-fns";
 
@@ -190,11 +189,10 @@ const StageColumn = ({ stage, events, customers, tariffs, stageRef, onEventClick
 
 
 export default function PipelinePage() {
+  const navigate = useNavigate();
   const queryClient = useQueryClient();
   const location = useLocation();
   const [isNewEventSheetOpen, setIsNewEventSheetOpen] = useState(false);
-  const [selectedEventId, setSelectedEventId] = useState(null);
-  const [isDetailSheetOpen, setIsDetailSheetOpen] = useState(false);
   const [filterAssignee, setFilterAssignee] = useState(null);
   const [filterCustomer, setFilterCustomer] = useState(null);
   const [filterMode, setFilterMode] = useState(null);
@@ -275,7 +273,7 @@ export default function PipelinePage() {
       if (targetEventId) {
         const event = events.find(e => e.id === targetEventId);
         if (event) {
-          setSelectedEventId(targetEventId);
+          navigate(createPageUrl(`CspEventDetail?id=${targetEventId}`));
           setIsDetailSheetOpen(true);
 
           const eventStage = event.stage;
@@ -438,7 +436,7 @@ export default function PipelinePage() {
   const activeFilterCount = [filterAssignee, filterCustomer, filterMode, showStaleOnly].filter(Boolean).length;
 
   const handleEventClick = (eventId) => {
-    setSelectedEventId(eventId);
+    navigate(createPageUrl(`CspEventDetail?id=${eventId}`));
     setIsDetailSheetOpen(true);
   };
 
@@ -611,11 +609,6 @@ export default function PipelinePage() {
         isOpen={isNewEventSheetOpen}
         onOpenChange={setIsNewEventSheetOpen}
         customers={customers}
-      />
-      <CspEventDetailSheet
-        isOpen={isDetailSheetOpen}
-        onOpenChange={setIsDetailSheetOpen}
-        eventId={selectedEventId}
       />
     </>
   );

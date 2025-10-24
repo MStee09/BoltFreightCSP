@@ -1,6 +1,7 @@
 
 import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { Customer, Carrier, Tariff, CSPEvent, Task, Interaction, Alert, Shipment, LostOpportunity, ReportSnapshot } from "../api/entities";
 import { createPageUrl } from "../utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
@@ -10,14 +11,12 @@ import { Badge } from "../components/ui/badge";
 import { PlusCircle, Search, TrendingUp, TrendingDown } from "lucide-react";
 import { Skeleton } from "../components/ui/skeleton";
 import { format, formatDistanceToNow } from "date-fns";
-import CustomerDetailSheet from "../components/customers/CustomerDetailSheet";
 import { Checkbox } from "../components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 
 export default function CustomersPage() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
-  const [selectedCustomerId, setSelectedCustomerId] = useState(null);
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
 
   const { data: customers = [], isLoading: isLoadingCustomers } = useQuery({ queryKey: ["customers"], queryFn: () => Customer.list("-created_date"), initialData: [] });
   const { data: tariffs = [], isLoading: isLoadingTariffs } = useQuery({ queryKey: ["tariffs"], queryFn: () => Tariff.list(), initialData: [] });
@@ -56,8 +55,7 @@ export default function CustomersPage() {
   );
   
   const handleRowClick = (customerId) => {
-      setSelectedCustomerId(customerId);
-      setIsSheetOpen(true);
+      navigate(createPageUrl(`CustomerDetail?id=${customerId}`));
   };
 
   return (
@@ -177,11 +175,6 @@ export default function CustomersPage() {
           </div>
         </div>
       </div>
-      <CustomerDetailSheet 
-        customerId={selectedCustomerId}
-        isOpen={isSheetOpen}
-        onOpenChange={setIsSheetOpen}
-      />
     </>
   );
 }

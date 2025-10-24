@@ -3,11 +3,13 @@ import { useAuth } from '../contexts/AuthContext';
 import Layout from "./Layout.jsx";
 import Dashboard from "./Dashboard";
 import Customers from "./Customers";
+import CustomerDetail from "./CustomerDetail";
 import Carriers from "./Carriers";
 import CarrierDetail from "./CarrierDetail";
 import Tariffs from "./Tariffs";
 import TariffUpload from "./TariffUpload";
 import Pipeline from "./Pipeline";
+import CspEventDetail from "./CspEventDetail";
 import CalendarView from "./CalendarView";
 import Reports from "./Reports";
 import TariffDetail from "./TariffDetail";
@@ -45,6 +47,8 @@ const PAGES = {
 
     Customers: Customers,
 
+    CustomerDetail: CustomerDetail,
+
     Carriers: Carriers,
 
     CarrierDetail: CarrierDetail,
@@ -54,6 +58,8 @@ const PAGES = {
     TariffUpload: TariffUpload,
 
     Pipeline: Pipeline,
+
+    CspEventDetail: CspEventDetail,
 
     CalendarView: CalendarView,
 
@@ -110,6 +116,13 @@ function PagesContent() {
                     </Layout>
                 </ProtectedRoute>
             } />
+            <Route path="/CustomerDetail" element={
+                <ProtectedRoute>
+                    <Layout currentPageName={currentPage}>
+                        <CustomerDetail />
+                    </Layout>
+                </ProtectedRoute>
+            } />
             <Route path="/Carriers" element={
                 <ProtectedRoute>
                     <Layout currentPageName={currentPage}>
@@ -142,6 +155,13 @@ function PagesContent() {
                 <ProtectedRoute>
                     <Layout currentPageName={currentPage}>
                         <Pipeline />
+                    </Layout>
+                </ProtectedRoute>
+            } />
+            <Route path="/CspEventDetail" element={
+                <ProtectedRoute>
+                    <Layout currentPageName={currentPage}>
+                        <CspEventDetail />
                     </Layout>
                 </ProtectedRoute>
             } />
