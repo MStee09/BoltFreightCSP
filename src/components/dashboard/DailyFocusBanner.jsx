@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -9,6 +9,8 @@ import { supabase } from '../../api/supabaseClient';
 export default function DailyFocusBanner({ alerts, expiringTariffs, idleNegotiations, todayTasks, customers, cspEvents }) {
   const [aiSummary, setAiSummary] = useState('');
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
+  const hasGeneratedToday = useRef(false);
+  const todayDate = format(new Date(), 'yyyy-MM-dd');
 
   const greeting = () => {
     const hour = new Date().getHours();
@@ -108,7 +110,16 @@ export default function DailyFocusBanner({ alerts, expiringTariffs, idleNegotiat
       if (!response.ok) throw new Error('Failed to generate summary');
 
       const data = await response.json();
-      setAiSummary(data.response || '');
+      const summary = data.response || '';
+      setAiSummary(summary);
+
+      // Store summary in localStorage with today's date
+      localStorage.setItem('dailyAISummary', JSON.stringify({
+        date: todayDate,
+        summary: summary
+      }));
+
+      hasGeneratedToday.current = true;
     } catch (error) {
       console.error('Error generating AI summary:', error);
       setAiSummary('');
@@ -116,6 +127,32 @@ export default function DailyFocusBanner({ alerts, expiringTariffs, idleNegotiat
       setIsLoadingSummary(false);
     }
   };
+
+  // Auto-generate summary on dashboard load (once per day)
+  useEffect(() => {
+    if (hasGeneratedToday.current) return;
+
+    // Check if we already have a summary for today
+    const stored = localStorage.getItem('dailyAISummary');
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        if (parsed.date === todayDate && parsed.summary) {
+          setAiSummary(parsed.summary);
+          hasGeneratedToday.current = true;
+          return;
+        }
+      } catch (e) {
+        // Invalid stored data, clear it
+        localStorage.removeItem('dailyAISummary');
+      }
+    }
+
+    // Only generate if we have data to work with
+    if (customers.length > 0 && !hasGeneratedToday.current) {
+      generateAISummary();
+    }
+  }, [customers, todayDate]);
 
   return (
     <Card className="shadow-lg border-0 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 mb-6 overflow-hidden">

@@ -35,7 +35,21 @@ export default function Dashboard() {
   const { data: rawTariffs } = useQuery({ queryKey: ['tariffs'], queryFn: () => Tariff.list() });
   const { data: rawCspEvents } = useQuery({ queryKey: ['csp_events'], queryFn: () => CSPEvent.list() });
   const { data: rawTasks } = useQuery({ queryKey: ['tasks'], queryFn: () => Task.list('-due_date') });
-  const { data: rawAlerts } = useQuery({ queryKey: ['alerts'], queryFn: () => Alert.filter({ status: 'active', order_by: '-created_date' }) });
+
+  // Only fetch active and acknowledged alerts (not resolved or dismissed)
+  const { data: rawAlerts } = useQuery({
+    queryKey: ['alerts'],
+    queryFn: async () => {
+      const { data, error } = await Alert.supabase
+        .from('alerts')
+        .select('*')
+        .in('status', ['active', 'acknowledged'])
+        .order('created_date', { ascending: false });
+
+      if (error) throw error;
+      return data;
+    }
+  });
 
   useEffect(() => {
     if (customersUpdatedAt) {

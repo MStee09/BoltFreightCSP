@@ -3,11 +3,14 @@ import React, { useState } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
-import { AlertTriangle, AlertCircle, Info, CheckCircle, ExternalLink, UserPlus, Clock, Check } from "lucide-react";
+import { Textarea } from "../ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../ui/dialog";
+import { AlertTriangle, AlertCircle, Info, CheckCircle, ExternalLink, UserPlus, Clock, Check, X, Eye } from "lucide-react";
 import { format } from "date-fns";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Alert } from "../../api/entities";
 import { useToast } from "../ui/use-toast";
+import { supabase } from "../../api/supabaseClient";
 
 // CRITICAL FIX: Moved helper function inline to fix broken import
 function ensureArray(val) {
@@ -22,13 +25,45 @@ function ensureArray(val) {
 export default function AlertsPanel({ alerts }) {
   const safeAlerts = ensureArray(alerts);
   const [hoveredAlertId, setHoveredAlertId] = useState(null);
+  const [resolvingAlert, setResolvingAlert] = useState(null);
+  const [resolutionNotes, setResolutionNotes] = useState("");
+  const [actionTaken, setActionTaken] = useState("");
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const resolveAlertMutation = useMutation({
-    mutationFn: (alertId) => Alert.update(alertId, { status: 'resolved' }),
+  const acknowledgeAlertMutation = useMutation({
+    mutationFn: async (alertId) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      await Alert.update(alertId, {
+        status: 'acknowledged',
+        last_seen_at: new Date().toISOString()
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries(['alerts']);
+      toast({
+        title: "Alert Acknowledged",
+        description: "Alert status updated to acknowledged.",
+      });
+    },
+  });
+
+  const resolveAlertMutation = useMutation({
+    mutationFn: async ({ alertId, notes, action }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      await Alert.update(alertId, {
+        status: 'resolved',
+        resolved_date: new Date().toISOString(),
+        resolved_by: user.id,
+        resolution_notes: notes,
+        action_taken: action
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['alerts']);
+      setResolvingAlert(null);
+      setResolutionNotes("");
+      setActionTaken("");
       toast({
         title: "Alert Resolved",
         description: "The alert has been marked as resolved.",
@@ -36,16 +71,39 @@ export default function AlertsPanel({ alerts }) {
     },
   });
 
-  const snoozeAlertMutation = useMutation({
-    mutationFn: (alertId) => Alert.update(alertId, { status: 'snoozed' }),
+  const dismissAlertMutation = useMutation({
+    mutationFn: async (alertId) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      await Alert.update(alertId, {
+        status: 'dismissed',
+        resolved_date: new Date().toISOString(),
+        resolved_by: user.id
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries(['alerts']);
       toast({
-        title: "Alert Snoozed",
-        description: "The alert has been snoozed for 24 hours.",
+        title: "Alert Dismissed",
+        description: "The alert has been dismissed.",
       });
     },
   });
+
+  const handleResolveClick = (alert) => {
+    setResolvingAlert(alert);
+    setResolutionNotes("");
+    setActionTaken("");
+  };
+
+  const handleConfirmResolve = () => {
+    if (resolvingAlert) {
+      resolveAlertMutation.mutate({
+        alertId: resolvingAlert.id,
+        notes: resolutionNotes,
+        action: actionTaken
+      });
+    }
+  };
 
   const getAlertIcon = (severity) => {
     switch (severity) {
@@ -132,43 +190,37 @@ export default function AlertsPanel({ alerts }) {
 
                     {hoveredAlertId === alert.id && (
                       <div className="flex items-center gap-1 mt-3 pt-3 border-t border-slate-200">
+                        {alert.status === 'active' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7 text-xs gap-1"
+                            onClick={() => acknowledgeAlertMutation.mutate(alert.id)}
+                            disabled={acknowledgeAlertMutation.isPending}
+                          >
+                            <Eye className="w-3 h-3" />
+                            Acknowledge
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 text-xs gap-1"
-                          onClick={() => {}}
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                          Open
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-xs gap-1"
-                          onClick={() => {}}
-                        >
-                          <UserPlus className="w-3 h-3" />
-                          Assign
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-xs gap-1"
-                          onClick={() => snoozeAlertMutation.mutate(alert.id)}
-                          disabled={snoozeAlertMutation.isPending}
-                        >
-                          <Clock className="w-3 h-3" />
-                          Snooze
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 text-xs gap-1"
-                          onClick={() => resolveAlertMutation.mutate(alert.id)}
+                          className="h-7 text-xs gap-1 text-green-700 hover:text-green-800 hover:bg-green-50"
+                          onClick={() => handleResolveClick(alert)}
                           disabled={resolveAlertMutation.isPending}
                         >
                           <Check className="w-3 h-3" />
                           Resolve
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 text-xs gap-1 text-slate-500 hover:text-slate-700"
+                          onClick={() => dismissAlertMutation.mutate(alert.id)}
+                          disabled={dismissAlertMutation.isPending}
+                        >
+                          <X className="w-3 h-3" />
+                          Dismiss
                         </Button>
                       </div>
                     )}
@@ -185,6 +237,56 @@ export default function AlertsPanel({ alerts }) {
           </div>
         )}
       </CardContent>
+
+      <Dialog open={!!resolvingAlert} onOpenChange={(open) => !open && setResolvingAlert(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Resolve Alert</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <p className="text-sm font-medium text-slate-700 mb-2">Alert</p>
+              <p className="text-sm text-slate-600">{resolvingAlert?.title}</p>
+            </div>
+            <div>
+              <label className="text-sm font-medium text-slate-700 mb-2 block">
+                What action was taken?
+              </label>
+              <Textarea
+                placeholder="E.g., Contacted carrier, Updated tariff, Reassigned to team member..."
+                value={actionTaken}
+                onChange={(e) => setActionTaken(e.target.value)}
+                rows={2}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-slate-700 mb-2 block">
+                Resolution Notes (Optional)
+              </label>
+              <Textarea
+                placeholder="Add any additional context or notes about the resolution..."
+                value={resolutionNotes}
+                onChange={(e) => setResolutionNotes(e.target.value)}
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setResolvingAlert(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmResolve}
+              disabled={resolveAlertMutation.isPending || !actionTaken}
+            >
+              {resolveAlertMutation.isPending ? "Resolving..." : "Mark Resolved"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
