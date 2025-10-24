@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +21,7 @@ export function EmailComposeDialog({
   defaultSubject = '',
   defaultTemplate = 'general'
 }) {
+  const queryClient = useQueryClient();
   const [trackingCode, setTrackingCode] = useState('');
   const [toEmails, setToEmails] = useState([]);
   const [ccEmails, setCcEmails] = useState([]);
@@ -399,6 +401,11 @@ export function EmailComposeDialog({
       }
 
       toast.success('Email sent successfully');
+
+      queryClient.invalidateQueries({ queryKey: ['email_activities'] });
+      queryClient.invalidateQueries({ queryKey: ['interactions'] });
+      queryClient.invalidateQueries({ queryKey: ['timeline'] });
+
       onOpenChange(false);
 
       setToEmails([]);

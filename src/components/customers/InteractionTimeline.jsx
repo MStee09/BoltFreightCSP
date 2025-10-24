@@ -1,176 +1,558 @@
-
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Customer, Carrier, Tariff, CSPEvent, Task, Interaction, Alert, Shipment, LostOpportunity, ReportSnapshot } from '../../api/entities';
+import { supabase } from '@/api/supabaseClient';
+import { Interaction } from '../../api/entities';
 import { Skeleton } from '../ui/skeleton';
 import { format, formatDistanceToNow } from 'date-fns';
-import { GitBranch, MessageSquare, Phone, Users, FileText, FilePlus, Mail, Send, ExternalLink } from 'lucide-react';
+import {
+  GitBranch,
+  MessageSquare,
+  Phone,
+  Users,
+  FileText,
+  FilePlus,
+  Mail,
+  Send,
+  ExternalLink,
+  Filter,
+  ChevronDown,
+  Clock,
+  CheckCircle2,
+  AlertCircle,
+  User,
+  Building2,
+  ArrowUpRight,
+  ArrowDownLeft,
+  Eye,
+  MousePointer
+} from 'lucide-react';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Card, CardContent } from '../ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Badge } from '../ui/badge';
+import { Separator } from '../ui/separator';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../ui/dropdown-menu';
 
-const ICONS = {
-    csp_stage_update: <GitBranch className="w-5 h-5 text-slate-500" />,
-    csp_created: <FilePlus className="w-5 h-5 text-slate-500" />,
-    csp_event: <GitBranch className="w-5 h-5 text-blue-500" />,
-    tariff: <FileText className="w-5 h-5 text-green-500" />,
-    document_upload: <FileText className="w-5 h-5 text-blue-500" />,
-    note: <MessageSquare className="w-5 h-5 text-slate-500" />,
-    call: <Phone className="w-5 h-5 text-slate-500" />,
-    email: <Mail className="w-5 h-5 text-slate-500" />,
-    meeting: <Users className="w-5 h-5 text-slate-500" />,
-    qbr: <Users className="w-5 h-5 text-slate-500" />,
-    default: <FileText className="w-5 h-5 text-slate-500" />
+const ACTIVITY_CONFIG = {
+  email_sent: {
+    icon: <ArrowUpRight className="w-4 h-4" />,
+    color: 'text-blue-600',
+    bgColor: 'bg-blue-50',
+    borderColor: 'border-blue-200',
+    label: 'Email Sent'
+  },
+  email_received: {
+    icon: <ArrowDownLeft className="w-4 h-4" />,
+    color: 'text-green-600',
+    bgColor: 'bg-green-50',
+    borderColor: 'border-green-200',
+    label: 'Email Received'
+  },
+  email_opened: {
+    icon: <Eye className="w-4 h-4" />,
+    color: 'text-purple-600',
+    bgColor: 'bg-purple-50',
+    borderColor: 'border-purple-200',
+    label: 'Email Opened'
+  },
+  email_clicked: {
+    icon: <MousePointer className="w-4 h-4" />,
+    color: 'text-orange-600',
+    bgColor: 'bg-orange-50',
+    borderColor: 'border-orange-200',
+    label: 'Email Clicked'
+  },
+  csp_stage_update: {
+    icon: <GitBranch className="w-4 h-4" />,
+    color: 'text-indigo-600',
+    bgColor: 'bg-indigo-50',
+    borderColor: 'border-indigo-200',
+    label: 'Stage Updated'
+  },
+  csp_created: {
+    icon: <FilePlus className="w-4 h-4" />,
+    color: 'text-emerald-600',
+    bgColor: 'bg-emerald-50',
+    borderColor: 'border-emerald-200',
+    label: 'CSP Created'
+  },
+  csp_event: {
+    icon: <GitBranch className="w-4 h-4" />,
+    color: 'text-blue-600',
+    bgColor: 'bg-blue-50',
+    borderColor: 'border-blue-200',
+    label: 'CSP Event'
+  },
+  tariff: {
+    icon: <FileText className="w-4 h-4" />,
+    color: 'text-green-600',
+    bgColor: 'bg-green-50',
+    borderColor: 'border-green-200',
+    label: 'Tariff'
+  },
+  document_upload: {
+    icon: <FileText className="w-4 h-4" />,
+    color: 'text-blue-600',
+    bgColor: 'bg-blue-50',
+    borderColor: 'border-blue-200',
+    label: 'Document'
+  },
+  note: {
+    icon: <MessageSquare className="w-4 h-4" />,
+    color: 'text-slate-600',
+    bgColor: 'bg-slate-50',
+    borderColor: 'border-slate-200',
+    label: 'Note'
+  },
+  call: {
+    icon: <Phone className="w-4 h-4" />,
+    color: 'text-amber-600',
+    bgColor: 'bg-amber-50',
+    borderColor: 'border-amber-200',
+    label: 'Call'
+  },
+  meeting: {
+    icon: <Users className="w-4 h-4" />,
+    color: 'text-violet-600',
+    bgColor: 'bg-violet-50',
+    borderColor: 'border-violet-200',
+    label: 'Meeting'
+  },
+  qbr: {
+    icon: <Users className="w-4 h-4" />,
+    color: 'text-pink-600',
+    bgColor: 'bg-pink-50',
+    borderColor: 'border-pink-200',
+    label: 'QBR'
+  },
 };
 
 const LogInteractionForm = ({ entityId, entityType }) => {
-    const queryClient = useQueryClient();
-    const [type, setType] = useState('note');
-    const [summary, setSummary] = useState('');
-    const [details, setDetails] = useState('');
+  const queryClient = useQueryClient();
+  const [type, setType] = useState('note');
+  const [summary, setSummary] = useState('');
+  const [details, setDetails] = useState('');
 
-    const mutation = useMutation({
-        mutationFn: (newInteraction) => Interaction.create(newInteraction),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['interactions', entityId, entityType] }); // Update queryKey
-            setType('note');
-            setSummary('');
-            setDetails('');
-        },
+  const mutation = useMutation({
+    mutationFn: (newInteraction) => Interaction.create(newInteraction),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['timeline', entityId, entityType] });
+      setType('note');
+      setSummary('');
+      setDetails('');
+    },
+  });
+
+  const handleSubmit = () => {
+    if (!summary) return;
+    mutation.mutate({
+      entity_id: entityId,
+      entity_type: entityType,
+      interaction_type: type,
+      summary,
+      details
     });
+  };
 
-    const handleSubmit = () => {
-        if (!summary) return;
-        mutation.mutate({
-            entity_id: entityId,
-            entity_type: entityType,
-            interaction_type: type,
-            summary,
-            details
-        });
-    };
-
-    return (
-        <Card className="mb-6 bg-slate-50/70 border-slate-200 shadow-sm">
-            <CardContent className="p-4 space-y-3">
-                <Input 
-                    placeholder="Summary (e.g., 'Follow-up on Q3 rates')"
-                    value={summary}
-                    onChange={(e) => setSummary(e.target.value)}
-                />
-                <Textarea 
-                    placeholder="Add details, notes, or email body..."
-                    value={details}
-                    onChange={(e) => setDetails(e.target.value)}
-                    rows={3}
-                />
-                <div className="flex justify-between items-center">
-                    <Select value={type} onValueChange={setType}>
-                        <SelectTrigger className="w-[150px] bg-white">
-                            <SelectValue placeholder="Type" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="note"><MessageSquare className="w-4 h-4 mr-2 inline-block" />Note</SelectItem>
-                            <SelectItem value="email"><Mail className="w-4 h-4 mr-2 inline-block" />Email</SelectItem>
-                            <SelectItem value="call"><Phone className="w-4 h-4 mr-2 inline-block" />Call</SelectItem>
-                            <SelectItem value="meeting"><Users className="w-4 h-4 mr-2 inline-block" />Meeting</SelectItem>
-                        </SelectContent>
-                    </Select>
-                    <Button onClick={handleSubmit} disabled={mutation.isLoading || !summary}>
-                        {mutation.isLoading ? 'Logging...' : 'Log Activity'}
-                        <Send className="w-4 h-4 ml-2" />
-                    </Button>
+  return (
+    <Card className="mb-6 border-2 border-dashed border-slate-300 bg-slate-50/50">
+      <CardContent className="p-4 space-y-3">
+        <div className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2">
+          <MessageSquare className="w-4 h-4" />
+          Log New Activity
+        </div>
+        <Input
+          placeholder="Summary (e.g., 'Follow-up call about Q3 rates')"
+          value={summary}
+          onChange={(e) => setSummary(e.target.value)}
+          className="bg-white"
+        />
+        <Textarea
+          placeholder="Add details, notes, or outcomes..."
+          value={details}
+          onChange={(e) => setDetails(e.target.value)}
+          rows={3}
+          className="bg-white"
+        />
+        <div className="flex justify-between items-center">
+          <Select value={type} onValueChange={setType}>
+            <SelectTrigger className="w-[180px] bg-white">
+              <SelectValue placeholder="Activity Type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="note">
+                <div className="flex items-center gap-2">
+                  <MessageSquare className="w-4 h-4" />
+                  Note
                 </div>
-            </CardContent>
-        </Card>
-    );
+              </SelectItem>
+              <SelectItem value="email">
+                <div className="flex items-center gap-2">
+                  <Mail className="w-4 h-4" />
+                  Email
+                </div>
+              </SelectItem>
+              <SelectItem value="call">
+                <div className="flex items-center gap-2">
+                  <Phone className="w-4 h-4" />
+                  Call
+                </div>
+              </SelectItem>
+              <SelectItem value="meeting">
+                <div className="flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Meeting
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+          <Button onClick={handleSubmit} disabled={mutation.isPending || !summary}>
+            {mutation.isPending ? 'Logging...' : 'Log Activity'}
+            <Send className="w-4 h-4 ml-2" />
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
 };
 
-const InteractionItem = ({ interaction }) => {
-    const navigate = useNavigate();
-    const icon = ICONS[interaction.interaction_type] || ICONS.default;
-    const fromNow = formatDistanceToNow(new Date(interaction.created_date), { addSuffix: true });
+const EmailActivityCard = ({ activity }) => {
+  const [expanded, setExpanded] = useState(false);
+  const config = ACTIVITY_CONFIG[activity.activityType] || ACTIVITY_CONFIG.note;
+  const fromNow = formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true });
+  const fullDate = format(new Date(activity.timestamp), 'MMM d, yyyy h:mm a');
 
-    const cspEventId = interaction.metadata?.csp_event_id;
-    const tariffId = interaction.metadata?.tariff_id;
-    const isClickable = interaction.interaction_type === 'csp_event' && cspEventId;
+  const isOutbound = activity.direction === 'outbound';
+  const displayConfig = isOutbound ? ACTIVITY_CONFIG.email_sent : ACTIVITY_CONFIG.email_received;
 
-    const handleClick = () => {
-        if (isClickable) {
-            navigate(`/pipeline?event=${cspEventId}`);
-        }
-    };
+  return (
+    <Card className={`border ${displayConfig.borderColor} ${displayConfig.bgColor} hover:shadow-md transition-shadow`}>
+      <CardContent className="p-4">
+        <div className="flex items-start gap-3">
+          <div className={`p-2 rounded-lg ${displayConfig.bgColor} ${displayConfig.color} border ${displayConfig.borderColor}`}>
+            {displayConfig.icon}
+          </div>
 
-    return (
-        <div className="flex gap-4">
-            <div className="flex flex-col items-center">
-                <div className="bg-slate-100 rounded-full p-2">{icon}</div>
-                <div className="flex-grow w-px bg-slate-200 my-2"></div>
-            </div>
-            <div className="flex-1 pb-8">
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 flex-1">
-                        <p className={`font-medium text-slate-800 ${isClickable ? 'cursor-pointer hover:text-blue-600 transition-colors' : ''}`} onClick={handleClick}>
-                            {interaction.summary}
-                        </p>
-                        {isClickable && (
-                            <ExternalLink className="w-4 h-4 text-slate-400 hover:text-blue-600 cursor-pointer transition-colors" onClick={handleClick} />
-                        )}
-                    </div>
-                    <p className="text-xs text-slate-500">{fromNow}</p>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Badge variant="outline" className={`${displayConfig.color} border-current`}>
+                    {displayConfig.label}
+                  </Badge>
+                  {activity.opened_at && (
+                    <Badge variant="outline" className="text-purple-600 border-purple-300">
+                      <Eye className="w-3 h-3 mr-1" />
+                      Opened
+                    </Badge>
+                  )}
                 </div>
-                {interaction.details && (
-                    <p className="text-sm text-slate-600 mt-1">{interaction.details}</p>
-                )}
-                <p className="text-xs text-slate-400 mt-2 capitalize">
-                    {interaction.interaction_type.replace(/_/g, ' ')}
+                <h4 className="font-semibold text-slate-900 mt-1 line-clamp-1">
+                  {activity.subject}
+                </h4>
+              </div>
+              <div className="text-right flex-shrink-0">
+                <p className="text-xs text-slate-500" title={fullDate}>
+                  {fromNow}
                 </p>
+              </div>
             </div>
+
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center gap-2 text-slate-600">
+                {isOutbound ? (
+                  <>
+                    <User className="w-3 h-3" />
+                    <span className="font-medium">{activity.from_name || activity.from_email}</span>
+                    <ArrowUpRight className="w-3 h-3" />
+                    <span>{activity.to_emails?.[0] || 'Unknown'}</span>
+                    {activity.to_emails?.length > 1 && (
+                      <Badge variant="secondary" className="text-xs">
+                        +{activity.to_emails.length - 1} more
+                      </Badge>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <User className="w-3 h-3" />
+                    <span className="font-medium">{activity.from_name || activity.from_email}</span>
+                    <ArrowDownLeft className="w-3 h-3" />
+                    <span>You</span>
+                  </>
+                )}
+              </div>
+
+              {expanded && activity.body_text && (
+                <div className="mt-3 p-3 bg-white rounded border border-slate-200">
+                  <p className="text-sm text-slate-700 whitespace-pre-wrap">
+                    {activity.body_text.length > 500
+                      ? `${activity.body_text.substring(0, 500)}...`
+                      : activity.body_text}
+                  </p>
+                </div>
+              )}
+
+              {activity.body_text && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setExpanded(!expanded)}
+                  className="text-xs h-7 px-2"
+                >
+                  {expanded ? 'Hide' : 'Show'} email content
+                  <ChevronDown className={`w-3 h-3 ml-1 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                </Button>
+              )}
+            </div>
+          </div>
         </div>
-    );
+      </CardContent>
+    </Card>
+  );
 };
 
-export default function InteractionTimeline({ customerId, entityType }) { // Added entityType prop
-    const { data: interactions = [], isLoading } = useQuery({
-        queryKey: ['interactions', customerId, entityType], // Updated queryKey
-        queryFn: () => Interaction.filter({ entity_id: customerId, entity_type: entityType, order_by: '-created_date' }), // Updated queryFn
-        enabled: !!customerId && !!entityType, // Updated enabled condition
-        initialData: []
-    });
+const InteractionCard = ({ activity }) => {
+  const navigate = useNavigate();
+  const config = ACTIVITY_CONFIG[activity.activityType] || ACTIVITY_CONFIG.note;
+  const fromNow = formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true });
+  const fullDate = format(new Date(activity.timestamp), 'MMM d, yyyy h:mm a');
 
-    if (isLoading) {
-        return (
-            <div className="space-y-4 mt-4">
-                <Skeleton className="h-16 w-full" />
-                <Skeleton className="h-16 w-full" />
-                <Skeleton className="h-16 w-full" />
-            </div>
-        );
+  const cspEventId = activity.metadata?.csp_event_id;
+  const isClickable = activity.activityType === 'csp_event' && cspEventId;
+
+  const handleClick = () => {
+    if (isClickable) {
+      navigate(`/pipeline?event=${cspEventId}`);
     }
-    
-    if (interactions.length === 0 && !isLoading) {
-        return (
-            <div className="mt-6">
-                <LogInteractionForm entityId={customerId} entityType={entityType} /> {/* Pass entityType prop */}
-                <div className="text-center py-12 text-slate-500 border border-dashed rounded-lg">
-                    <p className="font-semibold">No Interactions Logged</p>
-                    <p className="text-sm">Create a CSP event or add a note to get started.</p>
+  };
+
+  return (
+    <Card className={`border ${config.borderColor} hover:shadow-md transition-shadow ${isClickable ? 'cursor-pointer' : ''}`} onClick={isClickable ? handleClick : undefined}>
+      <CardContent className="p-4">
+        <div className="flex items-start gap-3">
+          <div className={`p-2 rounded-lg ${config.bgColor} ${config.color} border ${config.borderColor}`}>
+            {config.icon}
+          </div>
+
+          <div className="flex-1">
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <div className="flex-1">
+                <div className="flex items-center gap-2 mb-1">
+                  <Badge variant="outline" className={`${config.color} border-current text-xs`}>
+                    {config.label}
+                  </Badge>
+                  {isClickable && (
+                    <ExternalLink className="w-3 h-3 text-slate-400" />
+                  )}
                 </div>
+                <h4 className="font-semibold text-slate-900">
+                  {activity.summary}
+                </h4>
+              </div>
+              <div className="text-right flex-shrink-0">
+                <p className="text-xs text-slate-500" title={fullDate}>
+                  {fromNow}
+                </p>
+              </div>
             </div>
-        );
+
+            {activity.details && (
+              <p className="text-sm text-slate-600 mt-2 whitespace-pre-wrap">
+                {activity.details}
+              </p>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+export default function InteractionTimeline({ customerId, entityType }) {
+  const [filterTypes, setFilterTypes] = useState([]);
+
+  const { data: interactions = [], isLoading: interactionsLoading } = useQuery({
+    queryKey: ['interactions', customerId, entityType],
+    queryFn: () => Interaction.filter({ entity_id: customerId, entity_type: entityType, order_by: '-created_date' }),
+    enabled: !!customerId && !!entityType,
+    initialData: []
+  });
+
+  const { data: emailActivities = [], isLoading: emailsLoading } = useQuery({
+    queryKey: ['email_activities', customerId, entityType],
+    queryFn: async () => {
+      const filterColumn = entityType === 'customer' ? 'customer_id' :
+                          entityType === 'carrier' ? 'carrier_id' :
+                          entityType === 'csp_event' ? 'csp_event_id' : null;
+
+      if (!filterColumn) return [];
+
+      const { data, error } = await supabase
+        .from('email_activities')
+        .select('*')
+        .eq(filterColumn, customerId)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!customerId && !!entityType,
+    initialData: []
+  });
+
+  const allActivities = useMemo(() => {
+    const combined = [
+      ...interactions.map(i => ({
+        id: `interaction-${i.id}`,
+        type: 'interaction',
+        activityType: i.interaction_type,
+        summary: i.summary,
+        details: i.details,
+        timestamp: i.created_date,
+        metadata: i.metadata
+      })),
+      ...emailActivities.map(e => ({
+        id: `email-${e.id}`,
+        type: 'email',
+        activityType: e.direction === 'outbound' ? 'email_sent' : 'email_received',
+        subject: e.subject,
+        from_email: e.from_email,
+        from_name: e.from_name,
+        to_emails: e.to_emails,
+        cc_emails: e.cc_emails,
+        body_text: e.body_text,
+        direction: e.direction,
+        opened_at: e.opened_at,
+        clicked_at: e.clicked_at,
+        timestamp: e.sent_at || e.received_at || e.created_at,
+        tracking_code: e.tracking_code
+      }))
+    ];
+
+    combined.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    if (filterTypes.length > 0) {
+      return combined.filter(activity => filterTypes.includes(activity.activityType));
     }
 
-    return (
-        <div className="mt-6 flow-root">
-             <LogInteractionForm entityId={customerId} entityType={entityType} /> {/* Pass entityType prop */}
-             <div>
-                {interactions.map((interaction, index) => (
-                    <InteractionItem key={interaction.id} interaction={interaction} />
-                ))}
-             </div>
-        </div>
+    return combined;
+  }, [interactions, emailActivities, filterTypes]);
+
+  const activityTypeCounts = useMemo(() => {
+    const counts = {};
+    [...interactions, ...emailActivities].forEach(item => {
+      const type = item.interaction_type || (item.direction === 'outbound' ? 'email_sent' : 'email_received');
+      counts[type] = (counts[type] || 0) + 1;
+    });
+    return counts;
+  }, [interactions, emailActivities]);
+
+  const toggleFilter = (type) => {
+    setFilterTypes(prev =>
+      prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
     );
+  };
+
+  const isLoading = interactionsLoading || emailsLoading;
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4 mt-4">
+        <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-32 w-full" />
+        <Skeleton className="h-32 w-full" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-6 space-y-4">
+      <LogInteractionForm entityId={customerId} entityType={entityType} />
+
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Clock className="w-4 h-4 text-slate-500" />
+          <h3 className="font-semibold text-slate-900">Activity Timeline</h3>
+          <Badge variant="secondary">{allActivities.length} activities</Badge>
+        </div>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              <Filter className="w-4 h-4 mr-2" />
+              Filter
+              {filterTypes.length > 0 && (
+                <Badge variant="default" className="ml-2">{filterTypes.length}</Badge>
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>Activity Types</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {Object.entries(ACTIVITY_CONFIG).map(([type, config]) => {
+              const count = activityTypeCounts[type] || 0;
+              if (count === 0) return null;
+
+              return (
+                <DropdownMenuCheckboxItem
+                  key={type}
+                  checked={filterTypes.includes(type)}
+                  onCheckedChange={() => toggleFilter(type)}
+                >
+                  <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center gap-2">
+                      <span className={config.color}>{config.icon}</span>
+                      <span>{config.label}</span>
+                    </div>
+                    <Badge variant="secondary" className="ml-2">{count}</Badge>
+                  </div>
+                </DropdownMenuCheckboxItem>
+              );
+            })}
+            {filterTypes.length > 0 && (
+              <>
+                <DropdownMenuSeparator />
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-center"
+                  onClick={() => setFilterTypes([])}
+                >
+                  Clear Filters
+                </Button>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {allActivities.length === 0 ? (
+        <div className="text-center py-12 text-slate-500 border border-dashed rounded-lg bg-slate-50">
+          <Clock className="w-12 h-12 mx-auto mb-3 text-slate-300" />
+          <p className="font-semibold">No Activities Yet</p>
+          <p className="text-sm">Send an email, log a note, or create a CSP event to get started.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {allActivities.map((activity) => (
+            activity.type === 'email' ? (
+              <EmailActivityCard key={activity.id} activity={activity} />
+            ) : (
+              <InteractionCard key={activity.id} activity={activity} />
+            )
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
