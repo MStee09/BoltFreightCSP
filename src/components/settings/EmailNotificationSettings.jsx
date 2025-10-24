@@ -11,7 +11,7 @@ import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import { Bell, Clock, Calendar, Shield, Info } from 'lucide-react';
 import { toast } from 'sonner';
-import { PermissionGuard } from '@/components/auth/PermissionGuard';
+import { IfHasRole } from '@/components/auth/PermissionGuard';
 
 export function EmailNotificationSettings() {
   const queryClient = useQueryClient();
@@ -107,7 +107,7 @@ export function EmailNotificationSettings() {
   }
 
   return (
-    <PermissionGuard requiredRoles={['admin', 'elite']}>
+    <IfHasRole roles={['admin', 'elite']}>
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -320,6 +320,6 @@ export function EmailNotificationSettings() {
           </div>
         </CardContent>
       </Card>
-    </PermissionGuard>
+    </IfHasRole>
   );
 }
