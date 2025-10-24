@@ -5,7 +5,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { User, Mail, Phone, Briefcase, Building2, FileSignature } from 'lucide-react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -16,8 +15,7 @@ export function UserProfile() {
     last_name: '',
     phone: '',
     title: '',
-    company: 'Rocketshipping',
-    email_signature: ''
+    company: 'Rocketshipping'
   });
   const [isSaving, setIsSaving] = useState(false);
   const [email, setEmail] = useState('');
@@ -57,13 +55,12 @@ export function UserProfile() {
         last_name: profile.last_name || '',
         phone: profile.phone || '',
         title: profile.title || '',
-        company: profile.company || 'Rocketshipping',
-        email_signature: profile.email_signature || ''
+        company: profile.company || 'Rocketshipping'
       });
     }
   }, [profile]);
 
-  const generateDefaultSignature = () => {
+  const generateSignaturePreview = () => {
     const parts = [];
 
     if (formData.first_name || formData.last_name) {
@@ -78,26 +75,15 @@ export function UserProfile() {
       parts.push(formData.company);
     }
 
-    if (formData.phone) {
-      parts.push(`Phone: ${formData.phone}`);
-    }
-
     if (email) {
-      parts.push(`Email: ${email}`);
+      parts.push(email);
     }
 
-    parts.push('');
-    parts.push('---');
-    parts.push('This email was sent from the Rocketshipping CSP Tool');
+    if (formData.phone) {
+      parts.push(formData.phone);
+    }
 
     return parts.join('\n');
-  };
-
-  const handleUseDefaultSignature = () => {
-    setFormData({
-      ...formData,
-      email_signature: generateDefaultSignature()
-    });
   };
 
   const handleSave = async () => {
@@ -115,7 +101,6 @@ export function UserProfile() {
           phone: formData.phone,
           title: formData.title,
           company: formData.company,
-          email_signature: formData.email_signature,
           updated_at: new Date().toISOString()
         })
         .eq('user_id', user.id);
@@ -259,27 +244,15 @@ export function UserProfile() {
         </div>
 
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
-            <Label htmlFor="email_signature" className="flex items-center gap-2">
-              <FileSignature className="h-4 w-4" />
-              Email Signature
-            </Label>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleUseDefaultSignature}
-            >
-              Generate Default Signature
-            </Button>
+          <Label className="flex items-center gap-2">
+            <FileSignature className="h-4 w-4" />
+            Email Signature Preview
+          </Label>
+          <div className="border rounded-md p-4 bg-muted/50">
+            <pre className="text-sm whitespace-pre-wrap font-sans">
+              {generateSignaturePreview() || 'Fill in your profile information to see signature preview'}
+            </pre>
           </div>
-          <Textarea
-            id="email_signature"
-            value={formData.email_signature}
-            onChange={(e) => setFormData({ ...formData, email_signature: e.target.value })}
-            placeholder="Your email signature will appear at the end of all emails sent from the CSP Tool"
-            rows={8}
-            className="font-mono text-sm"
-          />
           <p className="text-xs text-muted-foreground">
             This signature will automatically be appended to all emails sent from the Rocketshipping CSP Tool,
             helping recipients distinguish between app emails and your personal Gmail.

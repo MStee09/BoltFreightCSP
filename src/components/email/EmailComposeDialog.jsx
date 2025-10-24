@@ -195,10 +195,6 @@ export function EmailComposeDialog({
   };
 
   const getEmailSignature = () => {
-    if (userProfile?.email_signature) {
-      return '\n\n' + userProfile.email_signature;
-    }
-
     const parts = [];
     parts.push('');
     parts.push('');
@@ -217,17 +213,13 @@ export function EmailComposeDialog({
       parts.push('Rocketshipping');
     }
 
-    if (userProfile?.phone) {
-      parts.push(`Phone: ${userProfile.phone}`);
-    }
-
     if (userEmail) {
-      parts.push(`Email: ${userEmail}`);
+      parts.push(userEmail);
     }
 
-    parts.push('');
-    parts.push('---');
-    parts.push('This email was sent from the Rocketshipping CSP Tool');
+    if (userProfile?.phone) {
+      parts.push(userProfile.phone);
+    }
 
     return parts.join('\n');
   };
