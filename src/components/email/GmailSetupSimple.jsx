@@ -70,6 +70,22 @@ export function GmailSetupSimple() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      toast.info('Testing credentials...', { duration: 2000 });
+
+      const nodemailer = await import('https://esm.sh/nodemailer@6.9.7');
+
+      const transporter = nodemailer.default.createTransport({
+        host: 'smtp.gmail.com',
+        port: 587,
+        secure: false,
+        auth: {
+          user: emailInput.trim(),
+          pass: cleanPassword,
+        },
+      });
+
+      await transporter.verify();
+
       const { error } = await supabase
         .from('user_gmail_credentials')
         .upsert({
@@ -88,7 +104,11 @@ export function GmailSetupSimple() {
       toast.success('Gmail connected successfully!');
     } catch (error) {
       console.error('Error connecting Gmail:', error);
-      toast.error('Failed to connect. Please check your credentials.');
+      if (error.message.includes('Invalid login')) {
+        toast.error('Invalid credentials. Please check your email and App Password.');
+      } else {
+        toast.error('Failed to connect. Please check your credentials.');
+      }
     } finally {
       setConnecting(false);
     }
