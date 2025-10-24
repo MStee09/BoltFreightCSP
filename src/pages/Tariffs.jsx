@@ -8,7 +8,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../com
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
-import { PlusCircle, Search, Upload, ChevronDown, ChevronRight, AlertCircle, Eye, GitCompare, Download, FileText, Plus, Calendar, Link2, UploadCloud, RefreshCw, FileCheck, ArrowUpDown, Briefcase, FolderOpen, TrendingUp, Clock } from "lucide-react";
+import { PlusCircle, Search, Upload, ChevronDown, ChevronRight, AlertCircle, Eye, GitCompare, Download, FileText, Plus, Calendar, Link2, UploadCloud, RefreshCw, FileCheck, ArrowUpDown, Briefcase, FolderOpen, TrendingUp, Clock, X, Pin, User, Truck, Package } from "lucide-react";
 import { format, isAfter, isBefore, differenceInDays } from "date-fns";
 import { Skeleton } from "../components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
@@ -31,6 +31,21 @@ const STATUS_FILTERS = [
   { value: 'superseded', label: 'Superseded' }
 ];
 
+const MODE_FILTERS = [
+  { value: 'all', label: 'All Modes' },
+  { value: 'LTL', label: 'LTL' },
+  { value: 'Home Delivery', label: 'Home Delivery' },
+  { value: 'Truckload', label: 'Truckload' },
+  { value: 'Parcel', label: 'Parcel' }
+];
+
+const SORT_OPTIONS = [
+  { value: 'expiry_date', label: 'Expiry Date' },
+  { value: 'days_left', label: 'Days Left' },
+  { value: 'customer_name', label: 'Customer Name' },
+  { value: 'carrier_name', label: 'Carrier Name' }
+];
+
 export default function TariffsPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [ownershipTab, setOwnershipTab] = useState("rocket_csp");
@@ -44,6 +59,11 @@ export default function TariffsPage() {
   const [expandedCarriers, setExpandedCarriers] = useState(new Set());
   const [showHistory, setShowHistory] = useState(false);
   const [expandedFamilyHistory, setExpandedFamilyHistory] = useState(new Set());
+  const [modeFilter, setModeFilter] = useState('all');
+  const [showMyAccountsOnly, setShowMyAccountsOnly] = useState(false);
+  const [pinnedCustomers, setPinnedCustomers] = useState(new Set());
+  const [sortBy, setSortBy] = useState('expiry_date');
+  const [showArchived, setShowArchived] = useState(false);
   const [hoveredRowId, setHoveredRowId] = useState(null);
   const [sortColumn, setSortColumn] = useState('expiry_date');
   const [sortDirection, setSortDirection] = useState('asc');
@@ -126,13 +146,21 @@ export default function TariffsPage() {
       if (t.ownership_type !== ownershipTab) return false;
 
       const customer = customers.find(c => c.id === t.customer_id);
+
+      if (showMyAccountsOnly && customer?.account_owner !== 'Current User') return false;
+
+      if (modeFilter !== 'all' && t.mode !== modeFilter) return false;
+
       const searchCarriers = (t.carrier_ids || []).map(cid => carriers.find(c => c.id === cid)?.name).join(' ').toLowerCase() || '';
+      const cspEvent = cspEvents.find(e => e.id === t.csp_event_id);
       const searchTermLower = searchTerm.toLowerCase();
 
-      const matchesSearch = (
+      const matchesSearch = !searchTerm || (
         (customer?.name?.toLowerCase().includes(searchTermLower)) ||
         searchCarriers.includes(searchTermLower) ||
-        (t.version?.toLowerCase().includes(searchTermLower))
+        (t.version?.toLowerCase().includes(searchTermLower)) ||
+        (t.tariff_family_id?.toLowerCase().includes(searchTermLower)) ||
+        (cspEvent?.title?.toLowerCase().includes(searchTermLower))
       );
 
       if (!matchesSearch) return false;
@@ -159,7 +187,7 @@ export default function TariffsPage() {
 
       return true;
     });
-  }, [tariffs, ownershipTab, statusFilter, searchTerm, customers, carriers]);
+  }, [tariffs, ownershipTab, statusFilter, searchTerm, customers, carriers, cspEvents, modeFilter, showMyAccountsOnly]);
 
   const groupedTariffs = useMemo(() => {
     const groups = {};
@@ -249,8 +277,25 @@ export default function TariffsPage() {
       return { ...group, families: liveFamilies };
     }).filter(group => Object.keys(group.families).length > 0);
 
-    return filteredGroups.sort((a, b) => a.name.localeCompare(b.name));
-  }, [filteredTariffs, ownershipTab, customers, carriers, sortColumn, sortDirection]);
+    const pinnedGroups = filteredGroups.filter(g => pinnedCustomers.has(g.key));
+    const unpinnedGroups = filteredGroups.filter(g => !pinnedCustomers.has(g.key));
+
+    if (sortBy === 'customer_name') {
+      unpinnedGroups.sort((a, b) => a.name.localeCompare(b.name));
+    } else if (sortBy === 'expiry_date' || sortBy === 'days_left') {
+      unpinnedGroups.sort((a, b) => {
+        const aEarliestExpiry = Math.min(...Object.values(a.families).flatMap(f =>
+          f.versions.map(v => v.expiry_date ? new Date(v.expiry_date).getTime() : Infinity)
+        ));
+        const bEarliestExpiry = Math.min(...Object.values(b.families).flatMap(f =>
+          f.versions.map(v => v.expiry_date ? new Date(v.expiry_date).getTime() : Infinity)
+        ));
+        return aEarliestExpiry - bEarliestExpiry;
+      });
+    }
+
+    return [...pinnedGroups, ...unpinnedGroups];
+  }, [filteredTariffs, ownershipTab, customers, carriers, sortColumn, sortDirection, sortBy, pinnedCustomers]);
 
   const toggleGroup = (groupKey) => {
     const newExpanded = new Set(expandedGroups);
@@ -411,14 +456,58 @@ export default function TariffsPage() {
         </div>
       </div>
 
-      <div className="relative mb-6">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
-        <Input
-          placeholder="Search by customer, carrier, or version..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10 h-11"
-        />
+      <div className="space-y-4 mb-6">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-slate-400" />
+          <Input
+            placeholder="Search by customer, carrier, family ID, CSP event, or version..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 h-11"
+          />
+        </div>
+
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm text-slate-600 font-medium">Quick Filters:</span>
+
+          <Button
+            variant={modeFilter !== 'all' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setModeFilter(modeFilter === 'all' ? 'LTL' : 'all')}
+            className="h-8 flex items-center gap-1"
+          >
+            <Truck className="w-3.5 h-3.5" />
+            Mode
+            {modeFilter !== 'all' && (
+              <>
+                : {modeFilter}
+                <X className="w-3 h-3 ml-1" onClick={(e) => { e.stopPropagation(); setModeFilter('all'); }} />
+              </>
+            )}
+          </Button>
+
+          <Button
+            variant={showMyAccountsOnly ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setShowMyAccountsOnly(!showMyAccountsOnly)}
+            className={`h-8 flex items-center gap-1 ${showMyAccountsOnly ? 'bg-blue-600' : ''}`}
+          >
+            <User className="w-3.5 h-3.5" />
+            My Accounts
+          </Button>
+
+          <div className="h-4 w-px bg-slate-300 mx-1" />
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {}}
+            className="h-8 flex items-center gap-1"
+          >
+            <ArrowUpDown className="w-3.5 h-3.5" />
+            Sort: {SORT_OPTIONS.find(o => o.value === sortBy)?.label}
+          </Button>
+        </div>
       </div>
 
       <Tabs value={ownershipTab} onValueChange={handleTabChange} className="mb-6">
@@ -525,8 +614,9 @@ export default function TariffsPage() {
             <div className="space-y-4">
               {groupedTariffs.map(group => {
                 const isExpanded = expandedGroups.has(group.key);
+                const isPinned = pinnedCustomers.has(group.key);
                 return (
-                  <div key={group.key} className="border rounded-lg overflow-hidden group/card">
+                  <div key={group.key} className={`border rounded-lg overflow-hidden group/card ${isPinned ? 'border-blue-300 bg-blue-50/30' : ''}`}>
                     <div className="group/header">
                       <button
                         onClick={() => toggleGroup(group.key)}
@@ -538,6 +628,7 @@ export default function TariffsPage() {
                         ) : (
                           <ChevronRight className="w-5 h-5 text-slate-400" />
                         )}
+                        {isPinned && <Pin className="w-4 h-4 text-blue-600 fill-blue-600" />}
                         <span className="font-semibold text-slate-900">{group.name}</span>
                         <Badge variant="outline" className="ml-2">
                           {Object.values(group.families || {}).reduce((sum, family) => sum + (family.versions?.length || 0), 0)}
@@ -571,6 +662,24 @@ export default function TariffsPage() {
                           );
                         })()}
                         <div className="opacity-0 group-hover/card:opacity-100 transition-opacity flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className={`h-7 text-xs ${isPinned ? 'text-blue-600' : ''}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const newPinned = new Set(pinnedCustomers);
+                              if (isPinned) {
+                                newPinned.delete(group.key);
+                              } else {
+                                newPinned.add(group.key);
+                              }
+                              setPinnedCustomers(newPinned);
+                            }}
+                          >
+                            <Pin className={`w-3 h-3 mr-1 ${isPinned ? 'fill-blue-600' : ''}`} />
+                            {isPinned ? 'Unpin' : 'Pin'}
+                          </Button>
                           {ownershipTab === 'rocket_blanket' || ownershipTab === 'priority1_blanket' ? (
                             <Button
                               variant="ghost"
