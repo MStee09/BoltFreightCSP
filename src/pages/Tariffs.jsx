@@ -302,7 +302,7 @@ export default function TariffsPage() {
     );
   };
 
-  const totalCount = groupedTariffs.reduce((sum, g) => sum + g.tariffs.length, 0);
+  const totalCount = groupedTariffs.reduce((sum, g) => sum + Object.values(g.families || {}).reduce((familySum, family) => familySum + (family.versions?.length || 0), 0), 0);
 
   const getTabCounts = useMemo(() => {
     const counts = {};
@@ -608,15 +608,24 @@ export default function TariffsPage() {
                               </tr>
                             </thead>
                             <tbody>
-                        {group.tariffs.map(tariff => {
-                          const customer = customers.find(c => c.id === tariff.customer_id);
-                          const tariffCarriers = (tariff.carrier_ids || [])
-                            .map(id => carriers.find(c => c.id === id))
-                            .filter(Boolean);
-                          const isExpanded = expandedCarriers.has(tariff.id);
+                        {Object.values(group.families || {}).map(family => (
+                          <React.Fragment key={family.familyId}>
+                            {family.versions.length > 1 && (
+                              <tr className="bg-slate-100 border-b">
+                                <td colSpan="7" className="p-2 px-3 text-xs font-semibold text-slate-700">
+                                  {family.carrierName} ({family.versions.length} versions)
+                                </td>
+                              </tr>
+                            )}
+                            {family.versions.map((tariff, index) => {
+                              const customer = customers.find(c => c.id === tariff.customer_id);
+                              const tariffCarriers = (tariff.carrier_ids || [])
+                                .map(id => carriers.find(c => c.id === id))
+                                .filter(Boolean);
+                              const isExpanded = expandedCarriers.has(tariff.id);
 
-                          return (
-                            <React.Fragment key={tariff.id}>
+                              return (
+                                <React.Fragment key={tariff.id}>
                               <tr
                                 className={`transition-colors border-b last:border-b-0 ${getOwnershipColor(tariff.ownership_type)} ${getRowColorClass(tariff)} ${hoveredRowId === tariff.id ? 'ring-1 ring-inset ring-blue-300' : ''}`}
                                 onMouseEnter={() => setHoveredRowId(tariff.id)}
@@ -750,8 +759,10 @@ export default function TariffsPage() {
                                 </tr>
                               )}
                             </React.Fragment>
-                          );
-                        })}
+                              );
+                            })}
+                          </React.Fragment>
+                        ))}
                             </tbody>
                           </table>
                         </div>
