@@ -697,7 +697,7 @@ export default function InteractionTimeline({ customerId, entityType }) {
               replyToEmail.subject?.startsWith('Re:') ? replyToEmail.subject : `Re: ${replyToEmail.subject}`
             )}
             defaultRecipients={isFollowUp ? replyToEmail.to_emails : [replyToEmail.from_email]}
-            defaultCc={isFollowUp ? replyToEmail.cc_emails : []}
+            defaultCc={isFollowUp ? (replyToEmail.cc_emails || []) : []}
             inReplyTo={replyToEmail.message_id}
             threadId={replyToEmail.thread_id}
             isFollowUp={isFollowUp}
