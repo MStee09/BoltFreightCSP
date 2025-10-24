@@ -51,7 +51,7 @@ export function EmailComposeDialog({
 
       applyTemplate(selectedTemplate);
     }
-  }, [open, trackingCode, defaultRecipients, cspEvent, customer, carrier, selectedTemplate, userEmail, templates]);
+  }, [open, trackingCode, templates]);
 
   const loadTemplates = async () => {
     try {
@@ -387,7 +387,7 @@ export function EmailComposeDialog({
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">
-              Choose a template to auto-fill the subject and body
+              Templates get you 90% there - feel free to edit the subject and message below
             </p>
           </div>
 
