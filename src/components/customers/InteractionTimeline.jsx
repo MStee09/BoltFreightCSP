@@ -26,7 +26,10 @@ import {
   ArrowUpRight,
   ArrowDownLeft,
   Eye,
-  MousePointer
+  MousePointer,
+  Settings,
+  Sparkles,
+  ChevronUp
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
@@ -45,68 +48,12 @@ import {
 } from '../ui/dropdown-menu';
 
 const ACTIVITY_CONFIG = {
-  email_sent: {
-    icon: <ArrowUpRight className="w-4 h-4" />,
+  email: {
+    icon: <Mail className="w-4 h-4" />,
     color: 'text-blue-600',
     bgColor: 'bg-blue-50',
     borderColor: 'border-blue-200',
-    label: 'Email Sent'
-  },
-  email_received: {
-    icon: <ArrowDownLeft className="w-4 h-4" />,
-    color: 'text-green-600',
-    bgColor: 'bg-green-50',
-    borderColor: 'border-green-200',
-    label: 'Email Received'
-  },
-  email_opened: {
-    icon: <Eye className="w-4 h-4" />,
-    color: 'text-purple-600',
-    bgColor: 'bg-purple-50',
-    borderColor: 'border-purple-200',
-    label: 'Email Opened'
-  },
-  email_clicked: {
-    icon: <MousePointer className="w-4 h-4" />,
-    color: 'text-orange-600',
-    bgColor: 'bg-orange-50',
-    borderColor: 'border-orange-200',
-    label: 'Email Clicked'
-  },
-  csp_stage_update: {
-    icon: <GitBranch className="w-4 h-4" />,
-    color: 'text-indigo-600',
-    bgColor: 'bg-indigo-50',
-    borderColor: 'border-indigo-200',
-    label: 'Stage Updated'
-  },
-  csp_created: {
-    icon: <FilePlus className="w-4 h-4" />,
-    color: 'text-emerald-600',
-    bgColor: 'bg-emerald-50',
-    borderColor: 'border-emerald-200',
-    label: 'CSP Created'
-  },
-  csp_event: {
-    icon: <GitBranch className="w-4 h-4" />,
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-50',
-    borderColor: 'border-blue-200',
-    label: 'CSP Event'
-  },
-  tariff: {
-    icon: <FileText className="w-4 h-4" />,
-    color: 'text-green-600',
-    bgColor: 'bg-green-50',
-    borderColor: 'border-green-200',
-    label: 'Tariff'
-  },
-  document_upload: {
-    icon: <FileText className="w-4 h-4" />,
-    color: 'text-blue-600',
-    bgColor: 'bg-blue-50',
-    borderColor: 'border-blue-200',
-    label: 'Document'
+    label: 'Email'
   },
   note: {
     icon: <MessageSquare className="w-4 h-4" />,
@@ -115,32 +62,24 @@ const ACTIVITY_CONFIG = {
     borderColor: 'border-slate-200',
     label: 'Note'
   },
-  call: {
-    icon: <Phone className="w-4 h-4" />,
+  system: {
+    icon: <Settings className="w-4 h-4" />,
     color: 'text-amber-600',
     bgColor: 'bg-amber-50',
     borderColor: 'border-amber-200',
-    label: 'Call'
+    label: 'System'
   },
-  meeting: {
-    icon: <Users className="w-4 h-4" />,
-    color: 'text-violet-600',
-    bgColor: 'bg-violet-50',
-    borderColor: 'border-violet-200',
-    label: 'Meeting'
-  },
-  qbr: {
-    icon: <Users className="w-4 h-4" />,
-    color: 'text-pink-600',
-    bgColor: 'bg-pink-50',
-    borderColor: 'border-pink-200',
-    label: 'QBR'
+  ai: {
+    icon: <Sparkles className="w-4 h-4" />,
+    color: 'text-purple-600',
+    bgColor: 'bg-purple-50',
+    borderColor: 'border-purple-200',
+    label: 'AI Insight'
   },
 };
 
 const LogInteractionForm = ({ entityId, entityType }) => {
   const queryClient = useQueryClient();
-  const [type, setType] = useState('note');
   const [summary, setSummary] = useState('');
   const [details, setDetails] = useState('');
 
@@ -148,7 +87,6 @@ const LogInteractionForm = ({ entityId, entityType }) => {
     mutationFn: (newInteraction) => Interaction.create(newInteraction),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['timeline', entityId, entityType] });
-      setType('note');
       setSummary('');
       setDetails('');
     },
@@ -159,7 +97,7 @@ const LogInteractionForm = ({ entityId, entityType }) => {
     mutation.mutate({
       entity_id: entityId,
       entity_type: entityType,
-      interaction_type: type,
+      interaction_type: 'note',
       summary,
       details
     });
@@ -170,55 +108,24 @@ const LogInteractionForm = ({ entityId, entityType }) => {
       <CardContent className="p-4 space-y-3">
         <div className="flex items-center gap-2 text-sm font-medium text-slate-700 mb-2">
           <MessageSquare className="w-4 h-4" />
-          Log New Activity
+          Log Internal Note
         </div>
         <Input
-          placeholder="Summary (e.g., 'Follow-up call about Q3 rates')"
+          placeholder="Summary (e.g., 'Customer returned signed LOA')"
           value={summary}
           onChange={(e) => setSummary(e.target.value)}
           className="bg-white"
         />
         <Textarea
-          placeholder="Add details, notes, or outcomes..."
+          placeholder="Add context, details, or next steps..."
           value={details}
           onChange={(e) => setDetails(e.target.value)}
           rows={3}
           className="bg-white"
         />
-        <div className="flex justify-between items-center">
-          <Select value={type} onValueChange={setType}>
-            <SelectTrigger className="w-[180px] bg-white">
-              <SelectValue placeholder="Activity Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="note">
-                <div className="flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4" />
-                  Note
-                </div>
-              </SelectItem>
-              <SelectItem value="email">
-                <div className="flex items-center gap-2">
-                  <Mail className="w-4 h-4" />
-                  Email
-                </div>
-              </SelectItem>
-              <SelectItem value="call">
-                <div className="flex items-center gap-2">
-                  <Phone className="w-4 h-4" />
-                  Call
-                </div>
-              </SelectItem>
-              <SelectItem value="meeting">
-                <div className="flex items-center gap-2">
-                  <Users className="w-4 h-4" />
-                  Meeting
-                </div>
-              </SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="flex justify-end">
           <Button onClick={handleSubmit} disabled={mutation.isPending || !summary}>
-            {mutation.isPending ? 'Logging...' : 'Log Activity'}
+            {mutation.isPending ? 'Logging...' : 'Log Note'}
             <Send className="w-4 h-4 ml-2" />
           </Button>
         </div>
@@ -230,151 +137,150 @@ const LogInteractionForm = ({ entityId, entityType }) => {
 const EmailActivityCard = ({ activity, onReply, threadMessages }) => {
   const [expanded, setExpanded] = useState(false);
   const [showThread, setShowThread] = useState(false);
-  const config = ACTIVITY_CONFIG[activity.activityType] || ACTIVITY_CONFIG.note;
+  const config = ACTIVITY_CONFIG.email;
   const fromNow = formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true });
   const fullDate = format(new Date(activity.timestamp), 'MMM d, yyyy h:mm a');
 
   const isOutbound = activity.direction === 'outbound';
-  const displayConfig = isOutbound ? ACTIVITY_CONFIG.email_sent : ACTIVITY_CONFIG.email_received;
+  const direction = isOutbound ? 'Sent' : 'Received';
 
   const awaitingReply = activity.awaiting_reply;
   const daysSinceNoReply = activity.awaiting_reply_since
     ? Math.floor((new Date() - new Date(activity.awaiting_reply_since)) / (1000 * 60 * 60 * 24))
     : null;
 
+  const status = awaitingReply ? 'Awaiting Reply' : activity.opened_at ? 'Opened' : 'Sent';
+  const threadCount = threadMessages?.length || 1;
+
   return (
-    <Card className={`border ${displayConfig.borderColor} ${displayConfig.bgColor} hover:shadow-md transition-shadow`}>
+    <Card className={`border ${config.borderColor} ${config.bgColor} hover:shadow-md transition-shadow`}>
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
-          <div className={`p-2 rounded-lg ${displayConfig.bgColor} ${displayConfig.color} border ${displayConfig.borderColor}`}>
-            {displayConfig.icon}
+          <div className={`p-2 rounded-lg ${config.bgColor} ${config.color} border ${config.borderColor}`}>
+            {config.icon}
           </div>
 
           <div className="flex-1 min-w-0">
-            <div className="flex items-start justify-between gap-2 mb-2">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <Badge variant="outline" className={`${displayConfig.color} border-current`}>
-                    {displayConfig.label}
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge className={`${config.color} ${config.bgColor} border ${config.borderColor}`}>
+                  {config.label}
+                </Badge>
+                <Badge variant="secondary">{direction}</Badge>
+                {awaitingReply ? (
+                  <Badge variant="outline" className="text-orange-600 border-orange-300 bg-orange-50">
+                    <AlertCircle className="w-3 h-3 mr-1" />
+                    Awaiting Reply {daysSinceNoReply > 0 && `(${daysSinceNoReply}d)`}
                   </Badge>
-                  {activity.opened_at && (
-                    <Badge variant="outline" className="text-purple-600 border-purple-300">
-                      <Eye className="w-3 h-3 mr-1" />
-                      Opened
-                    </Badge>
-                  )}
-                  {awaitingReply && (
-                    <Badge variant="outline" className="text-orange-600 border-orange-300 bg-orange-50">
-                      <AlertCircle className="w-3 h-3 mr-1" />
-                      Awaiting Reply {daysSinceNoReply > 0 && `(${daysSinceNoReply}d)`}
-                    </Badge>
-                  )}
-                  {threadMessages && threadMessages.length > 1 && (
-                    <Badge variant="outline" className="text-slate-600 border-slate-300">
-                      <MessageSquare className="w-3 h-3 mr-1" />
-                      {threadMessages.length} messages
-                    </Badge>
-                  )}
-                </div>
-                <h4 className="font-semibold text-slate-900 mt-1 line-clamp-1">
-                  {activity.subject}
-                </h4>
+                ) : activity.opened_at ? (
+                  <Badge variant="outline" className="text-green-600 border-green-300 bg-green-50">
+                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                    Opened
+                  </Badge>
+                ) : null}
+                {threadCount > 1 && (
+                  <Badge variant="outline" className="text-slate-600 border-slate-300">
+                    <MessageSquare className="w-3 h-3 mr-1" />
+                    {threadCount} messages
+                  </Badge>
+                )}
               </div>
-              <div className="text-right flex-shrink-0">
-                <p className="text-xs text-slate-500" title={fullDate}>
-                  {fromNow}
-                </p>
-              </div>
+              <span className="text-xs text-slate-500 flex-shrink-0" title={fullDate}>
+                {fromNow}
+              </span>
             </div>
 
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center gap-2 text-slate-600">
-                {isOutbound ? (
+            <h4 className="font-semibold text-slate-900 text-sm mb-2">
+              {activity.subject}
+            </h4>
+
+            <div className="text-xs text-slate-600 mb-3 flex items-center gap-2">
+              {isOutbound ? (
+                <>
+                  <span className="font-medium">{activity.from_name || activity.from_email}</span>
+                  <ArrowUpRight className="w-3 h-3" />
+                  <span>{activity.to_emails?.[0] || 'Unknown'}</span>
+                  {activity.to_emails?.length > 1 && (
+                    <span className="text-slate-400">+{activity.to_emails.length - 1} more</span>
+                  )}
+                </>
+              ) : (
+                <>
+                  <span className="font-medium">{activity.from_name || activity.from_email}</span>
+                  <ArrowDownLeft className="w-3 h-3" />
+                  <span>You</span>
+                </>
+              )}
+            </div>
+
+            {expanded && activity.body_text && (
+              <div className="mb-3 p-3 bg-white rounded border border-slate-200 text-sm text-slate-700 whitespace-pre-wrap">
+                {activity.body_text.length > 500
+                  ? `${activity.body_text.substring(0, 500)}...`
+                  : activity.body_text}
+              </div>
+            )}
+
+            {showThread && threadMessages && threadMessages.length > 1 && (
+              <div className="mb-3 space-y-2 pl-3 border-l-2 border-blue-200">
+                {threadMessages
+                  .filter(msg => msg.id !== activity.emailId)
+                  .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+                  .map((msg) => (
+                    <div key={msg.id} className="text-xs p-2 bg-slate-50 rounded border border-slate-200">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge variant="secondary" className="text-xs">
+                          {msg.direction === 'outbound' ? 'You' : msg.from_name || msg.from_email}
+                        </Badge>
+                        <span className="text-xs text-slate-500">
+                          {formatDistanceToNow(new Date(msg.timestamp), { addSuffix: true })}
+                        </span>
+                      </div>
+                      <p className="text-slate-700 line-clamp-2">{msg.body_text}</p>
+                    </div>
+                  ))}
+              </div>
+            )}
+
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setExpanded(!expanded)}
+                className="text-xs h-7 px-2"
+              >
+                {expanded ? (
                   <>
-                    <User className="w-3 h-3" />
-                    <span className="font-medium">{activity.from_name || activity.from_email}</span>
-                    <ArrowUpRight className="w-3 h-3" />
-                    <span>{activity.to_emails?.[0] || 'Unknown'}</span>
-                    {activity.to_emails?.length > 1 && (
-                      <Badge variant="secondary" className="text-xs">
-                        +{activity.to_emails.length - 1} more
-                      </Badge>
-                    )}
+                    <ChevronUp className="w-3 h-3 mr-1" />
+                    Hide content
                   </>
                 ) : (
                   <>
-                    <User className="w-3 h-3" />
-                    <span className="font-medium">{activity.from_name || activity.from_email}</span>
-                    <ArrowDownLeft className="w-3 h-3" />
-                    <span>You</span>
+                    <ChevronDown className="w-3 h-3 mr-1" />
+                    Show content
                   </>
                 )}
-              </div>
-
-              {expanded && activity.body_text && (
-                <div className="mt-3 p-3 bg-white rounded border border-slate-200">
-                  <p className="text-sm text-slate-700 whitespace-pre-wrap">
-                    {activity.body_text.length > 500
-                      ? `${activity.body_text.substring(0, 500)}...`
-                      : activity.body_text}
-                  </p>
-                </div>
-              )}
-
-              <div className="flex items-center gap-2 mt-2">
-                {activity.body_text && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setExpanded(!expanded)}
-                    className="text-xs h-7 px-2"
-                  >
-                    {expanded ? 'Hide' : 'Show'} email content
-                    <ChevronDown className={`w-3 h-3 ml-1 transition-transform ${expanded ? 'rotate-180' : ''}`} />
-                  </Button>
-                )}
-                {threadMessages && threadMessages.length > 1 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowThread(!showThread)}
-                    className="text-xs h-7 px-2"
-                  >
-                    {showThread ? 'Hide' : 'View'} thread ({threadMessages.length})
-                    <MessageSquare className="w-3 h-3 ml-1" />
-                  </Button>
-                )}
+              </Button>
+              {threadCount > 1 && (
                 <Button
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
-                  onClick={() => onReply(activity)}
+                  onClick={() => setShowThread(!showThread)}
                   className="text-xs h-7 px-2"
                 >
-                  <Send className="w-3 h-3 mr-1" />
-                  Reply
+                  <MessageSquare className="w-3 h-3 mr-1" />
+                  {showThread ? 'Hide' : 'View'} thread ({threadCount})
                 </Button>
-              </div>
-
-              {showThread && threadMessages && threadMessages.length > 1 && (
-                <div className="mt-3 space-y-2 pl-4 border-l-2 border-slate-200">
-                  {threadMessages
-                    .filter(msg => msg.id !== activity.id)
-                    .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
-                    .map((msg) => (
-                      <div key={msg.id} className="text-sm p-2 bg-slate-50 rounded border border-slate-200">
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="secondary" className="text-xs">
-                            {msg.direction === 'outbound' ? 'You' : msg.from_name || msg.from_email}
-                          </Badge>
-                          <span className="text-xs text-slate-500">
-                            {formatDistanceToNow(new Date(msg.timestamp), { addSuffix: true })}
-                          </span>
-                        </div>
-                        <p className="text-slate-700 line-clamp-2">{msg.body_text}</p>
-                      </div>
-                    ))}
-                </div>
               )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onReply(activity)}
+                className="text-xs h-7 px-2 ml-auto"
+              >
+                <Send className="w-3 h-3 mr-1" />
+                Reply
+              </Button>
             </div>
           </div>
         </div>
@@ -383,53 +289,81 @@ const EmailActivityCard = ({ activity, onReply, threadMessages }) => {
   );
 };
 
-const InteractionCard = ({ activity }) => {
-  const navigate = useNavigate();
-  const config = ACTIVITY_CONFIG[activity.activityType] || ACTIVITY_CONFIG.note;
+const NoteCard = ({ activity }) => {
+  const config = ACTIVITY_CONFIG.note;
   const fromNow = formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true });
   const fullDate = format(new Date(activity.timestamp), 'MMM d, yyyy h:mm a');
 
-  const cspEventId = activity.metadata?.csp_event_id;
-  const isClickable = activity.activityType === 'csp_event' && cspEventId;
-
-  const handleClick = () => {
-    if (isClickable) {
-      navigate(`/pipeline?event=${cspEventId}`);
-    }
-  };
-
   return (
-    <Card className={`border ${config.borderColor} hover:shadow-md transition-shadow ${isClickable ? 'cursor-pointer' : ''}`} onClick={isClickable ? handleClick : undefined}>
+    <Card className={`border ${config.borderColor} ${config.bgColor} hover:shadow-md transition-shadow`}>
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
           <div className={`p-2 rounded-lg ${config.bgColor} ${config.color} border ${config.borderColor}`}>
             {config.icon}
           </div>
 
-          <div className="flex-1">
-            <div className="flex items-start justify-between gap-2 mb-2">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <Badge variant="outline" className={`${config.color} border-current text-xs`}>
-                    {config.label}
-                  </Badge>
-                  {isClickable && (
-                    <ExternalLink className="w-3 h-3 text-slate-400" />
-                  )}
-                </div>
-                <h4 className="font-semibold text-slate-900">
-                  {activity.summary}
-                </h4>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Badge className={`${config.color} ${config.bgColor} border ${config.borderColor}`}>
+                  {config.label}
+                </Badge>
+                <span className="text-xs text-slate-500">Internal-only</span>
               </div>
-              <div className="text-right flex-shrink-0">
-                <p className="text-xs text-slate-500" title={fullDate}>
-                  {fromNow}
-                </p>
-              </div>
+              <span className="text-xs text-slate-500 flex-shrink-0" title={fullDate}>
+                {fromNow}
+              </span>
             </div>
 
+            <h4 className="font-semibold text-slate-900 text-sm mb-2">
+              {activity.summary}
+            </h4>
+
             {activity.details && (
-              <p className="text-sm text-slate-600 mt-2 whitespace-pre-wrap">
+              <p className="text-xs text-slate-600 whitespace-pre-wrap">
+                {activity.details}
+              </p>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
+
+const SystemCard = ({ activity }) => {
+  const isAI = activity.metadata?.source === 'ai' || activity.activityType === 'ai';
+  const config = isAI ? ACTIVITY_CONFIG.ai : ACTIVITY_CONFIG.system;
+  const fromNow = formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true });
+  const fullDate = format(new Date(activity.timestamp), 'MMM d, yyyy h:mm a');
+
+  return (
+    <Card className={`border ${config.borderColor} bg-gradient-to-r ${config.bgColor} to-white hover:shadow-md transition-shadow opacity-90`}>
+      <CardContent className="p-4">
+        <div className="flex items-start gap-3">
+          <div className={`p-2 rounded-lg ${config.bgColor} ${config.color} border ${config.borderColor}`}>
+            {config.icon}
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Badge className={`${config.color} ${config.bgColor} border ${config.borderColor}`}>
+                  {config.label}
+                </Badge>
+                <span className="text-xs text-slate-500">Automated</span>
+              </div>
+              <span className="text-xs text-slate-500 flex-shrink-0" title={fullDate}>
+                {fromNow}
+              </span>
+            </div>
+
+            <h4 className="font-semibold text-slate-900 text-sm mb-2">
+              {activity.summary}
+            </h4>
+
+            {activity.details && (
+              <p className="text-xs text-slate-600 whitespace-pre-wrap">
                 {activity.details}
               </p>
             )}
@@ -521,7 +455,7 @@ export default function InteractionTimeline({ customerId, entityType }) {
           id: `email-thread-${threadId}`,
           emailId: e.id,
           type: 'email',
-          activityType: e.direction === 'outbound' ? 'email_sent' : 'email_received',
+          activityType: 'email',
           subject: e.subject,
           from_email: e.from_email,
           from_name: e.from_name,
@@ -567,11 +501,24 @@ export default function InteractionTimeline({ customerId, entityType }) {
   }, [interactions, emailActivities, filterTypes]);
 
   const activityTypeCounts = useMemo(() => {
-    const counts = {};
-    [...interactions, ...emailActivities].forEach(item => {
-      const type = item.interaction_type || (item.direction === 'outbound' ? 'email_sent' : 'email_received');
-      counts[type] = (counts[type] || 0) + 1;
+    const counts = { email: 0, note: 0, system: 0, ai: 0 };
+
+    emailActivities.forEach(() => {
+      counts.email += 1;
     });
+
+    interactions.forEach(item => {
+      if (item.interaction_type === 'note') {
+        counts.note += 1;
+      } else if (item.interaction_type === 'system' || item.metadata?.source === 'system') {
+        counts.system += 1;
+      } else if (item.interaction_type === 'ai' || item.metadata?.source === 'ai') {
+        counts.ai += 1;
+      } else {
+        counts.note += 1;
+      }
+    });
+
     return counts;
   }, [interactions, emailActivities]);
 
@@ -607,61 +554,55 @@ export default function InteractionTimeline({ customerId, entityType }) {
     <div className="mt-6 space-y-4">
       <LogInteractionForm entityId={customerId} entityType={entityType} />
 
-      <div className="flex items-center justify-between">
+      <div className="space-y-3">
         <div className="flex items-center gap-2">
           <Clock className="w-4 h-4 text-slate-500" />
           <h3 className="font-semibold text-slate-900">Activity Timeline</h3>
-          <Badge variant="secondary">{allActivities.length} activities</Badge>
         </div>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm">
-              <Filter className="w-4 h-4 mr-2" />
-              Filter
-              {filterTypes.length > 0 && (
-                <Badge variant="default" className="ml-2">{filterTypes.length}</Badge>
-              )}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel>Activity Types</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {Object.entries(ACTIVITY_CONFIG).map(([type, config]) => {
-              const count = activityTypeCounts[type] || 0;
-              if (count === 0) return null;
-
-              return (
-                <DropdownMenuCheckboxItem
-                  key={type}
-                  checked={filterTypes.includes(type)}
-                  onCheckedChange={() => toggleFilter(type)}
-                >
-                  <div className="flex items-center justify-between w-full">
-                    <div className="flex items-center gap-2">
-                      <span className={config.color}>{config.icon}</span>
-                      <span>{config.label}</span>
-                    </div>
-                    <Badge variant="secondary" className="ml-2">{count}</Badge>
-                  </div>
-                </DropdownMenuCheckboxItem>
-              );
-            })}
-            {filterTypes.length > 0 && (
-              <>
-                <DropdownMenuSeparator />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="w-full justify-center"
-                  onClick={() => setFilterTypes([])}
-                >
-                  Clear Filters
-                </Button>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex items-center gap-2">
+          <Button
+            variant={filterTypes.length === 0 ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setFilterTypes([])}
+            className="flex items-center gap-1"
+          >
+            All Activity ({allActivities.length})
+          </Button>
+          <Button
+            variant={filterTypes.includes('email') ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => toggleFilter('email')}
+            className="flex items-center gap-1"
+          >
+            <Mail className="w-3 h-3" />
+            Email ({activityTypeCounts.email})
+          </Button>
+          <Button
+            variant={filterTypes.includes('note') ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => toggleFilter('note')}
+            className="flex items-center gap-1"
+          >
+            <MessageSquare className="w-3 h-3" />
+            Notes ({activityTypeCounts.note})
+          </Button>
+          <Button
+            variant={filterTypes.includes('system') || filterTypes.includes('ai') ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => {
+              if (filterTypes.includes('system') || filterTypes.includes('ai')) {
+                setFilterTypes(prev => prev.filter(t => t !== 'system' && t !== 'ai'));
+              } else {
+                setFilterTypes(prev => [...prev, 'system', 'ai']);
+              }
+            }}
+            className="flex items-center gap-1"
+          >
+            <Settings className="w-3 h-3" />
+            System & AI ({activityTypeCounts.system + activityTypeCounts.ai})
+          </Button>
+        </div>
       </div>
 
       {allActivities.length === 0 ? (
@@ -672,25 +613,29 @@ export default function InteractionTimeline({ customerId, entityType }) {
         </div>
       ) : (
         <div className="space-y-3">
-          {allActivities.map((activity) => (
-            activity.type === 'email' ? (
-              <EmailActivityCard
-                key={activity.id}
-                activity={activity}
-                onReply={handleReply}
-                threadMessages={activity.thread_id ? emailThreads[activity.thread_id]?.map(e => ({
-                  id: e.id,
-                  direction: e.direction,
-                  from_email: e.from_email,
-                  from_name: e.from_name,
-                  body_text: e.body_text,
-                  timestamp: e.sent_at || e.created_at
-                })) : null}
-              />
-            ) : (
-              <InteractionCard key={activity.id} activity={activity} />
-            )
-          ))}
+          {allActivities.map((activity) => {
+            if (activity.type === 'email') {
+              return (
+                <EmailActivityCard
+                  key={activity.id}
+                  activity={activity}
+                  onReply={handleReply}
+                  threadMessages={activity.thread_id ? emailThreads[activity.thread_id]?.map(e => ({
+                    id: e.id,
+                    direction: e.direction,
+                    from_email: e.from_email,
+                    from_name: e.from_name,
+                    body_text: e.body_text,
+                    timestamp: e.sent_at || e.created_at
+                  })) : null}
+                />
+              );
+            } else if (activity.activityType === 'system' || activity.activityType === 'ai' || activity.metadata?.source === 'system' || activity.metadata?.source === 'ai') {
+              return <SystemCard key={activity.id} activity={activity} />;
+            } else {
+              return <NoteCard key={activity.id} activity={activity} />;
+            }
+          })}
         </div>
       )}
 
