@@ -10,7 +10,7 @@ import { SecurityAudit } from '@/components/admin/SecurityAudit';
 import { RoleDescriptions } from '@/components/admin/RoleDescriptions';
 import { AISettings } from '@/components/settings/AISettings';
 import { EmailTemplatesManagement } from '@/components/settings/EmailTemplatesManagement';
-import { EmailNotificationSettings } from '@/components/settings/EmailNotificationSettings';
+import { AlertSettings } from '@/components/settings/AlertSettings';
 import { UserProfile } from '@/components/settings/UserProfile';
 import KnowledgeBaseSettings from '@/components/settings/KnowledgeBase';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -166,8 +166,8 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="notifications" className="space-y-4 mt-6">
-          <div className="max-w-4xl">
-            <EmailNotificationSettings />
+          <div className="max-w-6xl">
+            <AlertSettings />
           </div>
         </TabsContent>
 
