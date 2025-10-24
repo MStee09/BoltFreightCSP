@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { GmailSetupSimple } from '@/components/email/GmailSetupSimple';
+import { GmailSetup } from '@/components/email/GmailSetup';
 import { UserManagement } from '@/components/admin/UserManagement';
 import { SystemSettings } from '@/components/admin/SystemSettings';
 import { DatabaseManagement } from '@/components/admin/DatabaseManagement';
@@ -131,7 +131,7 @@ export default function Settings() {
 
         <TabsContent value="integrations" className="space-y-4 mt-6">
           <div className="max-w-2xl">
-            <GmailSetupSimple />
+            <GmailSetup />
           </div>
         </TabsContent>
 
