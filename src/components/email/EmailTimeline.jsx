@@ -85,13 +85,29 @@ export function EmailTimeline({ customerId, carrierId, cspEventId }) {
 
   const groupByThread = (emails) => {
     const threads = {};
+
     emails.forEach((email) => {
-      if (!threads[email.thread_id]) {
-        threads[email.thread_id] = [];
+      const threadId = email.thread_id || email.id;
+
+      if (!threads[threadId]) {
+        threads[threadId] = [];
       }
-      threads[email.thread_id].push(email);
+      threads[threadId].push(email);
     });
-    return Object.values(threads);
+
+    const threadArray = Object.entries(threads).map(([threadId, threadEmails]) => {
+      threadEmails.sort((a, b) => new Date(b.sent_at) - new Date(a.sent_at));
+
+      return {
+        threadId,
+        emails: threadEmails,
+        mostRecentDate: new Date(threadEmails[0].sent_at),
+      };
+    });
+
+    threadArray.sort((a, b) => b.mostRecentDate - a.mostRecentDate);
+
+    return threadArray;
   };
 
   if (loading) {
@@ -132,16 +148,56 @@ export function EmailTimeline({ customerId, carrierId, cspEventId }) {
           <Mail className="h-5 w-5" />
           Email History
           <Badge variant="secondary" className="ml-auto">
-            {emails.length}
+            {threads.length} {threads.length === 1 ? 'thread' : 'threads'}
           </Badge>
         </CardTitle>
       </CardHeader>
       <CardContent>
         <ScrollArea className="h-[600px] pr-4">
           <div className="space-y-6">
-            {threads.map((thread, threadIdx) => (
-              <div key={threadIdx} className="space-y-3">
-                {thread.map((email, emailIdx) => {
+            {threads.map((thread, threadIdx) => {
+              const mostRecentEmail = thread.emails[0];
+              const messageCount = thread.emails.length;
+              const hasOutbound = thread.emails.some(e => e.direction === 'outbound');
+              const lastOutbound = thread.emails.find(e => e.direction === 'outbound');
+              const hasInboundAfterOutbound = lastOutbound && thread.emails.some(e =>
+                e.direction === 'inbound' && new Date(e.sent_at) > new Date(lastOutbound.sent_at)
+              );
+              const isAwaitingReply = hasOutbound && !hasInboundAfterOutbound;
+
+              return (
+              <div key={thread.threadId} className="space-y-3">
+                <div className="space-y-2">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-semibold text-base truncate">{mostRecentEmail.subject}</h4>
+                      <div className="flex items-center gap-2 mt-1 text-sm text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          <Users className="w-3 h-3" />
+                          {mostRecentEmail.from_email?.split('@')[0] || 'Unknown'}
+                          {mostRecentEmail.to_emails?.[0] && ` → ${mostRecentEmail.to_emails[0].split('@')[0]}`}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant="outline" className="text-xs">
+                      {messageCount} message{messageCount > 1 ? 's' : ''}
+                    </Badge>
+                    {isAwaitingReply && (
+                      <Badge variant="secondary" className="text-xs bg-orange-100 text-orange-700 border-orange-200">
+                        <Clock className="w-3 h-3 mr-1" />
+                        Awaiting Reply
+                      </Badge>
+                    )}
+                    <span className="text-sm text-muted-foreground">
+                      {formatDistanceToNow(mostRecentEmail.sent_at ? new Date(mostRecentEmail.sent_at) : new Date(), {
+                        addSuffix: true,
+                      })}
+                    </span>
+                  </div>
+                </div>
+                {thread.emails.map((email, emailIdx) => {
                   const isExpanded = expandedEmails.has(email.id);
                   const isOutbound = email.direction === 'outbound';
 
@@ -174,19 +230,16 @@ export function EmailTimeline({ customerId, carrierId, cspEventId }) {
                             </div>
                             <div className="flex-1 min-w-0 space-y-1">
                               <div className="flex items-center gap-2 flex-wrap">
-                                <span className="font-medium truncate">
-                                  {isOutbound ? 'You' : email.from_name || email.from_email}
-                                </span>
                                 <Badge
                                   variant={isOutbound ? 'default' : 'secondary'}
                                   className="text-xs"
                                 >
-                                  {email.tracking_code}
+                                  {isOutbound ? 'Email Sent' : 'Email Received'}
                                 </Badge>
+                                <span className="text-sm text-muted-foreground">
+                                  {isOutbound ? `to ${email.to_emails[0]?.split('@')[0] || 'recipient'}` : `from ${email.from_name || email.from_email?.split('@')[0] || 'sender'}`}
+                                </span>
                               </div>
-                              <p className="text-sm font-medium text-foreground truncate">
-                                {email.subject}
-                              </p>
                               <div className="flex items-center gap-4 text-xs text-muted-foreground">
                                 <span className="flex items-center gap-1">
                                   <Clock className="h-3 w-3" />
@@ -253,7 +306,8 @@ export function EmailTimeline({ customerId, carrierId, cspEventId }) {
                 })}
                 {threadIdx < threads.length - 1 && <Separator className="my-4" />}
               </div>
-            ))}
+              );
+            })}
           </div>
         </ScrollArea>
       </CardContent>
