@@ -20,10 +20,15 @@ interface SendEmailRequest {
 }
 
 function generateThreadId(subject: string): string {
-  return subject
+  const normalizedSubject = subject
     .toLowerCase()
     .replace(/^(re:|fwd?:|fw:)\s*/gi, '')
-    .replace(/[^a-z0-9]+/g, '-');
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .substring(0, 50);
+
+  const randomSuffix = crypto.randomUUID().split('-')[0];
+  return `${normalizedSubject}-${randomSuffix}`;
 }
 
 Deno.serve(async (req: Request) => {
