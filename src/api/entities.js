@@ -68,6 +68,7 @@ const createEntity = (tableName) => ({
   },
 
   async filter(filters) {
+    console.log(`[${tableName}] Filter called with:`, filters);
     let query = supabase
       .from(tableName)
       .select('*')
@@ -80,17 +81,24 @@ const createEntity = (tableName) => ({
         query = query.order(field, { ascending: !isDesc });
       } else if (key.endsWith('.contains')) {
         const field = key.replace('.contains', '');
+        console.log(`[${tableName}] Adding contains filter: ${field} contains`, [value]);
         query = query.contains(field, [value]);
       } else if (key.endsWith('.icontains')) {
         const field = key.replace('.icontains', '');
+        console.log(`[${tableName}] Adding contains filter: ${field} contains`, [value]);
         query = query.contains(field, [value]);
       } else if (key !== 'order_by') {
+        console.log(`[${tableName}] Adding eq filter: ${key} = ${value}`);
         query = query.eq(key, value);
       }
     });
 
     const { data, error } = await query;
-    if (error) throw error;
+    if (error) {
+      console.error(`[${tableName}] Filter error:`, error);
+      throw error;
+    }
+    console.log(`[${tableName}] Filter returned ${data?.length || 0} records:`, data);
     return data || [];
   },
 });
