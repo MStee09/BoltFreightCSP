@@ -10,86 +10,6 @@ import { Send, X, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/api/supabaseClient';
 
-const EMAIL_TEMPLATES = {
-  new_csp_request: {
-    label: 'New CSP Request',
-    subject: (context) => `CSP Request - ${context.customerName} - ${context.mode || 'Service'} - [${context.trackingCode}]`,
-    body: (context) => `Hi ${context.recipientName || 'there'},
-
-I hope this message finds you well.
-
-We're conducting a Carrier Service Provider review for ${context.customerName} and would like to invite you to participate in our RFP process.
-
-${context.cspEvent?.description || 'Details about this opportunity will be provided in the attached RFP documentation.'}
-
-Please let me know if you're interested in submitting a proposal.
-
-Best regards`
-  },
-  follow_up: {
-    label: 'Follow Up',
-    subject: (context) => `Follow Up: ${context.cspEvent?.title || 'Previous Discussion'} - [${context.trackingCode}]`,
-    body: (context) => `Hi ${context.recipientName || 'there'},
-
-I wanted to follow up on our previous discussion regarding ${context.cspEvent?.title || 'our recent conversation'}.
-
-${context.cspEvent?.description || ''}
-
-Looking forward to hearing from you.
-
-Best regards`
-  },
-  rate_request: {
-    label: 'Rate Request',
-    subject: (context) => `Rate Request - ${context.customerName} - ${context.mode || 'Service'} - [${context.trackingCode}]`,
-    body: (context) => `Hi ${context.recipientName || 'there'},
-
-We're seeking competitive rate proposals for ${context.customerName}.
-
-Service Details:
-- Mode: ${context.mode || 'To be specified'}
-- Customer: ${context.customerName}
-${context.cspEvent?.description ? `- Notes: ${context.cspEvent.description}` : ''}
-
-Please provide your best rates at your earliest convenience.
-
-Best regards`
-  },
-  status_update: {
-    label: 'Status Update',
-    subject: (context) => `Status Update: ${context.cspEvent?.title || 'Project Update'} - [${context.trackingCode}]`,
-    body: (context) => `Hi ${context.recipientName || 'there'},
-
-I wanted to provide you with an update on ${context.cspEvent?.title || 'our project'}.
-
-${context.cspEvent?.description || 'Please see the details below.'}
-
-Let me know if you have any questions.
-
-Best regards`
-  },
-  general: {
-    label: 'General Message',
-    subject: (context) => {
-      if (context.cspEvent) {
-        return `${context.cspEvent.title} - [${context.trackingCode}]`;
-      } else if (context.carrier && context.customer) {
-        return `${context.customerName} - ${context.carrierName} - [${context.trackingCode}]`;
-      } else if (context.customer) {
-        return `Re: ${context.customerName} - [${context.trackingCode}]`;
-      } else if (context.carrier) {
-        return `Re: ${context.carrierName} - [${context.trackingCode}]`;
-      }
-      return `Message - [${context.trackingCode}]`;
-    },
-    body: (context) => `Hi ${context.recipientName || 'there'},
-
-${context.cspEvent?.description || ''}
-
-Best regards`
-  }
-};
-
 export function EmailComposeDialog({
   open,
   onOpenChange,
@@ -109,17 +29,19 @@ export function EmailComposeDialog({
   const [ccInput, setCcInput] = useState('');
   const [sending, setSending] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState(defaultTemplate);
+  const [templates, setTemplates] = useState([]);
   const [userEmail, setUserEmail] = useState('');
 
   useEffect(() => {
     if (open) {
       generateTrackingCode();
       loadUserEmail();
+      loadTemplates();
     }
   }, [open]);
 
   useEffect(() => {
-    if (open && trackingCode) {
+    if (open && trackingCode && templates.length > 0) {
       const recipients = defaultRecipients.length > 0
         ? defaultRecipients
         : collectDefaultRecipients();
@@ -129,7 +51,22 @@ export function EmailComposeDialog({
 
       applyTemplate(selectedTemplate);
     }
-  }, [open, trackingCode, defaultRecipients, cspEvent, customer, carrier, selectedTemplate, userEmail]);
+  }, [open, trackingCode, defaultRecipients, cspEvent, customer, carrier, selectedTemplate, userEmail, templates]);
+
+  const loadTemplates = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('email_templates')
+        .select('*')
+        .order('name');
+
+      if (error) throw error;
+      setTemplates(data || []);
+    } catch (error) {
+      console.error('Error loading templates:', error);
+      setTemplates([]);
+    }
+  };
 
   const loadUserEmail = async () => {
     try {
@@ -153,7 +90,7 @@ export function EmailComposeDialog({
   const generateTrackingCode = () => {
     const timestamp = Date.now().toString(36).toUpperCase();
     const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-    const code = `CSP-${timestamp}-${random}`;
+    const code = `${timestamp}${random}`;
     setTrackingCode(code);
   };
 
@@ -198,25 +135,52 @@ export function EmailComposeDialog({
     return 'there';
   };
 
+  const replaceTemplateVariables = (template, context) => {
+    let result = template;
+
+    const replacements = {
+      '{{recipientName}}': context.recipientName,
+      '{{customerName}}': context.customerName,
+      '{{carrierName}}': context.carrierName,
+      '{{contextTitle}}': context.contextTitle,
+      '{{cspDescription}}': context.cspDescription,
+      '{{notes}}': context.notes,
+      '{{mode}}': context.mode,
+      '{{additionalDetails}}': context.additionalDetails,
+      '{{updateDetails}}': context.updateDetails,
+      '{{context}}': context.context,
+      '{{message}}': context.message
+    };
+
+    Object.entries(replacements).forEach(([key, value]) => {
+      result = result.replace(new RegExp(key, 'g'), value || '');
+    });
+
+    return result.trim();
+  };
+
   const applyTemplate = (templateKey) => {
     if (!trackingCode) return;
 
-    const template = EMAIL_TEMPLATES[templateKey];
+    const template = templates.find(t => t.template_key === templateKey);
     if (!template) return;
 
     const context = {
-      trackingCode,
-      cspEvent,
-      customer,
-      carrier,
+      recipientName: getRecipientName(),
       customerName: customer?.name || '[Customer]',
       carrierName: carrier?.name || '[Carrier]',
-      recipientName: getRecipientName(),
-      mode: cspEvent?.metadata?.mode || 'FTL'
+      contextTitle: cspEvent?.title || 'our discussion',
+      cspDescription: cspEvent?.description || '',
+      notes: cspEvent?.notes || '',
+      mode: cspEvent?.metadata?.mode || cspEvent?.mode || 'FTL',
+      additionalDetails: '',
+      updateDetails: '',
+      context: customer?.name || carrier?.name || 'your inquiry',
+      message: ''
     };
 
-    setSubject(template.subject(context));
-    setBody(template.body(context));
+    setSubject(replaceTemplateVariables(template.subject_template, context));
+    setBody(replaceTemplateVariables(template.body_template, context));
   };
 
   const handleTemplateChange = (templateKey) => {
@@ -364,18 +328,6 @@ export function EmailComposeDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          <div className="space-y-2 bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <Label className="text-blue-900">Tracking Code</Label>
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary" className="text-sm font-mono">
-                {trackingCode}
-              </Badge>
-            </div>
-            <p className="text-xs text-blue-700 mt-1">
-              Automatically embedded in email headers to track all replies
-            </p>
-          </div>
-
           <div className="space-y-2">
             <Label htmlFor="template">Email Template</Label>
             <Select value={selectedTemplate} onValueChange={handleTemplateChange}>
@@ -383,11 +335,11 @@ export function EmailComposeDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {Object.entries(EMAIL_TEMPLATES).map(([key, template]) => (
-                  <SelectItem key={key} value={key}>
+                {templates.map((template) => (
+                  <SelectItem key={template.template_key} value={template.template_key}>
                     <div className="flex items-center gap-2">
                       <FileText className="h-4 w-4" />
-                      {template.label}
+                      {template.name}
                     </div>
                   </SelectItem>
                 ))}
@@ -459,7 +411,7 @@ export function EmailComposeDialog({
               />
             </div>
             <p className="text-xs text-muted-foreground">
-              CC yourself to keep a copy in your inbox
+              CC yourself or others to keep a copy in your inbox
             </p>
           </div>
 
@@ -471,6 +423,9 @@ export function EmailComposeDialog({
               onChange={(e) => setSubject(e.target.value)}
               placeholder="Email subject..."
             />
+            <p className="text-xs text-muted-foreground">
+              Tracking code is embedded in email headers (not visible to recipients)
+            </p>
           </div>
 
           <div className="space-y-2">
