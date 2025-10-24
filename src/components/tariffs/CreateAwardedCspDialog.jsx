@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { Customer, CSPEvent, Carrier } from '../../api/entities';
 import { supabase } from '../../api/supabaseClient';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog';
@@ -30,6 +31,7 @@ export default function CreateAwardedCspDialog({
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const fileInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
@@ -292,15 +294,17 @@ export default function CreateAwardedCspDialog({
                     <CommandEmpty>
                       <div className="p-4 text-center space-y-2">
                         <p className="text-sm text-slate-600">No carrier found with that name</p>
-                        <a
-                          href={createPageUrl('/carriers')}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onOpenChange(false);
+                            navigate(createPageUrl('/carriers'));
+                          }}
                           className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 hover:underline"
                         >
                           <ExternalLink className="h-3 w-3" />
-                          Create new carrier
-                        </a>
+                          Go to Carriers page to create new carrier
+                        </button>
                       </div>
                     </CommandEmpty>
                     <CommandGroup>
