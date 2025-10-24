@@ -165,26 +165,59 @@ async function processMessage(
     const message: GmailMessage = await messageResponse.json();
     const parsed = parseMessage(message);
 
-    if (!parsed.trackingCode) {
-      console.log('No tracking code found in message:', messageId);
-      return;
+    let existingActivity = null;
+
+    if (parsed.trackingCode) {
+      const { data } = await supabaseClient
+        .from('email_activities')
+        .select('customer_id, carrier_id, csp_event_id, tracking_code')
+        .eq('tracking_code', parsed.trackingCode)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      existingActivity = data;
     }
 
-    const { data: existingActivity } = await supabaseClient
-      .from('email_activities')
-      .select('customer_id, carrier_id, csp_event_id')
-      .eq('tracking_code', parsed.trackingCode)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .single();
+    if (!existingActivity && parsed.threadId) {
+      const { data } = await supabaseClient
+        .from('email_activities')
+        .select('customer_id, carrier_id, csp_event_id, tracking_code')
+        .eq('thread_id', parsed.threadId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      existingActivity = data;
+    }
 
     if (!existingActivity) {
-      console.log('No existing activity found for tracking code:', parsed.trackingCode);
+      const cleanSubject = parsed.subject.replace(/^(Re:|Fwd?:|RE:|FWD?:)\s*/gi, '').trim();
+
+      const { data } = await supabaseClient
+        .from('email_activities')
+        .select('customer_id, carrier_id, csp_event_id, tracking_code, subject')
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (data && data.length > 0) {
+        for (const activity of data) {
+          const activitySubject = activity.subject.replace(/^(Re:|Fwd?:|RE:|FWD?:)\s*/gi, '').trim();
+          if (activitySubject === cleanSubject) {
+            existingActivity = activity;
+            break;
+          }
+        }
+      }
+    }
+
+    if (!existingActivity) {
+      console.log('No related conversation found for message:', messageId);
       return;
     }
 
     await supabaseClient.from('email_activities').insert({
-      tracking_code: parsed.trackingCode,
+      tracking_code: existingActivity.tracking_code,
       csp_event_id: existingActivity.csp_event_id,
       customer_id: existingActivity.customer_id,
       carrier_id: existingActivity.carrier_id,
