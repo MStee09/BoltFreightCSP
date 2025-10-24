@@ -1,0 +1,253 @@
+import React, { useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Customer, CSPEvent } from '../../api/entities';
+import { supabase } from '../../api/supabaseClient';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog';
+import { Button } from '../ui/button';
+import { Input } from '../ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Label } from '../ui/label';
+import { Textarea } from '../ui/textarea';
+import { Calendar as CalendarIcon, Award } from 'lucide-react';
+import { useToast } from '../ui/use-toast';
+import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
+import { Calendar } from '../ui/calendar';
+import { format } from 'date-fns';
+import { cn } from '../../lib/utils';
+import { useAuth } from '../../contexts/AuthContext';
+
+const MOCK_USER_ID = '00000000-0000-0000-0000-000000000000';
+
+export default function CreateAwardedCspDialog({
+  isOpen,
+  onOpenChange,
+  onCspCreated,
+  preselectedCustomerId = null,
+  actionType = 'tariff'
+}) {
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+
+  const [formData, setFormData] = useState({
+    title: '',
+    customer_id: preselectedCustomerId || '',
+    description: '',
+    assigned_to: '',
+    due_date: null
+  });
+
+  const { data: customers = [], isLoading: isLoadingCustomers } = useQuery({
+    queryKey: ['customers'],
+    queryFn: () => Customer.list(),
+    enabled: isOpen
+  });
+
+  const { data: users = [] } = useQuery({
+    queryKey: ['users'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_all_users');
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: isOpen
+  });
+
+  const createCspEventMutation = useMutation({
+    mutationFn: async (eventData) => {
+      const userId = user?.id || MOCK_USER_ID;
+
+      const payload = {
+        title: eventData.title,
+        customer_id: eventData.customer_id,
+        stage: 'awarded',
+        priority: 'high',
+        description: eventData.description || `Awarded tariff ready for implementation. ${actionType === 'upload' ? 'Created via document upload.' : 'Created via manual entry.'}`,
+        assigned_to: eventData.assigned_to || userId,
+        due_date: eventData.due_date,
+        created_by: userId,
+        updated_by: userId
+      };
+
+      const { data, error } = await supabase
+        .from('csp_events')
+        .insert([payload])
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['csp-events'] });
+      toast({
+        title: 'CSP Event Created',
+        description: `"${data.title}" has been created in Awarded stage and is ready for tariff implementation.`,
+      });
+
+      if (onCspCreated) {
+        onCspCreated(data);
+      }
+
+      handleReset();
+      onOpenChange(false);
+    },
+    onError: (error) => {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to create CSP event',
+        variant: 'destructive',
+      });
+    }
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+
+    if (!formData.title || !formData.customer_id) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please provide event title and select a customer',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    createCspEventMutation.mutate(formData);
+  };
+
+  const handleReset = () => {
+    setFormData({
+      title: '',
+      customer_id: preselectedCustomerId || '',
+      description: '',
+      assigned_to: '',
+      due_date: null
+    });
+  };
+
+  const handleCancel = () => {
+    handleReset();
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[600px]">
+        <DialogHeader>
+          <div className="flex items-center gap-2">
+            <Award className="w-5 h-5 text-green-600" />
+            <DialogTitle>Create Awarded CSP Event</DialogTitle>
+          </div>
+          <DialogDescription>
+            Document this tariff as an awarded CSP event ready for implementation.
+            This ensures proper tracking and compliance with procurement processes.
+          </DialogDescription>
+        </DialogHeader>
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="title">Event Title *</Label>
+            <Input
+              id="title"
+              placeholder="e.g., Q1 2025 LTL Rate Renewal - Swift Transport"
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="customer_id">Customer *</Label>
+            <Select
+              value={formData.customer_id}
+              onValueChange={(value) => setFormData({ ...formData, customer_id: value })}
+              required
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select customer" />
+              </SelectTrigger>
+              <SelectContent>
+                {customers.map((customer) => (
+                  <SelectItem key={customer.id} value={customer.id}>
+                    {customer.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="assigned_to">Assigned To</Label>
+            <Select
+              value={formData.assigned_to}
+              onValueChange={(value) => setFormData({ ...formData, assigned_to: value })}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Assign to user (defaults to you)" />
+              </SelectTrigger>
+              <SelectContent>
+                {users.map((user) => (
+                  <SelectItem key={user.id} value={user.id}>
+                    {user.full_name || user.email}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="due_date">Implementation Due Date</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !formData.due_date && "text-muted-foreground"
+                  )}
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4" />
+                  {formData.due_date ? format(formData.due_date, 'PPP') : 'Select date'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={formData.due_date}
+                  onSelect={(date) => setFormData({ ...formData, due_date: date })}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="description">Description</Label>
+            <Textarea
+              id="description"
+              placeholder="Additional notes about this awarded tariff..."
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              rows={3}
+            />
+          </div>
+
+          <div className="rounded-lg bg-green-50 border border-green-200 p-3 text-sm text-green-800">
+            <div className="font-medium mb-1">Stage: Awarded</div>
+            <div>This CSP event will be created in the "Awarded" stage, indicating the tariff has been finalized and is ready for implementation and activation.</div>
+          </div>
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={handleCancel}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={createCspEventMutation.isPending}>
+              {createCspEventMutation.isPending ? 'Creating...' : 'Create CSP Event & Continue'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}

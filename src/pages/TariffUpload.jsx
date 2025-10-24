@@ -75,17 +75,21 @@ const MultiSelect = ({ options, selected, onChange, placeholder, searchPlacehold
 export default function TariffUploadPage() {
     const queryClient = useQueryClient();
     const navigate = useNavigate();
-    
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const preselectedCspEventId = urlParams.get('cspEventId');
+
     const [customerId, setCustomerId] = useState(null);
     const [carrierIds, setCarrierIds] = useState([]);
     const [subCustomerIds, setSubCustomerIds] = useState([]);
     const [version, setVersion] = useState('');
-    const [ownershipType, setOwnershipType] = useState('Customer Direct');
+    const [ownershipType, setOwnershipType] = useState('rocket_csp');
     const [effectiveDate, setEffectiveDate] = useState(null);
     const [expiryDate, setExpiryDate] = useState(null);
     const [file, setFile] = useState(null);
     const [isDragging, setIsDragging] = useState(false);
     const [isBlanket, setIsBlanket] = useState(false);
+    const [cspEventId, setCspEventId] = useState(preselectedCspEventId || '');
 
     const isRocketOrP1 = ownershipType === 'Rocket' || ownershipType === 'Priority 1';
 
@@ -120,7 +124,8 @@ export default function TariffUploadPage() {
                 expiry_date: data.expiryDate ? format(data.expiryDate, 'yyyy-MM-dd') : null,
                 file_url: file_url,
                 file_name: file_name,
-                status: 'proposed'
+                csp_event_id: data.cspEventId || null,
+                status: data.cspEventId ? 'active' : 'proposed'
             };
 
             const newTariff = await Tariff.create(tariffData);
@@ -171,16 +176,17 @@ export default function TariffUploadPage() {
             return;
         }
 
-        createTariffMutation.mutate({ 
-            customerId, 
-            carrierIds, 
+        createTariffMutation.mutate({
+            customerId,
+            carrierIds,
             subCustomerIds,
-            version, 
-            ownershipType, 
-            effectiveDate, 
-            expiryDate, 
+            version,
+            ownershipType,
+            effectiveDate,
+            expiryDate,
             file,
-            isBlanket
+            isBlanket,
+            cspEventId
         });
     };
 

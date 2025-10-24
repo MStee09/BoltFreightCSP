@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Customer, Carrier, Tariff, CSPEvent } from "../api/entities";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "../utils";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
@@ -14,6 +14,8 @@ import { Skeleton } from "../components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
 import { IfHasPermission } from "../components/auth/PermissionGuard";
 import { useUserRole } from "../hooks/useUserRole";
+import CreateAwardedCspDialog from "../components/tariffs/CreateAwardedCspDialog";
+import EditTariffDialog from "../components/tariffs/EditTariffDialog";
 
 const OWNERSHIP_TYPES = [
   { value: 'rocket_csp', label: 'Rocket CSP', color: 'bg-purple-50 border-l-4 border-l-purple-500' },
@@ -44,6 +46,7 @@ const SORT_OPTIONS = [
 ];
 
 export default function TariffsPage() {
+  const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
   const [ownershipTab, setOwnershipTab] = useState("rocket_csp");
   const [filtersByTab, setFiltersByTab] = useState({
@@ -65,6 +68,10 @@ export default function TariffsPage() {
   const [hoveredRowId, setHoveredRowId] = useState(null);
   const [sortColumn, setSortColumn] = useState('expiry_date');
   const [sortDirection, setSortDirection] = useState('asc');
+  const [showCspDialog, setShowCspDialog] = useState(false);
+  const [cspActionType, setCspActionType] = useState('tariff');
+  const [showNewTariffDialog, setShowNewTariffDialog] = useState(false);
+  const [newTariffCspEvent, setNewTariffCspEvent] = useState(null);
 
   const handleSort = (column) => {
     if (sortColumn === column) {
@@ -469,15 +476,24 @@ export default function TariffsPage() {
         </div>
         <div className="flex gap-3">
           <IfHasPermission permission="tariffs.upload">
-            <Link to={createPageUrl("/tariff-upload")}>
-              <Button variant="outline">
-                <Upload className="w-4 h-4 mr-2" />
-                Upload
-              </Button>
-            </Link>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setCspActionType('upload');
+                setShowCspDialog(true);
+              }}
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Upload
+            </Button>
           </IfHasPermission>
           <IfHasPermission permission="tariffs.create">
-            <Button>
+            <Button
+              onClick={() => {
+                setCspActionType('tariff');
+                setShowCspDialog(true);
+              }}
+            >
               <PlusCircle className="w-4 h-4 mr-2" />
               New Tariff
             </Button>
@@ -1272,6 +1288,36 @@ export default function TariffsPage() {
           )}
         </CardContent>
       </Card>
+
+      <CreateAwardedCspDialog
+        isOpen={showCspDialog}
+        onOpenChange={setShowCspDialog}
+        actionType={cspActionType}
+        onCspCreated={(cspEvent) => {
+          setNewTariffCspEvent(cspEvent);
+          if (cspActionType === 'upload') {
+            navigate(createPageUrl(`/tariff-upload?cspEventId=${cspEvent.id}`));
+          } else {
+            setShowNewTariffDialog(true);
+          }
+        }}
+      />
+
+      {showNewTariffDialog && newTariffCspEvent && (
+        <EditTariffDialog
+          isOpen={showNewTariffDialog}
+          onOpenChange={setShowNewTariffDialog}
+          tariff={null}
+          customers={customers}
+          carriers={carriers}
+          cspEvents={cspEvents}
+          preselectedCspEventId={newTariffCspEvent.id}
+          onSuccess={() => {
+            setShowNewTariffDialog(false);
+            setNewTariffCspEvent(null);
+          }}
+        />
+      )}
     </div>
   );
 }

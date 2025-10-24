@@ -11,17 +11,18 @@ import { Checkbox } from '../ui/checkbox';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-export default function EditTariffDialog({ open, onOpenChange, tariff }) {
+export default function EditTariffDialog({ open, onOpenChange, tariff, preselectedCspEventId = null, onSuccess }) {
     const queryClient = useQueryClient();
     const [formData, setFormData] = useState({
         version: '',
-        status: 'proposed',
-        ownership_type: 'Direct',
+        status: 'active',
+        ownership_type: 'rocket_csp',
         effective_date: '',
         expiry_date: '',
         customer_id: '',
         customer_ids: [],
         carrier_ids: [],
+        csp_event_id: preselectedCspEventId || '',
         is_blanket_tariff: false,
         customer_contact_name: '',
         carrier_contact_name: '',
@@ -51,24 +52,34 @@ export default function EditTariffDialog({ open, onOpenChange, tariff }) {
                 customer_id: tariff.customer_id || '',
                 customer_ids: tariff.customer_ids || [],
                 carrier_ids: tariff.carrier_ids || [],
+                csp_event_id: tariff.csp_event_id || '',
                 is_blanket_tariff: tariff.is_blanket_tariff || false,
                 customer_contact_name: tariff.customer_contact_name || '',
                 carrier_contact_name: tariff.carrier_contact_name || '',
                 credential_notes: tariff.credential_notes || '',
             });
+        } else if (preselectedCspEventId) {
+            setFormData(prev => ({
+                ...prev,
+                csp_event_id: preselectedCspEventId,
+                status: 'active'
+            }));
         }
-    }, [tariff]);
+    }, [tariff, preselectedCspEventId]);
 
     const updateMutation = useMutation({
-        mutationFn: (data) => Tariff.update(tariff.id, data),
+        mutationFn: (data) => tariff ? Tariff.update(tariff.id, data) : Tariff.create(data),
         onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['tariff', tariff.id] });
+            if (tariff) {
+                queryClient.invalidateQueries({ queryKey: ['tariff', tariff.id] });
+            }
             queryClient.invalidateQueries({ queryKey: ['tariffs'] });
-            toast.success('Tariff updated successfully');
+            toast.success(tariff ? 'Tariff updated successfully' : 'Tariff created successfully');
             onOpenChange(false);
+            if (onSuccess) onSuccess();
         },
         onError: (error) => {
-            toast.error('Failed to update tariff: ' + error.message);
+            toast.error(`Failed to ${tariff ? 'update' : 'create'} tariff: ` + error.message);
         },
     });
 
@@ -107,9 +118,9 @@ export default function EditTariffDialog({ open, onOpenChange, tariff }) {
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>Edit Tariff Details</DialogTitle>
+                    <DialogTitle>{tariff ? 'Edit Tariff Details' : 'Create New Tariff'}</DialogTitle>
                     <DialogDescription>
-                        Update the tariff information below.
+                        {tariff ? 'Update the tariff information below.' : 'Enter the details for the new tariff linked to the awarded CSP event.'}
                     </DialogDescription>
                 </DialogHeader>
 
