@@ -107,17 +107,6 @@ export default function TariffDetailPage() {
     const tariffId = searchParams.get('id');
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-    useEffect(() => {
-        if (location.hash === '#documents') {
-            setTimeout(() => {
-                const element = document.getElementById('documents-section');
-                if (element) {
-                    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }
-            }, 100);
-        }
-    }, [location.hash, tariff]);
-
     const { data: tariff, isLoading: isLoadingTariff } = useQuery({
         queryKey: ['tariff', tariffId],
         queryFn: () => Tariff.get(tariffId),
@@ -144,6 +133,17 @@ export default function TariffDetailPage() {
     });
 
     const isLoading = isLoadingTariff || isLoadingCustomer || isLoadingCarriers || isLoadingCspEvent;
+
+    useEffect(() => {
+        if (location.hash === '#documents' && tariff) {
+            setTimeout(() => {
+                const element = document.getElementById('documents-section');
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            }, 100);
+        }
+    }, [location.hash, tariff]);
 
     const tariffCarriers = tariff?.carrier_ids?.map(cid => carriers.find(c => c.id === cid)).filter(Boolean) || [];
     
