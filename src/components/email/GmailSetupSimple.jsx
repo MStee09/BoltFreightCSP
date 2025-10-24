@@ -275,7 +275,7 @@ export function GmailSetupSimple() {
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 text-xs text-blue-700 underline hover:text-blue-900 font-medium"
                         >
-                          Click here to create App Password <ExternalLink className="h-3 w-3" />
+                          myaccount.google.com/apppasswords <ExternalLink className="h-3 w-3" />
                         </a>
                         <p className="text-xs text-blue-700 mt-1">Type "CRM" as name → Click Generate → Copy the 16-character code</p>
                       </div>
