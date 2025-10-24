@@ -11,7 +11,7 @@ import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { useToast } from '../ui/use-toast';
-import { FileText, Upload, Plus, Lock, Share2, Download, Edit2, Trash2, Clock, User, ChevronDown, ChevronRight } from 'lucide-react';
+import { FileText, Upload, Plus, Lock, Share2, Download, Edit2, Trash2, Clock, User, ChevronDown, ChevronRight, File, Loader2, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible';
 import { Separator } from '../ui/separator';
@@ -30,6 +30,8 @@ export default function TariffSopsTab({ tariffId, tariffFamilyId, carrierName, c
         visibility: 'internal',
         document_url: ''
     });
+    const [selectedFile, setSelectedFile] = useState(null);
+    const [isUploading, setIsUploading] = useState(false);
 
     const { data: sops = [], isLoading } = useQuery({
         queryKey: ['tariff_sops', tariffId],
@@ -169,15 +171,90 @@ export default function TariffSopsTab({ tariffId, tariffFamilyId, carrierName, c
             visibility: 'internal',
             document_url: ''
         });
+        setSelectedFile(null);
     };
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
+    const handleFileSelect = (e) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            const allowedTypes = [
+                'application/pdf',
+                'application/msword',
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                'application/vnd.ms-excel',
+                'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+            ];
 
-        if (editingSop) {
-            updateSopMutation.mutate({ id: editingSop.id, ...formData });
-        } else {
-            createSopMutation.mutate(formData);
+            if (!allowedTypes.includes(file.type)) {
+                toast({
+                    title: 'Invalid File Type',
+                    description: 'Please upload a PDF, Word, or Excel file.',
+                    variant: 'destructive'
+                });
+                return;
+            }
+
+            if (file.size > 50 * 1024 * 1024) {
+                toast({
+                    title: 'File Too Large',
+                    description: 'File size must be less than 50MB.',
+                    variant: 'destructive'
+                });
+                return;
+            }
+
+            setSelectedFile(file);
+            if (!formData.title) {
+                setFormData(prev => ({ ...prev, title: file.name }));
+            }
+        }
+    };
+
+    const uploadFile = async (file) => {
+        const userId = user?.id || '00000000-0000-0000-0000-000000000000';
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        const filePath = `${userId}/${tariffId}/${fileName}`;
+
+        const { data, error } = await supabase.storage
+            .from('sop-documents')
+            .upload(filePath, file);
+
+        if (error) throw error;
+
+        const { data: { publicUrl } } = supabase.storage
+            .from('sop-documents')
+            .getPublicUrl(filePath);
+
+        return { path: filePath, url: publicUrl, type: fileExt };
+    };
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setIsUploading(true);
+
+        try {
+            let sopData = { ...formData };
+
+            if (selectedFile && formData.type === 'document') {
+                const { url, type } = await uploadFile(selectedFile);
+                sopData.document_url = url;
+                sopData.document_type = type;
+            }
+
+            if (editingSop) {
+                await updateSopMutation.mutateAsync({ id: editingSop.id, ...sopData });
+            } else {
+                await createSopMutation.mutateAsync(sopData);
+            }
+        } catch (error) {
+            toast({
+                title: 'Error',
+                description: error.message,
+                variant: 'destructive'
+            });
+        } finally {
+            setIsUploading(false);
         }
     };
 
@@ -435,16 +512,46 @@ export default function TariffSopsTab({ tariffId, tariffFamilyId, carrierName, c
 
                         {formData.type === 'document' && (
                             <div className="space-y-2">
-                                <Label htmlFor="document_url">Document URL</Label>
-                                <Input
-                                    id="document_url"
-                                    value={formData.document_url}
-                                    onChange={(e) => setFormData({ ...formData, document_url: e.target.value })}
-                                    placeholder="https://..."
-                                />
-                                <p className="text-xs text-slate-500">
-                                    Upload your document to a storage service and paste the URL here
-                                </p>
+                                <Label>Upload Document</Label>
+                                {selectedFile ? (
+                                    <div className="flex items-center gap-3 p-4 border rounded-lg bg-slate-50">
+                                        <File className="h-8 w-8 text-blue-600" />
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-medium text-sm truncate">{selectedFile.name}</p>
+                                            <p className="text-xs text-slate-500">
+                                                {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                                            </p>
+                                        </div>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() => setSelectedFile(null)}
+                                        >
+                                            <X className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <div className="relative">
+                                        <div className="flex items-center justify-center w-full h-32 border-2 border-dashed border-slate-300 rounded-lg hover:border-blue-500 transition-colors cursor-pointer bg-slate-50">
+                                            <div className="text-center">
+                                                <Upload className="h-8 w-8 mx-auto text-slate-400 mb-2" />
+                                                <p className="text-sm font-medium text-slate-700">
+                                                    Click to upload or drag and drop
+                                                </p>
+                                                <p className="text-xs text-slate-500 mt-1">
+                                                    PDF, Word, or Excel (max 50MB)
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <input
+                                            type="file"
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                            accept=".pdf,.doc,.docx,.xls,.xlsx"
+                                            onChange={handleFileSelect}
+                                        />
+                                    </div>
+                                )}
                             </div>
                         )}
 
@@ -467,14 +574,22 @@ export default function TariffSopsTab({ tariffId, tariffFamilyId, carrierName, c
                                 type="button"
                                 variant="outline"
                                 onClick={() => handleDialogClose(false)}
+                                disabled={isUploading}
                             >
                                 Cancel
                             </Button>
                             <Button
                                 type="submit"
-                                disabled={createSopMutation.isPending || updateSopMutation.isPending}
+                                disabled={isUploading || createSopMutation.isPending || updateSopMutation.isPending}
                             >
-                                {editingSop ? 'Update SOP' : 'Add SOP'}
+                                {isUploading ? (
+                                    <>
+                                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                        Uploading...
+                                    </>
+                                ) : (
+                                    editingSop ? 'Update SOP' : 'Add SOP'
+                                )}
                             </Button>
                         </DialogFooter>
                     </form>
