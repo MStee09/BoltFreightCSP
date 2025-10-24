@@ -51,16 +51,6 @@ export function EmailComposeDialog({
   useEffect(() => {
     if (!open || !trackingCode) return;
 
-    console.log('EmailComposeDialog useEffect:', {
-      inReplyTo,
-      isFollowUp,
-      defaultSubject,
-      defaultRecipients,
-      defaultCc,
-      userEmail,
-      userProfile
-    });
-
     const recipients = defaultRecipients.length > 0
       ? defaultRecipients
       : collectDefaultRecipients();
@@ -74,17 +64,27 @@ export function EmailComposeDialog({
     } else {
       setCcEmails([]);
     }
+  }, [open, trackingCode, isFollowUp, defaultCc, inReplyTo, userEmail]);
 
-    if (inReplyTo) {
-      console.log('Setting reply mode - subject:', defaultSubject);
-      setSubject(defaultSubject || '');
-      const signature = getEmailSignature();
-      console.log('Generated signature:', signature);
-      setBody(signature);
-    } else if (templates.length > 0) {
+  useEffect(() => {
+    if (!open || !trackingCode) return;
+
+    if (inReplyTo && defaultSubject) {
+      console.log('Setting reply subject:', defaultSubject);
+      setSubject(defaultSubject);
+    } else if (!inReplyTo && templates.length > 0) {
       applyTemplate(selectedTemplate);
     }
-  }, [open, trackingCode, templates.length, isFollowUp, defaultCc, inReplyTo, defaultSubject, userProfile, userEmail]);
+  }, [open, trackingCode, inReplyTo, defaultSubject, templates.length, selectedTemplate]);
+
+  useEffect(() => {
+    if (!open || !trackingCode) return;
+    if (!inReplyTo) return;
+
+    const signature = getEmailSignature();
+    console.log('Setting reply body with signature:', signature);
+    setBody(signature);
+  }, [open, trackingCode, inReplyTo, userProfile, userEmail]);
 
   const loadTemplates = async () => {
     try {
