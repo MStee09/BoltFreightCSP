@@ -57,13 +57,17 @@ export function EmailComposeDialog({
 
     setToEmails(recipients);
 
+    const ccList = [];
+
     if (isFollowUp && defaultCc.length > 0) {
-      setCcEmails(defaultCc);
-    } else if (!isFollowUp && inReplyTo) {
-      setCcEmails(userEmail ? [userEmail] : []);
-    } else {
-      setCcEmails([]);
+      ccList.push(...defaultCc);
     }
+
+    if (userEmail && !ccList.includes(userEmail)) {
+      ccList.push(userEmail);
+    }
+
+    setCcEmails(ccList);
   }, [open, trackingCode, isFollowUp, defaultCc, inReplyTo, userEmail]);
 
   useEffect(() => {
