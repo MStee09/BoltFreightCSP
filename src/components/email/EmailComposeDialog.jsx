@@ -31,12 +31,14 @@ export function EmailComposeDialog({
   const [selectedTemplate, setSelectedTemplate] = useState(defaultTemplate);
   const [templates, setTemplates] = useState([]);
   const [userEmail, setUserEmail] = useState('');
+  const [userProfile, setUserProfile] = useState(null);
 
   useEffect(() => {
     if (open) {
       generateTrackingCode();
       loadUserEmail();
       loadTemplates();
+      loadUserProfile();
     }
   }, [open]);
 
@@ -91,6 +93,25 @@ export function EmailComposeDialog({
       }
     } catch (error) {
       console.error('Error loading user email:', error);
+    }
+  };
+
+  const loadUserProfile = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (profile) {
+          setUserProfile(profile);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading user profile:', error);
     }
   };
 
@@ -186,11 +207,55 @@ export function EmailComposeDialog({
     if (!template) return;
 
     const getSenderName = () => {
+      if (userProfile?.first_name && userProfile?.last_name) {
+        return `${userProfile.first_name} ${userProfile.last_name}`;
+      }
+      if (userProfile?.first_name) {
+        return userProfile.first_name;
+      }
       if (userEmail) {
         const namePart = userEmail.split('@')[0];
         return namePart.charAt(0).toUpperCase() + namePart.slice(1);
       }
       return 'Rocketshipping Team';
+    };
+
+    const getEmailSignature = () => {
+      if (userProfile?.email_signature) {
+        return '\n\n' + userProfile.email_signature;
+      }
+
+      const parts = [];
+      parts.push('');
+      parts.push('');
+
+      if (userProfile?.first_name || userProfile?.last_name) {
+        parts.push(`${userProfile.first_name || ''} ${userProfile.last_name || ''}`.trim());
+      }
+
+      if (userProfile?.title) {
+        parts.push(userProfile.title);
+      }
+
+      if (userProfile?.company) {
+        parts.push(userProfile.company);
+      } else {
+        parts.push('Rocketshipping');
+      }
+
+      if (userProfile?.phone) {
+        parts.push(`Phone: ${userProfile.phone}`);
+      }
+
+      if (userEmail) {
+        parts.push(`Email: ${userEmail}`);
+      }
+
+      parts.push('');
+      parts.push('---');
+      parts.push('This email was sent from the Rocketshipping CSP Tool');
+
+      return parts.join('\n');
     };
 
     const context = {
@@ -221,7 +286,8 @@ export function EmailComposeDialog({
     };
 
     setSubject(replaceTemplateVariables(template.subject_template, context));
-    setBody(replaceTemplateVariables(template.body_template, context));
+    const bodyWithSignature = replaceTemplateVariables(template.body_template, context) + getEmailSignature();
+    setBody(bodyWithSignature);
   };
 
   const handleTemplateChange = (templateKey) => {

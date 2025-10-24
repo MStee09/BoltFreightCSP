@@ -10,6 +10,7 @@ import { SecurityAudit } from '@/components/admin/SecurityAudit';
 import { RoleDescriptions } from '@/components/admin/RoleDescriptions';
 import { AISettings } from '@/components/settings/AISettings';
 import { EmailTemplatesManagement } from '@/components/settings/EmailTemplatesManagement';
+import { UserProfile } from '@/components/settings/UserProfile';
 import KnowledgeBaseSettings from '@/components/settings/KnowledgeBase';
 import { useUserRole } from '@/hooks/useUserRole';
 import { Settings as SettingsIcon, Shield, AlertCircle } from 'lucide-react';
@@ -120,8 +121,9 @@ export default function Settings() {
         )}
       </div>
 
-      <Tabs defaultValue="integrations" className="w-full">
+      <Tabs defaultValue="profile" className="w-full">
         <TabsList>
+          <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="integrations">Integrations</TabsTrigger>
           <TabsTrigger value="ai">AI Assistant</TabsTrigger>
           <TabsTrigger value="knowledge">Knowledge Base</TabsTrigger>
@@ -130,6 +132,12 @@ export default function Settings() {
           {(isAdmin || isElite) && <TabsTrigger value="users">Users</TabsTrigger>}
           {isAdmin && <TabsTrigger value="admin">Admin</TabsTrigger>}
         </TabsList>
+
+        <TabsContent value="profile" className="space-y-4 mt-6">
+          <div className="max-w-2xl">
+            <UserProfile />
+          </div>
+        </TabsContent>
 
         <TabsContent value="integrations" className="space-y-4 mt-6">
           <div className="max-w-2xl">
