@@ -69,22 +69,22 @@ export function EmailComposeDialog({
   useEffect(() => {
     if (!open || !trackingCode) return;
 
-    if (inReplyTo && defaultSubject) {
-      console.log('Setting reply subject:', defaultSubject);
+    if (isFollowUp && defaultSubject) {
+      console.log('Setting follow-up/reply subject:', defaultSubject);
       setSubject(defaultSubject);
-    } else if (!inReplyTo && templates.length > 0) {
+    } else if (!isFollowUp && templates.length > 0) {
       applyTemplate(selectedTemplate);
     }
-  }, [open, trackingCode, inReplyTo, defaultSubject, templates.length, selectedTemplate]);
+  }, [open, trackingCode, isFollowUp, defaultSubject, templates.length, selectedTemplate]);
 
   useEffect(() => {
     if (!open || !trackingCode) return;
-    if (!inReplyTo) return;
+    if (!isFollowUp) return;
 
     const signature = getEmailSignature();
-    console.log('Setting reply body with signature:', signature);
+    console.log('Setting follow-up/reply body with signature:', signature);
     setBody(signature);
-  }, [open, trackingCode, inReplyTo, userProfile, userEmail]);
+  }, [open, trackingCode, isFollowUp, userProfile, userEmail]);
 
   const loadTemplates = async () => {
     try {
