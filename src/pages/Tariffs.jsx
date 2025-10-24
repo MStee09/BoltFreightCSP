@@ -475,22 +475,9 @@ export default function TariffsPage() {
           <p className="text-slate-600 mt-1">Manage customer and carrier pricing agreements</p>
         </div>
         <div className="flex gap-3">
-          <IfHasPermission permission="tariffs.upload">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setCspActionType('upload');
-                setShowCspDialog(true);
-              }}
-            >
-              <Upload className="w-4 h-4 mr-2" />
-              Upload
-            </Button>
-          </IfHasPermission>
           <IfHasPermission permission="tariffs.create">
             <Button
               onClick={() => {
-                setCspActionType('tariff');
                 setShowCspDialog(true);
               }}
             >
@@ -1292,19 +1279,9 @@ export default function TariffsPage() {
       <CreateAwardedCspDialog
         isOpen={showCspDialog}
         onOpenChange={setShowCspDialog}
-        actionType={cspActionType}
         onCspCreated={(cspEvent) => {
           setNewTariffCspEvent(cspEvent);
-          if (cspActionType === 'upload') {
-            const params = new URLSearchParams({
-              cspEventId: cspEvent.id,
-              customerId: cspEvent.customer_id,
-              carrierIds: cspEvent.carrier_ids?.join(',') || ''
-            });
-            navigate(createPageUrl(`/tariff-upload?${params.toString()}`));
-          } else {
-            setShowNewTariffDialog(true);
-          }
+          setShowNewTariffDialog(true);
         }}
       />
 
@@ -1319,6 +1296,7 @@ export default function TariffsPage() {
           preselectedCspEventId={newTariffCspEvent.id}
           preselectedCustomerId={newTariffCspEvent.customer_id}
           preselectedCarrierIds={newTariffCspEvent.carrier_ids || []}
+          preselectedFile={newTariffCspEvent.file}
           onSuccess={() => {
             setShowNewTariffDialog(false);
             setNewTariffCspEvent(null);

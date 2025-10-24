@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Customer, CSPEvent } from '../../api/entities';
+import { Customer, CSPEvent, Carrier } from '../../api/entities';
 import { supabase } from '../../api/supabaseClient';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog';
 import { Button } from '../ui/button';
@@ -8,15 +8,16 @@ import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
-import { Calendar as CalendarIcon, Award } from 'lucide-react';
+import { Calendar as CalendarIcon, Award, Upload, X, FileText, ExternalLink, Check, ChevronsUpDown } from 'lucide-react';
 import { useToast } from '../ui/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Calendar } from '../ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../contexts/AuthContext';
-import { Checkbox } from '../ui/checkbox';
-import { ScrollArea } from '../ui/scroll-area';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '../ui/command';
+import { Badge } from '../ui/badge';
+import { createPageUrl } from '../../utils';
 
 const MOCK_USER_ID = '00000000-0000-0000-0000-000000000000';
 
@@ -24,12 +25,12 @@ export default function CreateAwardedCspDialog({
   isOpen,
   onOpenChange,
   onCspCreated,
-  preselectedCustomerId = null,
-  actionType = 'tariff'
+  preselectedCustomerId = null
 }) {
   const { toast } = useToast();
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const fileInputRef = useRef(null);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -39,6 +40,10 @@ export default function CreateAwardedCspDialog({
     assigned_to: '',
     due_date: null
   });
+
+  const [file, setFile] = useState(null);
+  const [carrierSearchOpen, setCarrierSearchOpen] = useState(false);
+  const [carrierSearchValue, setCarrierSearchValue] = useState('');
 
   const { data: customers = [], isLoading: isLoadingCustomers } = useQuery({
     queryKey: ['customers'],
@@ -95,7 +100,7 @@ export default function CreateAwardedCspDialog({
       });
 
       if (onCspCreated) {
-        onCspCreated(data);
+        onCspCreated({ ...data, file });
       }
 
       handleReset();
@@ -143,15 +148,51 @@ export default function CreateAwardedCspDialog({
       assigned_to: '',
       due_date: null
     });
+    setFile(null);
+    setCarrierSearchValue('');
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
-  const handleCarrierToggle = (carrierId) => {
+  const handleCarrierSelect = (carrierId) => {
+    if (!formData.carrier_ids.includes(carrierId)) {
+      setFormData(prev => ({
+        ...prev,
+        carrier_ids: [...prev.carrier_ids, carrierId]
+      }));
+    }
+    setCarrierSearchOpen(false);
+    setCarrierSearchValue('');
+  };
+
+  const handleCarrierRemove = (carrierId) => {
     setFormData(prev => ({
       ...prev,
-      carrier_ids: prev.carrier_ids.includes(carrierId)
-        ? prev.carrier_ids.filter(id => id !== carrierId)
-        : [...prev.carrier_ids, carrierId]
+      carrier_ids: prev.carrier_ids.filter(id => id !== carrierId)
     }));
+  };
+
+  const handleFileSelect = (e) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      if (selectedFile.type !== 'application/pdf') {
+        toast({
+          title: 'Invalid File Type',
+          description: 'Please upload a PDF file',
+          variant: 'destructive',
+        });
+        return;
+      }
+      setFile(selectedFile);
+    }
+  };
+
+  const handleFileRemove = () => {
+    setFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleCancel = () => {
@@ -207,32 +248,84 @@ export default function CreateAwardedCspDialog({
 
           <div className="space-y-2">
             <Label>Carrier(s) *</Label>
-            <div className="border rounded-md p-3 bg-slate-50">
-              <ScrollArea className="h-[120px]">
-                <div className="space-y-2">
-                  {carriers.map((carrier) => (
-                    <div key={carrier.id} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`carrier-${carrier.id}`}
-                        checked={formData.carrier_ids.includes(carrier.id)}
-                        onCheckedChange={() => handleCarrierToggle(carrier.id)}
-                      />
-                      <label
-                        htmlFor={`carrier-${carrier.id}`}
-                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+
+            {formData.carrier_ids.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {formData.carrier_ids.map(carrierId => {
+                  const carrier = carriers.find(c => c.id === carrierId);
+                  return carrier ? (
+                    <Badge key={carrierId} variant="secondary" className="pl-2 pr-1">
+                      {carrier.name}
+                      <button
+                        type="button"
+                        onClick={() => handleCarrierRemove(carrierId)}
+                        className="ml-1 hover:bg-slate-300 rounded-full p-0.5"
                       >
-                        {carrier.name}
-                      </label>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-              {formData.carrier_ids.length > 0 && (
-                <div className="mt-2 pt-2 border-t text-xs text-slate-600">
-                  {formData.carrier_ids.length} carrier(s) selected
-                </div>
-              )}
-            </div>
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ) : null;
+                })}
+              </div>
+            )}
+
+            <Popover open={carrierSearchOpen} onOpenChange={setCarrierSearchOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={carrierSearchOpen}
+                  className="w-full justify-between"
+                >
+                  Search and select carriers...
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[400px] p-0">
+                <Command>
+                  <CommandInput
+                    placeholder="Type carrier name..."
+                    value={carrierSearchValue}
+                    onValueChange={setCarrierSearchValue}
+                  />
+                  <CommandList>
+                    <CommandEmpty>
+                      <div className="p-4 text-center space-y-2">
+                        <p className="text-sm text-slate-600">No carrier found with that name</p>
+                        <a
+                          href={createPageUrl('/carriers')}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 hover:underline"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          Create new carrier
+                        </a>
+                      </div>
+                    </CommandEmpty>
+                    <CommandGroup>
+                      {carriers
+                        .filter(carrier => !formData.carrier_ids.includes(carrier.id))
+                        .map((carrier) => (
+                          <CommandItem
+                            key={carrier.id}
+                            value={carrier.name}
+                            onSelect={() => handleCarrierSelect(carrier.id)}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                formData.carrier_ids.includes(carrier.id) ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {carrier.name}
+                          </CommandItem>
+                        ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </div>
 
           <div className="space-y-2">
@@ -289,6 +382,50 @@ export default function CreateAwardedCspDialog({
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               rows={3}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="file">Tariff Document (Optional)</Label>
+            <div className="space-y-2">
+              {!file ? (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    id="file"
+                    accept=".pdf"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full"
+                  >
+                    <Upload className="w-4 h-4 mr-2" />
+                    Upload PDF Document
+                  </Button>
+                  <p className="text-xs text-slate-500">
+                    You can upload the tariff PDF now or add it later
+                  </p>
+                </>
+              ) : (
+                <div className="flex items-center gap-2 p-3 border rounded-md bg-slate-50">
+                  <FileText className="w-5 h-5 text-slate-600" />
+                  <span className="flex-1 text-sm truncate">{file.name}</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleFileRemove}
+                    className="h-6 w-6 p-0"
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="rounded-lg bg-green-50 border border-green-200 p-3 text-sm text-green-800">
