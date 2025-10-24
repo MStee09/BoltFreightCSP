@@ -2,447 +2,473 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Badge } from '../components/ui/badge';
+import { Separator } from '../components/ui/separator';
+import { Alert, AlertDescription } from '../components/ui/alert';
 import {
-  LayoutDashboard,
+  Target,
+  Search,
+  Plus,
+  Upload,
+  Mail,
+  ClipboardCheck,
+  BarChart3,
+  Award,
+  FileText,
+  CheckCircle,
+  RefreshCw,
+  TrendingUp,
+  Calendar,
   Users,
   Truck,
-  FileText,
   Kanban,
-  BarChart3,
-  ArrowRight,
-  CheckCircle2,
+  AlertTriangle,
   Clock,
-  TrendingUp,
-  AlertCircle,
-  Upload,
-  Calendar,
-  Mail
+  BookOpen,
+  Zap,
+  ArrowRight,
+  CheckCircle2
 } from 'lucide-react';
 
-const WorkflowStep = ({ number, title, description, icon: Icon, actions }) => (
-  <div className="flex gap-4 p-4 border rounded-lg hover:bg-slate-50 transition-colors">
-    <div className="flex-shrink-0">
-      <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center">
-        <Icon className="w-6 h-6 text-blue-600" />
-      </div>
-    </div>
-    <div className="flex-1">
-      <div className="flex items-center gap-2 mb-2">
-        <Badge variant="outline" className="font-mono">{number}</Badge>
-        <h3 className="font-semibold text-slate-900">{title}</h3>
-      </div>
-      <p className="text-sm text-slate-600 mb-3">{description}</p>
-      {actions && actions.length > 0 && (
-        <div className="space-y-1">
-          {actions.map((action, idx) => (
-            <div key={idx} className="flex items-center gap-2 text-xs text-slate-500">
-              <ArrowRight className="w-3 h-3" />
-              <span>{action}</span>
-            </div>
-          ))}
+const WorkflowStep = ({ number, title, description, icon: Icon, actions, goal }) => (
+  <div className="relative">
+    <div className="flex gap-4 p-6 border rounded-lg hover:bg-slate-50 transition-colors">
+      <div className="flex-shrink-0">
+        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
+          <Icon className="w-7 h-7 text-white" />
         </div>
-      )}
+      </div>
+      <div className="flex-1">
+        <div className="flex items-center gap-3 mb-2">
+          <Badge className="font-mono text-sm bg-blue-600">{number}</Badge>
+          <h3 className="text-lg font-bold text-slate-900">{title}</h3>
+        </div>
+        <p className="text-slate-700 mb-4 leading-relaxed">{description}</p>
+        {actions && actions.length > 0 && (
+          <div className="space-y-2 mb-4 bg-slate-50 p-4 rounded-lg border">
+            <p className="text-xs font-semibold text-slate-600 uppercase tracking-wide mb-2">Steps:</p>
+            {actions.map((action, idx) => (
+              <div key={idx} className="flex items-start gap-2 text-sm text-slate-700">
+                <ArrowRight className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                <span>{action}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        {goal && (
+          <div className="flex items-start gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+            <CheckCircle className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-green-800">
+              <span className="font-semibold">Goal:</span> {goal}
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   </div>
 );
 
-const FeatureCard = ({ title, description, icon: Icon, tips }) => (
-  <Card>
-    <CardHeader>
-      <div className="flex items-center gap-3">
-        <div className="p-2 bg-blue-100 rounded-lg">
-          <Icon className="w-5 h-5 text-blue-600" />
-        </div>
-        <div>
-          <CardTitle className="text-lg">{title}</CardTitle>
-          <CardDescription>{description}</CardDescription>
-        </div>
-      </div>
-    </CardHeader>
-    <CardContent>
-      <ul className="space-y-2">
-        {tips.map((tip, idx) => (
-          <li key={idx} className="flex items-start gap-2 text-sm text-slate-600">
-            <CheckCircle2 className="w-4 h-4 text-green-600 mt-0.5 flex-shrink-0" />
-            <span>{tip}</span>
-          </li>
-        ))}
-      </ul>
-    </CardContent>
-  </Card>
+const HabitCard = ({ habit, why }) => (
+  <div className="flex items-start gap-3 p-4 border rounded-lg bg-white">
+    <Zap className="w-5 h-5 text-yellow-600 mt-0.5 flex-shrink-0" />
+    <div className="flex-1">
+      <p className="font-semibold text-slate-900 mb-1">{habit}</p>
+      <p className="text-sm text-slate-600">{why}</p>
+    </div>
+  </div>
+);
+
+const SupportingTool = ({ tool, purpose, icon: Icon }) => (
+  <div className="flex items-start gap-3 p-4 border rounded-lg hover:bg-slate-50 transition-colors">
+    <div className="p-2 bg-blue-100 rounded-lg">
+      <Icon className="w-5 h-5 text-blue-600" />
+    </div>
+    <div className="flex-1">
+      <p className="font-semibold text-slate-900 mb-1">{tool}</p>
+      <p className="text-sm text-slate-600">{purpose}</p>
+    </div>
+  </div>
 );
 
 export default function Help() {
   return (
     <div className="min-h-screen p-8 max-w-7xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900 mb-2">FreightOps CSP Help Center</h1>
-        <p className="text-slate-600">Complete guide to managing carrier strategy and procurement workflows</p>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-3 bg-blue-600 rounded-lg">
+            <Target className="w-8 h-8 text-white" />
+          </div>
+          <div>
+            <h1 className="text-4xl font-bold text-slate-900">FreightOps Ultimate Guide</h1>
+            <p className="text-lg text-slate-600 mt-1">The CSP Management Process</p>
+          </div>
+        </div>
+        <Alert className="bg-blue-50 border-blue-200">
+          <Target className="h-4 w-4 text-blue-600" />
+          <AlertDescription className="text-slate-700">
+            <span className="font-semibold">The Mission:</span> FreightOps exists to create, manage, and track Carrier Service Procurement (CSP) events — from identifying a customer who needs freight rebid, all the way through awarding, publishing, and renewing their tariffs.
+          </AlertDescription>
+        </Alert>
       </div>
 
       <Tabs defaultValue="workflow" className="w-full">
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="workflow">Full Workflow</TabsTrigger>
-          <TabsTrigger value="features">Features</TabsTrigger>
-          <TabsTrigger value="tips">Best Practices</TabsTrigger>
-          <TabsTrigger value="glossary">Glossary</TabsTrigger>
+          <TabsTrigger value="workflow">CSP Workflow</TabsTrigger>
+          <TabsTrigger value="habits">Power User Habits</TabsTrigger>
+          <TabsTrigger value="tools">Supporting Tools</TabsTrigger>
+          <TabsTrigger value="sequence">Golden Sequence</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="workflow" className="space-y-8 mt-6">
-          <Card>
+        <TabsContent value="workflow" className="space-y-6 mt-6">
+          <Card className="border-blue-200 bg-gradient-to-br from-blue-50 to-white">
             <CardHeader>
-              <CardTitle>Daily User Flow</CardTitle>
-              <CardDescription>How a Pricing Analyst or Carrier Strategy Lead uses FreightOps CSP from login to insights</CardDescription>
+              <CardTitle className="text-2xl">The Core Loop</CardTitle>
+              <CardDescription className="text-base">
+                CSP → Tariff → SOP → Renewal. Everything else in the app supports this loop.
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <WorkflowStep
-                number="1"
-                title="Command Center (Morning Dashboard)"
-                description="Start your day with a complete overview of what needs attention"
-                icon={LayoutDashboard}
-                actions={[
-                  "Review active customers, tariffs, and CSP events at a glance",
-                  "Check alerts for expiring tariffs and stalled negotiations",
-                  "View pipeline health with stage distribution",
-                  "Click alert cards to jump directly to relevant workflows"
-                ]}
-              />
-
-              <WorkflowStep
-                number="2"
-                title="Customer Overview"
-                description="Manage shipper relationships and track renewal schedules"
-                icon={Users}
-                actions={[
-                  "Sort customers by 'Next CSP Due' or filter by margin trends",
-                  "Open customer details to see 30-day margin, review schedule, and notes",
-                  "Schedule next review to auto-create calendar events",
-                  "View tariff timeline and interaction history"
-                ]}
-              />
-
-              <WorkflowStep
-                number="3"
-                title="Tariff Workspace"
-                description="Track rate agreements, expirations, and carrier terms"
-                icon={FileText}
-                actions={[
-                  "Filter by 'Expiring in 90 Days' or ownership type",
-                  "View tariff details including carriers, rates, and documents",
-                  "Upload rate sheets and link to CSP events",
-                  "System automatically flags near-expiry tariffs in alerts"
-                ]}
-              />
-
-              <WorkflowStep
-                number="4"
-                title="CSP Pipeline (Active Bids & Projects)"
-                description="Visual Kanban board for running and tracking carrier bids"
-                icon={Kanban}
-                actions={[
-                  "Drag cards between stages: Discovery → Data Room → RFP Sent → QA → Award",
-                  "Cards age with color coding (green → yellow → orange → red)",
-                  "Click 'New Event' to start a new RFP or renewal",
-                  "View metrics: Active CSPs, Avg Days in Stage, Win Rate",
-                  "Click any card to open detailed event view"
-                ]}
-              />
-
-              <WorkflowStep
-                number="5"
-                title="CSP Event → Strategy Analysis"
-                description="Analyze opportunity before or during a bid"
-                icon={BarChart3}
-                actions={[
-                  "Within a CSP Event, open the Strategy tab",
-                  "Upload Transaction Detail file (actual shipment data)",
-                  "Upload Lost Opportunity file (missed bids/rejected quotes)",
-                  "Run analysis to see top lanes, margin variance, and recommendations",
-                  "Results feed into opportunity scores on dashboard"
-                ]}
-              />
-
-              <WorkflowStep
-                number="6"
-                title="Award → Tariff Generation"
-                description="Close the loop when a CSP is won"
-                icon={CheckCircle2}
-                actions={[
-                  "Move event to 'Awarded' stage",
-                  "System auto-creates new tariff record with version",
-                  "Tariff is linked back to the CSP Event",
-                  "Implementation tasks and review schedules are generated"
-                ]}
-              />
-
-              <WorkflowStep
-                number="7"
-                title="Alerts & Calendar"
-                description="Stay proactive with continuous monitoring"
-                icon={AlertCircle}
-                actions={[
-                  "Expiring tariffs trigger alerts 90 days in advance",
-                  "Stale CSPs (30+ days) appear in alerts panel",
-                  "Margin drops create action items",
-                  "Calendar shows CSP reviews and bid due dates"
-                ]}
-              />
-
-              <WorkflowStep
-                number="8"
-                title="Reporting & KPIs"
-                description="End-of-week or QBR insights"
-                icon={TrendingUp}
-                actions={[
-                  "View win rate by mode (LTL vs Home Delivery)",
-                  "Track avg days in stage per analyst",
-                  "Monitor margin trends by customer segment",
-                  "Review tariff aging distribution"
-                ]}
-              />
-            </CardContent>
           </Card>
-        </TabsContent>
 
-        <TabsContent value="features" className="space-y-6 mt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <FeatureCard
-              title="Dashboard"
-              description="Your command center for daily operations"
-              icon={LayoutDashboard}
-              tips={[
-                "Metric cards summarize active customers, carriers, tariffs, and events",
-                "Alerts panel shows time-sensitive actions",
-                "Pipeline snapshot visualizes stage distribution",
-                "Click any element to navigate to detailed view"
+          <div className="space-y-6">
+            <WorkflowStep
+              number="1"
+              title="Identify the Opportunity"
+              description="Before anything else, figure out which customer needs a CSP. You might be renewing an existing tariff that's expiring soon, launching a new customer bid, or adding new lanes or changing coverage."
+              icon={Search}
+              actions={[
+                'Go to Customers page',
+                'Search for the customer or create one if missing (Name, Ownership, Assigned Owner, Contact Info)',
+                'Review their Tariffs tab — check if an active tariff is expiring or if there\'s an opportunity for improvement'
               ]}
+              goal="Identify which customer's lanes you want to bid out."
             />
 
-            <FeatureCard
-              title="Pipeline Board"
-              description="Visual workflow for CSP lifecycle"
-              icon={Kanban}
-              tips={[
-                "Drag-and-drop cards between stages",
-                "Color aging shows event velocity (green to red)",
-                "Hover stage headers for definitions",
-                "Filter by owner, priority, or customer",
-                "Metrics bar shows health at a glance"
+            <WorkflowStep
+              number="2"
+              title="Create a New CSP Event"
+              description="Everything starts here. This is your workspace. Every carrier email, data file, SOP, and tariff version will live here."
+              icon={Plus}
+              actions={[
+                'Go to Pipeline → + New CSP Event',
+                'Fill in: Name (e.g., "2025 Contract Renewal – LTL"), Customer, Priority, Assigned Owner',
+                'Select Service Type (LTL or Home Delivery LTL) and Ownership (Rocket CSP or Customer Direct)',
+                'Add short context in the Description/Notes explaining why you\'re rebidding'
               ]}
+              goal="Create your centralized workspace for this entire CSP process."
             />
 
-            <FeatureCard
-              title="Strategy Analysis"
-              description="Data-driven opportunity identification"
+            <WorkflowStep
+              number="3"
+              title="Upload Data for Strategy"
+              description="Prep your data room so the pricing process is fast and clean. This includes shipment/lane data files, historical rate performance, and special service notes."
+              icon={Upload}
+              actions={[
+                'Inside your CSP Event → navigate to Documents or Data Room section',
+                'Upload: Shipment or lane data file (Excel, CSV), Historical rate performance (if available), Accessorials or special service notes',
+                'Add a quick note summarizing what\'s included (e.g., "2024 historical volume with 3-month lane averages")'
+              ]}
+              goal="Have a ready-to-go bid package to share with carriers."
+            />
+
+            <WorkflowStep
+              number="4"
+              title="Choose Carriers and Send Invitations"
+              description="Open the bid to your selected carrier list. The system logs each carrier invite in both the Carrier's Activity Feed and the CSP Event timeline."
+              icon={Mail}
+              actions={[
+                'In the CSP Event → click Invite Carriers or Manage Carriers',
+                'Select your desired carrier list (existing or new)',
+                'Add any SOP documents or bid rules they need',
+                'Use standardized subject lines: "Rocketshipping | Invitation to Participate – [Customer Name] CSP Bid"'
+              ]}
+              goal="All invited carriers are logged and tracked within the CSP Event."
+            />
+
+            <WorkflowStep
+              number="5"
+              title="Manage Email Chains Within FreightOps"
+              description="FreightOps replaces scattered Outlook threads with centralized, traceable email threads. All communication should happen inside the CSP Event's email thread."
+              icon={Mail}
+              actions={[
+                'Compose emails to carriers or customers directly in the CSP Event',
+                'Use standardized subject lines for consistency',
+                'Attach relevant data or instructions',
+                'The system automatically saves every email to the Activity Timeline'
+              ]}
+              goal="Never lose track of who you emailed or when — every conversation lives in the event history."
+            />
+
+            <WorkflowStep
+              number="6"
+              title="Collect Carrier Submissions (QA Stage)"
+              description="As carriers send back bids, upload their rate sheets and validate the data."
+              icon={ClipboardCheck}
+              actions={[
+                'Upload carrier rate sheets into the same CSP Event',
+                'Record validation notes (missing lanes, incorrect FSC, etc.)',
+                'Use notes for internal discussion; use emails for clarifications with carriers',
+                'Log submission results in the event timeline',
+                'Move the CSP card to "Carrier Submissions / QA Round" → "Round 2 / Optimization"'
+              ]}
+              goal="All bids stored, validated, and ready for analysis."
+            />
+
+            <WorkflowStep
+              number="7"
+              title="Optimize and Select Winners"
+              description="Review all bids and make the strategic decision on which carriers to award."
               icon={BarChart3}
-              tips={[
-                "Event-specific analysis for each bid",
-                "Upload transaction and lost opportunity data",
-                "Visualize top lanes by spend and savings potential",
-                "Get carrier-level performance insights",
-                "Recommendations guide next actions"
+              actions={[
+                'Review bids manually or through an export',
+                'Document your analysis in the Activity Timeline',
+                'Select winning carriers per region, lane, or mode',
+                'Move the CSP card to "Award & Tariff Finalization"',
+                'System will prompt you to create a Proposed Tariff Version linked to the CSP Event'
               ]}
+              goal="Lock in winning carriers and generate a proposed tariff file."
             />
 
-            <FeatureCard
-              title="Customer Management"
-              description="Complete shipper relationship tracking"
-              icon={Users}
-              tips={[
-                "Track margin trends and review schedules",
-                "View tariff timeline and interaction history",
-                "Schedule reviews with calendar integration",
-                "Segment customers by performance",
-                "Link all CSP events to customer record"
+            <WorkflowStep
+              number="8"
+              title="Award the Tariff"
+              description="This is where the CSP becomes a live, trackable contract. FreightOps automatically closes the CSP Event, updates the Tariff Family, and creates audit entries."
+              icon={Award}
+              actions={[
+                'Review the Proposed Tariff Version under Tariffs → Rocket CSP',
+                'Upload: Awarded rate table, Finalized carrier list, Effective/expiry dates',
+                'Mark as Finalized / Published → Active',
+                'System automatically closes the CSP Event and creates audit entries'
               ]}
+              goal="Tariff is now active, linked to both Customer and Carrier."
             />
 
-            <FeatureCard
-              title="Tariff Workspace"
-              description="Rate agreement lifecycle management"
+            <WorkflowStep
+              number="9"
+              title="Upload Supporting SOPs"
+              description="Every good tariff has a rulebook. Add documentation and procedures directly to the tariff."
               icon={FileText}
-              tips={[
-                "Track effective and expiry dates",
-                "Upload and version rate sheets",
-                "Link tariffs to CSP events",
-                "Auto-alerts for expiring agreements",
-                "View carrier terms and contacts"
+              actions={[
+                'Open the Tariff → SOP tab',
+                'Add SOP Notes (internal guidance or special handling rules) or upload SOP Documents (carrier procedures, weekend delivery guides, PDFs)',
+                'Tag as Internal (for your team) or Shared (carrier viewable)',
+                'Version control is automatic — all changes are tracked'
               ]}
+              goal="Anyone looking at this tariff later instantly sees how it operates."
             />
 
-            <FeatureCard
-              title="Calendar & Tasks"
-              description="Never miss a deadline"
-              icon={Calendar}
-              tips={[
-                "CSP reviews auto-schedule on customer cadence",
-                "Bid due dates appear as events",
-                "Task lists integrate with pipeline",
-                "Overdue items trigger alerts",
-                "Team visibility on all deadlines"
+            <WorkflowStep
+              number="10"
+              title="Implementation & Validation"
+              description="After the tariff is published, FreightOps automatically schedules a 30-day validation check."
+              icon={CheckCircle}
+              actions={[
+                'Verify billing accuracy with carriers/customers',
+                'Confirm rates loaded correctly in TMS',
+                'Log validation completion in Activity Timeline',
+                'Move CSP Event to "Validation & Monitoring" stage'
               ]}
+              goal="Confirm the new tariff works in practice, not just on paper."
+            />
+
+            <WorkflowStep
+              number="11"
+              title="Renewal Watch and Alerts"
+              description="Once a tariff is live, FreightOps keeps watch for you with automated alerts."
+              icon={RefreshCw}
+              actions={[
+                'System alerts you in Dashboard & Tariffs tab when Expiring < 90 Days',
+                'Review SOP tab to confirm or update procedures',
+                'Check for Stale CSP Events (30+ days idle) flagged for review',
+                'Monitor Task Due notifications in Dashboard and email',
+                'Find all alerts under Dashboard → Alerts or Calendar View'
+              ]}
+              goal="Never miss an expiry or renewal window."
+            />
+
+            <WorkflowStep
+              number="12"
+              title="Continuous Improvement Loop"
+              description="Every time you finish a CSP → Tariff → Renewal cycle, take time to improve the process."
+              icon={TrendingUp}
+              actions={[
+                'Review performance metrics (on-time awards, average savings, carrier response rate)',
+                'Update SOPs based on lessons learned',
+                'Keep communication threads clean for fast reuse in the next cycle',
+                'Document insights in the Activity Timeline'
+              ]}
+              goal="Each cycle gets faster, cleaner, and more effective."
             />
           </div>
         </TabsContent>
 
-        <TabsContent value="tips" className="space-y-6 mt-6">
+        <TabsContent value="habits" className="space-y-6 mt-6">
           <Card>
             <CardHeader>
-              <CardTitle>Best Practices for Success</CardTitle>
-              <CardDescription>Expert tips from seasoned freight pricing analysts</CardDescription>
+              <CardTitle className="text-2xl flex items-center gap-2">
+                <Zap className="w-6 h-6 text-yellow-600" />
+                Key Habits of a FreightOps Power User
+              </CardTitle>
+              <CardDescription>
+                Master these habits to operate at peak efficiency
+              </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div>
-                <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-blue-600" />
-                  Daily Workflow
-                </h3>
-                <ul className="space-y-2 ml-7 text-sm text-slate-600">
-                  <li>Start every morning on the Dashboard to orient yourself</li>
-                  <li>Clear alerts before they age past 3 days</li>
-                  <li>Groom the Pipeline board daily - move stale cards</li>
-                  <li>Update task status immediately when completed</li>
-                  <li>Log all carrier interactions in the timeline</li>
-                </ul>
-              </div>
+          </Card>
 
-              <div>
-                <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                  <Kanban className="w-5 h-5 text-green-600" />
-                  Pipeline Management
-                </h3>
-                <ul className="space-y-2 ml-7 text-sm text-slate-600">
-                  <li>Keep cards moving - aim for less than 14 days per stage</li>
-                  <li>Yellow/orange cards need immediate attention</li>
-                  <li>Use priority badges: urgent for expiring contracts</li>
-                  <li>Assign owners to every CSP event</li>
-                  <li>Link all relevant tariffs and documents</li>
-                </ul>
-              </div>
+          <div className="grid gap-4">
+            <HabitCard
+              habit="Start every project in Pipeline"
+              why="Keeps process structured and ensures nothing falls through the cracks."
+            />
+            <HabitCard
+              habit="Keep communication inside the CSP Event"
+              why="Ensures transparency and traceability — no more hunting through Outlook."
+            />
+            <HabitCard
+              habit="Move cards weekly"
+              why="Prevents stale events and keeps the pipeline flowing."
+            />
+            <HabitCard
+              habit="Log everything in Activity Timeline"
+              why="Your future self will thank you when reviewing decisions months later."
+            />
+            <HabitCard
+              habit="Check 'Expiring < 90d' every Monday"
+              why="Stay ahead of renewals instead of scrambling at the last minute."
+            />
+            <HabitCard
+              habit="Update SOPs quarterly"
+              why="Ensures operational accuracy and catches changes in carrier procedures."
+            />
+            <HabitCard
+              habit="Always finalize tariffs via Award Stage"
+              why="Keeps your family/version logic clean and audit trail complete."
+            />
+          </div>
+        </TabsContent>
 
-              <div>
-                <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                  <BarChart3 className="w-5 h-5 text-purple-600" />
-                  Strategy Analysis
-                </h3>
-                <ul className="space-y-2 ml-7 text-sm text-slate-600">
-                  <li>Run analysis for every new CSP event before RFP</li>
-                  <li>Use 30-90 day data windows for best accuracy</li>
-                  <li>Focus on high-volume lanes first</li>
-                  <li>Compare lost opportunity vs transaction data</li>
-                  <li>Save results to track before/after performance</li>
-                </ul>
-              </div>
+        <TabsContent value="tools" className="space-y-6 mt-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-2xl">The Supporting Tools</CardTitle>
+              <CardDescription>
+                Your assistants that support the core CSP workflow
+              </CardDescription>
+            </CardHeader>
+          </Card>
 
-              <div>
-                <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                  <Mail className="w-5 h-5 text-amber-600" />
-                  Communication
-                </h3>
-                <ul className="space-y-2 ml-7 text-sm text-slate-600">
-                  <li>Connect Gmail to auto-track carrier emails</li>
-                  <li>Use email compose within CSP events for context</li>
-                  <li>Log all phone calls in interaction timeline</li>
-                  <li>CC team members on critical negotiations</li>
-                  <li>Document all rate confirmations</li>
-                </ul>
-              </div>
+          <div className="grid gap-4">
+            <SupportingTool
+              tool="Pipeline Board"
+              purpose="Manage and visualize all active CSPs with drag-and-drop stages."
+              icon={Kanban}
+            />
+            <SupportingTool
+              tool="Tariffs Tab"
+              purpose="See every live or expiring contract, organized by ownership type and family."
+              icon={FileText}
+            />
+            <SupportingTool
+              tool="Customers / Carriers Tabs"
+              purpose="Relationship context and history — see all interactions, tariffs, and documents."
+              icon={Users}
+            />
+            <SupportingTool
+              tool="Activity Timelines"
+              purpose="Audit and collaboration trail for every customer, carrier, tariff, and CSP event."
+              icon={Clock}
+            />
+            <SupportingTool
+              tool="SOP Module"
+              purpose="Centralized operational documentation — notes and file uploads with version control."
+              icon={BookOpen}
+            />
+            <SupportingTool
+              tool="Alerts & Calendar"
+              purpose="Smart reminders for expirations, reviews, and overdue tasks."
+              icon={AlertTriangle}
+            />
+            <SupportingTool
+              tool="Reports"
+              purpose="Analyze performance, bid success, carrier response metrics, and user productivity."
+              icon={BarChart3}
+            />
+          </div>
+        </TabsContent>
 
-              <div>
-                <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5 text-red-600" />
-                  Alert Management
-                </h3>
-                <ul className="space-y-2 ml-7 text-sm text-slate-600">
-                  <li>Review tariff expirations at 90-day mark</li>
-                  <li>Address stale CSPs before they hit 30 days</li>
-                  <li>Investigate margin drops immediately</li>
-                  <li>Set customer review schedules proactively</li>
-                  <li>Don't dismiss alerts - resolve them</li>
-                </ul>
+        <TabsContent value="sequence" className="space-y-6 mt-6">
+          <Card className="border-green-200 bg-gradient-to-br from-green-50 to-white">
+            <CardHeader>
+              <CardTitle className="text-2xl flex items-center gap-2">
+                <CheckCircle2 className="w-6 h-6 text-green-600" />
+                The FreightOps Golden Sequence
+              </CardTitle>
+              <CardDescription className="text-base">
+                Follow this exact order for every CSP to ensure speed, consistency, and total visibility
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {[
+                  'Identify customer & verify they\'re in the system',
+                  'Create new CSP Event',
+                  'Upload all data for bid prep',
+                  'Invite and communicate with carriers in-app',
+                  'Receive and QA bids',
+                  'Optimize & select winners',
+                  'Award tariff → upload + finalize',
+                  'Add SOPs (notes and documents)',
+                  'Validate live billing',
+                  'Monitor alerts & start renewals early'
+                ].map((step, idx) => (
+                  <div key={idx} className="flex items-start gap-3 p-3 bg-white border rounded-lg">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-green-100 flex items-center justify-center font-bold text-green-700 text-sm">
+                      {idx + 1}
+                    </div>
+                    <p className="text-slate-700 pt-1">{step}</p>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
-        </TabsContent>
 
-        <TabsContent value="glossary" className="space-y-6 mt-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Terminology Guide</CardTitle>
-              <CardDescription>Key terms and concepts used in FreightOps CSP</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <dl className="space-y-4">
-                <div>
-                  <dt className="font-semibold text-slate-900 mb-1">CSP (Carrier Savings Project)</dt>
-                  <dd className="text-sm text-slate-600 ml-4">A discrete bid or renewal opportunity representing an RFP cycle with a customer. Each CSP tracks from discovery through implementation.</dd>
+          <Card className="border-blue-200 bg-blue-50">
+            <CardContent className="pt-6">
+              <div className="text-center space-y-4">
+                <div className="inline-block p-4 bg-blue-600 rounded-full">
+                  <Target className="w-12 h-12 text-white" />
                 </div>
-
-                <div>
-                  <dt className="font-semibold text-slate-900 mb-1">CSP Stage</dt>
-                  <dd className="text-sm text-slate-600 ml-4">Pipeline phases: Discovery, Data Room Ready, RFP Sent, QA Round, Round 1+, Final Offers, Awarded, Implementation.</dd>
+                <h3 className="text-xl font-bold text-slate-900">
+                  FreightOps Flow at a Glance
+                </h3>
+                <div className="max-w-3xl mx-auto">
+                  <div className="flex flex-wrap items-center justify-center gap-2 text-sm font-medium text-slate-700">
+                    {[
+                      'Customer Identified',
+                      'Create CSP',
+                      'Upload Data',
+                      'Invite Carriers',
+                      'Receive Bids',
+                      'Analyze & Award',
+                      'Upload Tariff',
+                      'Attach SOPs',
+                      'Validate',
+                      'Renew'
+                    ].map((step, idx, arr) => (
+                      <React.Fragment key={idx}>
+                        <span className="px-3 py-1.5 bg-white border border-blue-200 rounded-lg">
+                          {step}
+                        </span>
+                        {idx < arr.length - 1 && (
+                          <ArrowRight className="w-4 h-4 text-blue-600" />
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </div>
                 </div>
-
-                <div>
-                  <dt className="font-semibold text-slate-900 mb-1">Days in Stage</dt>
-                  <dd className="text-sm text-slate-600 ml-4">Time elapsed since a CSP entered its current stage. Used for velocity tracking and stale deal identification.</dd>
-                </div>
-
-                <div>
-                  <dt className="font-semibold text-slate-900 mb-1">Tariff</dt>
-                  <dd className="text-sm text-slate-600 ml-4">A rate agreement between customer and carrier(s). Includes effective dates, pricing terms, and versioning.</dd>
-                </div>
-
-                <div>
-                  <dt className="font-semibold text-slate-900 mb-1">Strategy Analysis</dt>
-                  <dd className="text-sm text-slate-600 ml-4">Event-specific opportunity analysis combining transaction data (actual shipments) and lost opportunity data (missed bids) to identify savings potential.</dd>
-                </div>
-
-                <div>
-                  <dt className="font-semibold text-slate-900 mb-1">Transaction Detail</dt>
-                  <dd className="text-sm text-slate-600 ml-4">Historical shipment data including loads, carriers, costs, and performance metrics used for analysis.</dd>
-                </div>
-
-                <div>
-                  <dt className="font-semibold text-slate-900 mb-1">Lost Opportunity</dt>
-                  <dd className="text-sm text-slate-600 ml-4">Data on rejected quotes or missed bids showing where alternative carriers could have saved money.</dd>
-                </div>
-
-                <div>
-                  <dt className="font-semibold text-slate-900 mb-1">Aging (Card/Deal)</dt>
-                  <dd className="text-sm text-slate-600 ml-4">Visual indicator of CSP velocity. Green (0-14 days), Yellow (14-21), Orange (21-30), Red (30+).</dd>
-                </div>
-
-                <div>
-                  <dt className="font-semibold text-slate-900 mb-1">Win Rate</dt>
-                  <dd className="text-sm text-slate-600 ml-4">Percentage of CSP events that reach 'Awarded' stage. Tracked overall and by mode/analyst.</dd>
-                </div>
-
-                <div>
-                  <dt className="font-semibold text-slate-900 mb-1">Margin Trend</dt>
-                  <dd className="text-sm text-slate-600 ml-4">30-day rolling average of profit margin for a customer. Positive trend ↑ means improving profitability.</dd>
-                </div>
-
-                <div>
-                  <dt className="font-semibold text-slate-900 mb-1">Carrier Ownership</dt>
-                  <dd className="text-sm text-slate-600 ml-4">Pricing control designation: 'Customer' (shipper sets rates), 'Carrier' (carrier sets rates), 'Negotiated' (jointly agreed).</dd>
-                </div>
-
-                <div>
-                  <dt className="font-semibold text-slate-900 mb-1">Review Cadence</dt>
-                  <dd className="text-sm text-slate-600 ml-4">Schedule for customer check-ins (Monthly, Quarterly, Semi-Annual, Annual). Drives calendar events.</dd>
-                </div>
-
-                <div>
-                  <dt className="font-semibold text-slate-900 mb-1">Mode</dt>
-                  <dd className="text-sm text-slate-600 ml-4">Freight type: LTL (Less Than Truckload), FTL (Full Truckload), Parcel, or Specialized (White Glove, Home Delivery).</dd>
-                </div>
-
-                <div>
-                  <dt className="font-semibold text-slate-900 mb-1">Stale Deal</dt>
-                  <dd className="text-sm text-slate-600 ml-4">A CSP event that has been in the same stage for 30+ days, indicating blocked progress.</dd>
-                </div>
-              </dl>
+                <p className="text-slate-600 italic pt-4">
+                  This is the single source of truth for CSP management — defining not just how to use the app,
+                  but the right order and rhythm to get speed, consistency, and total visibility.
+                </p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
