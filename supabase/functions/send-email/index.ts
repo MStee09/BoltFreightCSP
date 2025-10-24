@@ -15,6 +15,15 @@ interface SendEmailRequest {
   cspEventId?: string;
   customerId?: string;
   carrierId?: string;
+  inReplyTo?: string;
+  threadId?: string;
+}
+
+function generateThreadId(subject: string): string {
+  return subject
+    .toLowerCase()
+    .replace(/^(re:|fwd?:|fw:)\s*/gi, '')
+    .replace(/[^a-z0-9]+/g, '-');
 }
 
 Deno.serve(async (req: Request) => {
@@ -64,6 +73,8 @@ Deno.serve(async (req: Request) => {
       cspEventId,
       customerId,
       carrierId,
+      inReplyTo,
+      threadId,
     } = requestData;
 
     const nodemailer = await import('npm:nodemailer@6.9.7');
@@ -78,7 +89,7 @@ Deno.serve(async (req: Request) => {
       },
     });
 
-    await transporter.sendMail({
+    const mailOptions: any = {
       from: credentials.email_address,
       to: to.join(', '),
       cc: cc && cc.length > 0 ? cc.join(', ') : undefined,
@@ -87,12 +98,25 @@ Deno.serve(async (req: Request) => {
       headers: {
         'X-CSP-Tracking-Code': trackingCode,
       },
-    });
+    };
+
+    if (inReplyTo) {
+      mailOptions.inReplyTo = inReplyTo;
+      mailOptions.headers['In-Reply-To'] = inReplyTo;
+      mailOptions.headers['References'] = inReplyTo;
+    }
+
+    const info = await transporter.sendMail(mailOptions);
+
+    const generatedThreadId = threadId || generateThreadId(subject);
 
     const { error: dbError } = await supabaseClient
       .from('email_activities')
       .insert({
         tracking_code: trackingCode,
+        message_id: info.messageId,
+        thread_id: generatedThreadId,
+        in_reply_to_message_id: inReplyTo || null,
         csp_event_id: cspEventId || null,
         customer_id: customerId || null,
         carrier_id: carrierId || null,
@@ -105,6 +129,7 @@ Deno.serve(async (req: Request) => {
         direction: 'outbound',
         sent_at: new Date().toISOString(),
         created_by: user.id,
+        is_thread_starter: !inReplyTo,
       });
 
     if (dbError) {
@@ -113,7 +138,7 @@ Deno.serve(async (req: Request) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true }),
+      JSON.stringify({ success: true, messageId: info.messageId }),
       {
         headers: {
           ...corsHeaders,

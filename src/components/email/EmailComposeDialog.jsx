@@ -19,7 +19,9 @@ export function EmailComposeDialog({
   carrier,
   defaultRecipients = [],
   defaultSubject = '',
-  defaultTemplate = 'general'
+  defaultTemplate = 'general',
+  inReplyTo = null,
+  threadId = null
 }) {
   const queryClient = useQueryClient();
   const [trackingCode, setTrackingCode] = useState('');
@@ -392,6 +394,8 @@ export function EmailComposeDialog({
           cspEventId: cspEvent?.id,
           customerId: customer?.id,
           carrierId: carrier?.id,
+          inReplyTo,
+          threadId,
         })
       });
 

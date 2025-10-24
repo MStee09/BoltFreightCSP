@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/api/supabaseClient';
 import { Interaction } from '../../api/entities';
+import { EmailComposeDialog } from '@/components/email/EmailComposeDialog';
 import { Skeleton } from '../ui/skeleton';
 import { format, formatDistanceToNow } from 'date-fns';
 import {
@@ -226,14 +227,20 @@ const LogInteractionForm = ({ entityId, entityType }) => {
   );
 };
 
-const EmailActivityCard = ({ activity }) => {
+const EmailActivityCard = ({ activity, onReply, threadMessages }) => {
   const [expanded, setExpanded] = useState(false);
+  const [showThread, setShowThread] = useState(false);
   const config = ACTIVITY_CONFIG[activity.activityType] || ACTIVITY_CONFIG.note;
   const fromNow = formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true });
   const fullDate = format(new Date(activity.timestamp), 'MMM d, yyyy h:mm a');
 
   const isOutbound = activity.direction === 'outbound';
   const displayConfig = isOutbound ? ACTIVITY_CONFIG.email_sent : ACTIVITY_CONFIG.email_received;
+
+  const awaitingReply = activity.awaiting_reply;
+  const daysSinceNoReply = activity.awaiting_reply_since
+    ? Math.floor((new Date() - new Date(activity.awaiting_reply_since)) / (1000 * 60 * 60 * 24))
+    : null;
 
   return (
     <Card className={`border ${displayConfig.borderColor} ${displayConfig.bgColor} hover:shadow-md transition-shadow`}>
@@ -254,6 +261,18 @@ const EmailActivityCard = ({ activity }) => {
                     <Badge variant="outline" className="text-purple-600 border-purple-300">
                       <Eye className="w-3 h-3 mr-1" />
                       Opened
+                    </Badge>
+                  )}
+                  {awaitingReply && (
+                    <Badge variant="outline" className="text-orange-600 border-orange-300 bg-orange-50">
+                      <AlertCircle className="w-3 h-3 mr-1" />
+                      Awaiting Reply {daysSinceNoReply > 0 && `(${daysSinceNoReply}d)`}
+                    </Badge>
+                  )}
+                  {threadMessages && threadMessages.length > 1 && (
+                    <Badge variant="outline" className="text-slate-600 border-slate-300">
+                      <MessageSquare className="w-3 h-3 mr-1" />
+                      {threadMessages.length} messages
                     </Badge>
                   )}
                 </div>
@@ -302,16 +321,59 @@ const EmailActivityCard = ({ activity }) => {
                 </div>
               )}
 
-              {activity.body_text && (
+              <div className="flex items-center gap-2 mt-2">
+                {activity.body_text && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setExpanded(!expanded)}
+                    className="text-xs h-7 px-2"
+                  >
+                    {expanded ? 'Hide' : 'Show'} email content
+                    <ChevronDown className={`w-3 h-3 ml-1 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                  </Button>
+                )}
+                {threadMessages && threadMessages.length > 1 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowThread(!showThread)}
+                    className="text-xs h-7 px-2"
+                  >
+                    {showThread ? 'Hide' : 'View'} thread ({threadMessages.length})
+                    <MessageSquare className="w-3 h-3 ml-1" />
+                  </Button>
+                )}
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   size="sm"
-                  onClick={() => setExpanded(!expanded)}
+                  onClick={() => onReply(activity)}
                   className="text-xs h-7 px-2"
                 >
-                  {expanded ? 'Hide' : 'Show'} email content
-                  <ChevronDown className={`w-3 h-3 ml-1 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+                  <Send className="w-3 h-3 mr-1" />
+                  Reply
                 </Button>
+              </div>
+
+              {showThread && threadMessages && threadMessages.length > 1 && (
+                <div className="mt-3 space-y-2 pl-4 border-l-2 border-slate-200">
+                  {threadMessages
+                    .filter(msg => msg.id !== activity.id)
+                    .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp))
+                    .map((msg) => (
+                      <div key={msg.id} className="text-sm p-2 bg-slate-50 rounded border border-slate-200">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant="secondary" className="text-xs">
+                            {msg.direction === 'outbound' ? 'You' : msg.from_name || msg.from_email}
+                          </Badge>
+                          <span className="text-xs text-slate-500">
+                            {formatDistanceToNow(new Date(msg.timestamp), { addSuffix: true })}
+                          </span>
+                        </div>
+                        <p className="text-slate-700 line-clamp-2">{msg.body_text}</p>
+                      </div>
+                    ))}
+                </div>
               )}
             </div>
           </div>
@@ -380,6 +442,8 @@ const InteractionCard = ({ activity }) => {
 
 export default function InteractionTimeline({ customerId, entityType }) {
   const [filterTypes, setFilterTypes] = useState([]);
+  const [replyToEmail, setReplyToEmail] = useState(null);
+  const [showComposeDialog, setShowComposeDialog] = useState(false);
 
   const { data: interactions = [], isLoading: interactionsLoading } = useQuery({
     queryKey: ['interactions', customerId, entityType],
@@ -410,6 +474,19 @@ export default function InteractionTimeline({ customerId, entityType }) {
     initialData: []
   });
 
+  const emailThreads = useMemo(() => {
+    const threads = {};
+    emailActivities.forEach(email => {
+      if (email.thread_id) {
+        if (!threads[email.thread_id]) {
+          threads[email.thread_id] = [];
+        }
+        threads[email.thread_id].push(email);
+      }
+    });
+    return threads;
+  }, [emailActivities]);
+
   const allActivities = useMemo(() => {
     const combined = [
       ...interactions.map(i => ({
@@ -423,6 +500,7 @@ export default function InteractionTimeline({ customerId, entityType }) {
       })),
       ...emailActivities.map(e => ({
         id: `email-${e.id}`,
+        emailId: e.id,
         type: 'email',
         activityType: e.direction === 'outbound' ? 'email_sent' : 'email_received',
         subject: e.subject,
@@ -434,8 +512,15 @@ export default function InteractionTimeline({ customerId, entityType }) {
         direction: e.direction,
         opened_at: e.opened_at,
         clicked_at: e.clicked_at,
-        timestamp: e.sent_at || e.received_at || e.created_at,
-        tracking_code: e.tracking_code
+        timestamp: e.sent_at || e.created_at,
+        tracking_code: e.tracking_code,
+        message_id: e.message_id,
+        thread_id: e.thread_id,
+        awaiting_reply: e.awaiting_reply,
+        awaiting_reply_since: e.awaiting_reply_since,
+        customer_id: e.customer_id,
+        carrier_id: e.carrier_id,
+        csp_event_id: e.csp_event_id
       }))
     ];
 
@@ -461,6 +546,16 @@ export default function InteractionTimeline({ customerId, entityType }) {
     setFilterTypes(prev =>
       prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
     );
+  };
+
+  const handleReply = (emailActivity) => {
+    setReplyToEmail(emailActivity);
+    setShowComposeDialog(true);
+  };
+
+  const handleCloseCompose = () => {
+    setShowComposeDialog(false);
+    setReplyToEmail(null);
   };
 
   const isLoading = interactionsLoading || emailsLoading;
@@ -546,12 +641,38 @@ export default function InteractionTimeline({ customerId, entityType }) {
         <div className="space-y-3">
           {allActivities.map((activity) => (
             activity.type === 'email' ? (
-              <EmailActivityCard key={activity.id} activity={activity} />
+              <EmailActivityCard
+                key={activity.id}
+                activity={activity}
+                onReply={handleReply}
+                threadMessages={activity.thread_id ? emailThreads[activity.thread_id]?.map(e => ({
+                  id: e.id,
+                  direction: e.direction,
+                  from_email: e.from_email,
+                  from_name: e.from_name,
+                  body_text: e.body_text,
+                  timestamp: e.sent_at || e.created_at
+                })) : null}
+              />
             ) : (
               <InteractionCard key={activity.id} activity={activity} />
             )
           ))}
         </div>
+      )}
+
+      {showComposeDialog && (
+        <EmailComposeDialog
+          open={showComposeDialog}
+          onOpenChange={handleCloseCompose}
+          cspEvent={replyToEmail?.csp_event_id ? { id: replyToEmail.csp_event_id } : null}
+          customer={replyToEmail?.customer_id ? { id: replyToEmail.customer_id } : null}
+          carrier={replyToEmail?.carrier_id ? { id: replyToEmail.carrier_id } : null}
+          defaultSubject={replyToEmail?.subject?.startsWith('Re:') ? replyToEmail.subject : `Re: ${replyToEmail?.subject}`}
+          defaultRecipients={replyToEmail ? [replyToEmail.from_email] : []}
+          inReplyTo={replyToEmail?.message_id}
+          threadId={replyToEmail?.thread_id}
+        />
       )}
     </div>
   );
