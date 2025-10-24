@@ -20,8 +20,8 @@ const TariffDocumentManager = ({ tariff }) => {
 
     const mutation = useMutation({
         mutationFn: async (newFile) => {
-            const { file_url } = await base44.integrations.Core.UploadFile({ file: newFile });
-            await Tariff.update(tariff.id, { file_url, file_name: newFile.name });
+            console.error('File upload not implemented');
+            throw new Error('File upload functionality requires base44 SDK');
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['tariff', tariff.id] });
