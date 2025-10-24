@@ -10,6 +10,7 @@ import { SecurityAudit } from '@/components/admin/SecurityAudit';
 import { RoleDescriptions } from '@/components/admin/RoleDescriptions';
 import { AISettings } from '@/components/settings/AISettings';
 import { EmailTemplatesManagement } from '@/components/settings/EmailTemplatesManagement';
+import { EmailNotificationSettings } from '@/components/settings/EmailNotificationSettings';
 import { UserProfile } from '@/components/settings/UserProfile';
 import KnowledgeBaseSettings from '@/components/settings/KnowledgeBase';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -128,6 +129,7 @@ export default function Settings() {
           <TabsTrigger value="ai">AI Assistant</TabsTrigger>
           <TabsTrigger value="knowledge">Knowledge Base</TabsTrigger>
           {(isAdmin || isElite) && <TabsTrigger value="email-templates">Email Templates</TabsTrigger>}
+          {(isAdmin || isElite) && <TabsTrigger value="notifications">Notifications</TabsTrigger>}
           <TabsTrigger value="account">Account</TabsTrigger>
           {(isAdmin || isElite) && <TabsTrigger value="users">Users</TabsTrigger>}
           {isAdmin && <TabsTrigger value="admin">Admin</TabsTrigger>}
@@ -160,6 +162,12 @@ export default function Settings() {
         <TabsContent value="email-templates" className="space-y-4 mt-6">
           <div className="max-w-6xl">
             <EmailTemplatesManagement />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="notifications" className="space-y-4 mt-6">
+          <div className="max-w-4xl">
+            <EmailNotificationSettings />
           </div>
         </TabsContent>
 
