@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Customer, Carrier, Tariff, CSPEvent } from "../api/entities";
+import { supabase } from "../api/supabaseClient";
 import { Link, useNavigate } from "react-router-dom";
 import { createPageUrl } from "../utils";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
@@ -117,6 +118,24 @@ export default function TariffsPage() {
     queryKey: ["csp_events"],
     queryFn: () => CSPEvent.list(),
     initialData: [],
+  });
+
+  const { data: sopCounts = {} } = useQuery({
+    queryKey: ["tariff_sop_counts"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('tariff_sops')
+        .select('tariff_id');
+
+      if (error) throw error;
+
+      const counts = {};
+      (data || []).forEach(sop => {
+        counts[sop.tariff_id] = (counts[sop.tariff_id] || 0) + 1;
+      });
+      return counts;
+    },
+    initialData: {}
   });
 
   const isLoading = isTariffsLoading || isCustomersLoading || isCarriersLoading || isCspEventsLoading;
@@ -1086,6 +1105,7 @@ export default function TariffsPage() {
                                            (expiryDate && daysUntilExpiry !== null && daysUntilExpiry <= 90 && daysUntilExpiry > 0);
                               const isHistory = !isLive && (tariff.status === 'expired' || tariff.status === 'superseded' ||
                                               (expiryDate && isBefore(expiryDate, today)));
+                              const sopCount = sopCounts[tariff.id] || 0;
 
                               if (isHistory && !showHistory && !expandedFamilyHistory.has(family.familyId)) {
                                 return null;
@@ -1099,12 +1119,20 @@ export default function TariffsPage() {
                                 onMouseLeave={() => setHoveredRowId(null)}
                               >
                                 <td className="p-3">
-                                  <Link
-                                    to={createPageUrl(`TariffDetail?id=${tariff.id}`)}
-                                    className="font-medium text-slate-900 hover:text-blue-600 hover:underline"
-                                  >
-                                    {tariff.version || 'No Version'}
-                                  </Link>
+                                  <div className="flex items-center gap-2">
+                                    <Link
+                                      to={createPageUrl(`TariffDetail?id=${tariff.id}`)}
+                                      className="font-medium text-slate-900 hover:text-blue-600 hover:underline"
+                                    >
+                                      {tariff.version || 'No Version'}
+                                    </Link>
+                                    {sopCount > 0 && (
+                                      <Badge variant="outline" className="text-xs h-5 px-1.5">
+                                        <FileText className="h-3 w-3 mr-1" />
+                                        {sopCount}
+                                      </Badge>
+                                    )}
+                                  </div>
                                 </td>
                                 <td className="p-3">
                                   {getStatusBadge(tariff)}

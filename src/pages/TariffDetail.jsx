@@ -11,7 +11,9 @@ import { Skeleton } from '../components/ui/skeleton';
 import { ArrowLeft, Edit, File, UploadCloud, Download, X, Loader2, BookMarked, ArrowRight, Users } from 'lucide-react';
 import { Input } from '../components/ui/input';
 import { Badge } from "../components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import EditTariffDialog from '../components/tariffs/EditTariffDialog';
+import TariffSopsTab from '../components/tariffs/TariffSopsTab';
 
 const TariffDocumentManager = ({ tariff }) => {
     const queryClient = useQueryClient();
@@ -106,6 +108,7 @@ export default function TariffDetailPage() {
     const location = useLocation();
     const tariffId = searchParams.get('id');
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState('overview');
 
     const { data: tariff, isLoading: isLoadingTariff } = useQuery({
         queryKey: ['tariff', tariffId],
@@ -186,74 +189,92 @@ export default function TariffDetailPage() {
                 </Button>
             </div>
 
-            <div className="space-y-6">
-                {(cspEvent || customer) && (
-                    <Card className="border-blue-200 bg-blue-50/50">
-                        <CardHeader>
-                            <CardTitle className="text-lg">Related Records</CardTitle>
-                            <CardDescription>Quick links to associated customer and CSP event</CardDescription>
-                        </CardHeader>
-                        <CardContent className="flex gap-3">
-                            {customer && (
-                                <Button variant="outline" className="bg-white" asChild>
-                                    <Link to={createPageUrl(`Customers?detailId=${customer.id}`)}>
-                                        <Users className="w-4 h-4 mr-2" />
-                                        View Customer
-                                        <ArrowRight className="w-4 h-4 ml-2" />
-                                    </Link>
-                                </Button>
-                            )}
-                            {cspEvent && (
-                                <Button variant="outline" className="bg-white" asChild>
-                                    <Link to={createPageUrl(`Pipeline?eventId=${cspEvent.id}`)}>
-                                        <File className="w-4 h-4 mr-2" />
-                                        View RFP
-                                        <ArrowRight className="w-4 h-4 ml-2" />
-                                    </Link>
-                                </Button>
-                            )}
-                        </CardContent>
-                    </Card>
-                )}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
+                <TabsList>
+                    <TabsTrigger value="overview">Overview</TabsTrigger>
+                    <TabsTrigger value="documents">Documents</TabsTrigger>
+                    <TabsTrigger value="sops">SOPs</TabsTrigger>
+                </TabsList>
 
-                <Card>
-                    <CardHeader><CardTitle>Key Information</CardTitle></CardHeader>
-                    <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                        <InfoItem label="Status">
-                            <span className={`px-2 py-1 text-xs font-medium rounded-full ${ {active: 'bg-green-100 text-green-800', proposed: 'bg-blue-100 text-blue-800', expired: 'bg-slate-100 text-slate-700', superseded: 'bg-purple-100 text-purple-700'}[tariff.status] || 'bg-gray-100'}`}>{tariff.status}</span>
-                        </InfoItem>
-                        <InfoItem label="Effective Date" value={tariff.effective_date ? format(new Date(tariff.effective_date), 'MMM d, yyyy') : 'N/A'} />
-                        <InfoItem label="Expiry Date" value={tariff.expiry_date ? format(new Date(tariff.expiry_date), 'MMM d, yyyy') : 'N/A'} />
-                        <InfoItem label="Ownership" value={tariff.ownership_type} />
-                        {!tariff.is_blanket_tariff && customer && <InfoItem label="Customer" value={customer.name} />}
-                        <InfoItem label="Customer Contact" value={tariff.customer_contact_name} />
-                        <InfoItem label="Carrier Contact" value={tariff.carrier_contact_name} />
-                    </CardContent>
-                </Card>
-                
-                {tariffCarriers.length > 0 && (
+                <TabsContent value="overview" className="space-y-6">
+                    {(cspEvent || customer) && (
+                        <Card className="border-blue-200 bg-blue-50/50">
+                            <CardHeader>
+                                <CardTitle className="text-lg">Related Records</CardTitle>
+                                <CardDescription>Quick links to associated customer and CSP event</CardDescription>
+                            </CardHeader>
+                            <CardContent className="flex gap-3">
+                                {customer && (
+                                    <Button variant="outline" className="bg-white" asChild>
+                                        <Link to={createPageUrl(`Customers?detailId=${customer.id}`)}>
+                                            <Users className="w-4 h-4 mr-2" />
+                                            View Customer
+                                            <ArrowRight className="w-4 h-4 ml-2" />
+                                        </Link>
+                                    </Button>
+                                )}
+                                {cspEvent && (
+                                    <Button variant="outline" className="bg-white" asChild>
+                                        <Link to={createPageUrl(`Pipeline?eventId=${cspEvent.id}`)}>
+                                            <File className="w-4 h-4 mr-2" />
+                                            View RFP
+                                            <ArrowRight className="w-4 h-4 ml-2" />
+                                        </Link>
+                                    </Button>
+                                )}
+                            </CardContent>
+                        </Card>
+                    )}
+
                     <Card>
-                        <CardHeader><CardTitle>Applicable Carriers</CardTitle></CardHeader>
-                        <CardContent>
-                            <div className="flex flex-wrap gap-2">
-                                {tariffCarriers.map(c => <Badge key={c.id} variant="secondary">{c.name}</Badge>)}
-                            </div>
+                        <CardHeader><CardTitle>Key Information</CardTitle></CardHeader>
+                        <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                            <InfoItem label="Status">
+                                <span className={`px-2 py-1 text-xs font-medium rounded-full ${ {active: 'bg-green-100 text-green-800', proposed: 'bg-blue-100 text-blue-800', expired: 'bg-slate-100 text-slate-700', superseded: 'bg-purple-100 text-purple-700'}[tariff.status] || 'bg-gray-100'}`}>{tariff.status}</span>
+                            </InfoItem>
+                            <InfoItem label="Effective Date" value={tariff.effective_date ? format(new Date(tariff.effective_date), 'MMM d, yyyy') : 'N/A'} />
+                            <InfoItem label="Expiry Date" value={tariff.expiry_date ? format(new Date(tariff.expiry_date), 'MMM d, yyyy') : 'N/A'} />
+                            <InfoItem label="Ownership" value={tariff.ownership_type} />
+                            {!tariff.is_blanket_tariff && customer && <InfoItem label="Customer" value={customer.name} />}
+                            <InfoItem label="Customer Contact" value={tariff.customer_contact_name} />
+                            <InfoItem label="Carrier Contact" value={tariff.carrier_contact_name} />
                         </CardContent>
                     </Card>
-                )}
 
+                    {tariffCarriers.length > 0 && (
+                        <Card>
+                            <CardHeader><CardTitle>Applicable Carriers</CardTitle></CardHeader>
+                            <CardContent>
+                                <div className="flex flex-wrap gap-2">
+                                    {tariffCarriers.map(c => <Badge key={c.id} variant="secondary">{c.name}</Badge>)}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
 
-                <TariffDocumentManager tariff={tariff} />
+                    <Card>
+                        <CardHeader><CardTitle>Credential Notes</CardTitle></CardHeader>
+                        <CardContent>
+                            <p className="text-sm text-slate-700 whitespace-pre-wrap font-mono bg-slate-50 p-4 rounded-lg">
+                                {tariff.credential_notes || 'No credential notes provided.'}
+                            </p>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
 
-                <Card>
-                    <CardHeader><CardTitle>Credential Notes</CardTitle></CardHeader>
-                    <CardContent>
-                        <p className="text-sm text-slate-700 whitespace-pre-wrap font-mono bg-slate-50 p-4 rounded-lg">
-                            {tariff.credential_notes || 'No credential notes provided.'}
-                        </p>
-                    </CardContent>
-                </Card>
-            </div>
+                <TabsContent value="documents" className="space-y-6">
+                    <TariffDocumentManager tariff={tariff} />
+                </TabsContent>
+
+                <TabsContent value="sops" className="space-y-6">
+                    <TariffSopsTab
+                        tariffId={tariffId}
+                        tariffFamilyId={tariff.tariff_family_id}
+                        carrierName={tariffCarriers.map(c => c.name).join(', ') || 'N/A'}
+                        customerName={customer?.name || 'N/A'}
+                    />
+                </TabsContent>
+            </Tabs>
 
             <EditTariffDialog
                 open={isEditDialogOpen}
