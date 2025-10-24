@@ -106,7 +106,7 @@ export default function CustomerDetailSheet({ customerId, isOpen, onOpenChange }
 
     return (
         <Sheet open={isOpen} onOpenChange={onOpenChange}>
-            <SheetContent className="sm:max-w-3xl w-full p-0">
+            <SheetContent className="w-full max-w-full p-0">
                 {isLoading ? (
                     <div className="p-6 space-y-4">
                         <Skeleton className="h-8 w-3/4" />
@@ -148,8 +148,8 @@ export default function CustomerDetailSheet({ customerId, isOpen, onOpenChange }
                             <Tabs defaultValue="overview">
                                 <TabsList>
                                     <TabsTrigger value="overview">Overview</TabsTrigger>
-                                    <TabsTrigger value="tariffs">Tariff Timeline</TabsTrigger>
-                                    <TabsTrigger value="interactions">Interactions</TabsTrigger>
+                                    <TabsTrigger value="tariffs">Tariffs</TabsTrigger>
+                                    <TabsTrigger value="interactions">Activity</TabsTrigger>
                                     <TabsTrigger value="documents">Documents</TabsTrigger>
                                 </TabsList>
                                 <TabsContent value="overview">

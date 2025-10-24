@@ -16,6 +16,7 @@ import EditCarrierSheet from '../components/carriers/EditCarrierSheet';
 import CarrierOverview from '../components/carriers/CarrierOverview';
 import ManageContactsDialog from '../components/carriers/ManageContactsDialog';
 import { EmailComposeDialog } from '../components/email/EmailComposeDialog';
+import InteractionTimeline from '../components/customers/InteractionTimeline';
 
 const PlaceholderTab = ({ title, icon }) => (
     <div className="py-12 text-center text-slate-500 border border-dashed rounded-lg mt-4">
@@ -510,7 +511,7 @@ export default function CarrierDetailPage() {
                         <TabsTrigger value="tariffs">Tariffs</TabsTrigger>
                         <TabsTrigger value="contacts">Contacts</TabsTrigger>
                         <TabsTrigger value="kpis">KPIs</TabsTrigger>
-                        <TabsTrigger value="timeline">Timeline</TabsTrigger>
+                        <TabsTrigger value="timeline">Activity</TabsTrigger>
                         <TabsTrigger value="commitments">Commitments</TabsTrigger>
                     </TabsList>
                     <TabsContent value="overview">
@@ -526,7 +527,7 @@ export default function CarrierDetailPage() {
                         <CarrierKPIs carrier={carrier} />
                     </TabsContent>
                     <TabsContent value="timeline">
-                        <CarrierTimeline carrierId={carrierId} />
+                        <InteractionTimeline customerId={carrierId} entityType="carrier" />
                     </TabsContent>
                     <TabsContent value="commitments">
                         <CarrierCommitments carrier={carrier} />

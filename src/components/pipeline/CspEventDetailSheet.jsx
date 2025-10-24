@@ -194,13 +194,24 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
 
     return (
         <Sheet open={isOpen} onOpenChange={onOpenChange}>
-            <SheetContent className="sm:max-w-2xl overflow-y-auto">
-                <SheetHeader className="mb-6">
-                    <div className="flex items-start justify-between">
-                        <div>
-                            <SheetTitle className="text-2xl">CSP Event Details</SheetTitle>
-                            <SheetDescription>View and manage this customer savings project</SheetDescription>
-                        </div>
+            <SheetContent className="w-full max-w-full p-0">
+                {isLoading ? (
+                    <div className="p-6 space-y-4">
+                        <Skeleton className="h-8 w-3/4" />
+                        <Skeleton className="h-5 w-1/2" />
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-64 w-full" />
+                    </div>
+                ) : event ? (
+                    <div className="h-full flex flex-col">
+                        <SheetHeader className="p-6 border-b">
+                            <div className="flex items-start justify-between">
+                                <div>
+                                    <SheetTitle className="text-2xl font-bold text-slate-900">{event.title}</SheetTitle>
+                                    <SheetDescription>
+                                        {customer?.name ? `Customer: ${customer.name}` : 'CSP Event Details'}
+                                    </SheetDescription>
+                                </div>
                         <div className="flex gap-2">
                             <Button
                                 variant="outline"
@@ -256,70 +267,61 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
                         </div>
                     </div>
                 </SheetHeader>
-
-                {isLoading ? (
-                    <div className="space-y-4">
-                        <Skeleton className="h-32 w-full" />
-                        <Skeleton className="h-64 w-full" />
-                    </div>
-                ) : event ? (
-                    <div className="space-y-6">
-                        <Card>
-                            <CardHeader>
-                                <div className="flex items-start justify-between">
-                                    <div className="flex-1">
-                                        <CardTitle className="text-xl mb-2">{event.title}</CardTitle>
-                                        <div className="flex items-center gap-2 mb-3">
-                                            <Badge variant={getPriorityColor(event.priority)} className="capitalize">
-                                                {event.priority}
-                                            </Badge>
-                                            <Badge variant="outline" className="capitalize">
-                                                {event.stage?.replace(/_/g, ' ')}
-                                            </Badge>
-                                        </div>
-                                    </div>
-                                </div>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="flex items-start gap-2">
-                                        <Building2 className="w-4 h-4 text-slate-500 mt-0.5" />
-                                        <div>
-                                            <p className="text-xs text-slate-500">Customer</p>
-                                            <button
-                                                onClick={() => setIsCustomerDetailOpen(true)}
-                                                className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline text-left"
-                                            >
-                                                {customer?.name || 'Loading...'}
-                                            </button>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-start gap-2">
-                                        <User className="w-4 h-4 text-slate-500 mt-0.5" />
-                                        <div>
-                                            <p className="text-xs text-slate-500">Assigned To</p>
-                                            <p className="text-sm font-medium text-slate-900">{event.assigned_to || 'Unassigned'}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-start gap-2">
-                                        <Calendar className="w-4 h-4 text-slate-500 mt-0.5" />
-                                        <div>
-                                            <p className="text-xs text-slate-500">Created</p>
-                                            <p className="text-sm font-medium text-slate-900">
-                                                {event.created_date ? format(new Date(event.created_date), 'MMM d, yyyy') : 'N/A'}
-                                            </p>
-                                        </div>
-                                    </div>
-                                    <div className="flex items-start gap-2">
-                                        <Clock className="w-4 h-4 text-slate-500 mt-0.5" />
-                                        <div>
-                                            <p className="text-xs text-slate-500">Days in Stage</p>
-                                            <p className={`text-sm font-medium ${getStageColor(event.days_in_stage || 0)}`}>
-                                                {event.days_in_stage || 0} days
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
+                <div className="flex-grow p-6 overflow-y-auto">
+                            <Tabs defaultValue="activity">
+                                <TabsList>
+                                    <TabsTrigger value="activity">Activity</TabsTrigger>
+                                    <TabsTrigger value="strategy">Strategy</TabsTrigger>
+                                    <TabsTrigger value="emails">Emails</TabsTrigger>
+                                    <TabsTrigger value="carriers">Carriers</TabsTrigger>
+                                    <TabsTrigger value="tariffs">Tariffs</TabsTrigger>
+                                    <TabsTrigger value="documents">Documents</TabsTrigger>
+                                </TabsList>
+                                <TabsContent value="activity" className="space-y-4">
+                                    <Card>
+                                        <CardHeader>
+                                            <CardTitle>Event Details</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="space-y-4">
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="flex items-start gap-2">
+                                                    <Building2 className="w-4 h-4 text-slate-500 mt-0.5" />
+                                                    <div>
+                                                        <p className="text-xs text-slate-500">Customer</p>
+                                                        <button
+                                                            onClick={() => setIsCustomerDetailOpen(true)}
+                                                            className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline text-left"
+                                                        >
+                                                            {customer?.name || 'Loading...'}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-start gap-2">
+                                                    <User className="w-4 h-4 text-slate-500 mt-0.5" />
+                                                    <div>
+                                                        <p className="text-xs text-slate-500">Assigned To</p>
+                                                        <p className="text-sm font-medium text-slate-900">{event.assigned_to || 'Unassigned'}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-start gap-2">
+                                                    <Calendar className="w-4 h-4 text-slate-500 mt-0.5" />
+                                                    <div>
+                                                        <p className="text-xs text-slate-500">Created</p>
+                                                        <p className="text-sm font-medium text-slate-900">
+                                                            {event.created_date ? format(new Date(event.created_date), 'MMM d, yyyy') : 'N/A'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-start gap-2">
+                                                    <Clock className="w-4 h-4 text-slate-500 mt-0.5" />
+                                                    <div>
+                                                        <p className="text-xs text-slate-500">Days in Stage</p>
+                                                        <p className={`text-sm font-medium ${getStageColor(event.days_in_stage || 0)}`}>
+                                                            {event.days_in_stage || 0} days
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
 
                                 {event.description && (
                                     <div className="pt-3 border-t">
@@ -329,18 +331,9 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
                                 )}
                             </CardContent>
                         </Card>
+                                </TabsContent>
 
-                        <Tabs defaultValue="activity" className="w-full">
-                            <TabsList className="grid w-full grid-cols-6">
-                                <TabsTrigger value="activity">Activity</TabsTrigger>
-                                <TabsTrigger value="strategy">Strategy</TabsTrigger>
-                                <TabsTrigger value="emails">Emails</TabsTrigger>
-                                <TabsTrigger value="carriers">Carriers</TabsTrigger>
-                                <TabsTrigger value="tariffs">Tariffs</TabsTrigger>
-                                <TabsTrigger value="documents">Documents</TabsTrigger>
-                            </TabsList>
-
-                            <TabsContent value="activity" className="mt-4">
+                            <TabsContent value="strategy" className="mt-4">
                                 <Card>
                                     <CardHeader>
                                         <CardTitle className="text-base">Timeline</CardTitle>
@@ -574,6 +567,7 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
                                 </Card>
                             </TabsContent>
                         </Tabs>
+                        </div>
                     </div>
                 ) : (
                     <p className="text-center text-slate-500 py-8">Event not found</p>
