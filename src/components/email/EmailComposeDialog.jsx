@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Send, X, FileText } from 'lucide-react';
+import { Send, X, FileText, Reply } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/api/supabaseClient';
 
@@ -18,10 +18,12 @@ export function EmailComposeDialog({
   customer,
   carrier,
   defaultRecipients = [],
+  defaultCc = [],
   defaultSubject = '',
   defaultTemplate = 'general',
   inReplyTo = null,
-  threadId = null
+  threadId = null,
+  isFollowUp = false
 }) {
   const queryClient = useQueryClient();
   const [trackingCode, setTrackingCode] = useState('');
@@ -53,11 +55,18 @@ export function EmailComposeDialog({
         : collectDefaultRecipients();
 
       setToEmails(recipients);
-      setCcEmails(userEmail ? [userEmail] : []);
+
+      if (isFollowUp && defaultCc.length > 0) {
+        setCcEmails(defaultCc);
+      } else if (!isFollowUp) {
+        setCcEmails(userEmail ? [userEmail] : []);
+      } else {
+        setCcEmails([]);
+      }
 
       applyTemplate(selectedTemplate);
     }
-  }, [open, trackingCode, templates]);
+  }, [open, trackingCode, templates, isFollowUp, defaultCc]);
 
   const loadTemplates = async () => {
     try {
@@ -439,9 +448,25 @@ export function EmailComposeDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Compose Email</DialogTitle>
+          <DialogTitle>
+            {isFollowUp ? (
+              <span className="flex items-center gap-2">
+                <Send className="w-5 h-5" />
+                Follow-up Email
+              </span>
+            ) : inReplyTo ? (
+              <span className="flex items-center gap-2">
+                <Reply className="w-5 h-5" />
+                Reply to Email
+              </span>
+            ) : (
+              'Compose Email'
+            )}
+          </DialogTitle>
           <DialogDescription>
-            {getContextInfo() || 'New email message'}
+            {isFollowUp
+              ? 'Send a follow-up reminder with the same recipients and subject'
+              : getContextInfo() || 'New email message'}
           </DialogDescription>
         </DialogHeader>
 
