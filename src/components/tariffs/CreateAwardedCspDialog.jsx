@@ -296,11 +296,16 @@ export default function CreateAwardedCspDialog({
                         <p className="text-sm text-slate-600">No carrier found with that name</p>
                         <button
                           type="button"
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            handleReset();
                             onOpenChange(false);
-                            navigate(createPageUrl('/carriers'));
+                            setTimeout(() => {
+                              navigate('/carriers');
+                            }, 100);
                           }}
-                          className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 hover:underline"
+                          className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
                         >
                           <ExternalLink className="h-3 w-3" />
                           Go to Carriers page to create new carrier
