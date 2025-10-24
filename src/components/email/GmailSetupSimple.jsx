@@ -248,38 +248,43 @@ export function GmailSetupSimple() {
               </>
             ) : (
               <div className="space-y-4">
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <div className="space-y-3">
-                    <p className="text-sm font-medium text-amber-900">
-                      How to Get a Gmail App Password:
+                    <p className="text-sm font-medium text-blue-900">
+                      Quick 3-Step Setup (2 minutes):
                     </p>
-                    <ol className="text-xs text-amber-800 space-y-2 ml-4 list-decimal">
-                      <li>
-                        Enable 2-Factor Authentication on your Google account{' '}
+                    <div className="space-y-3">
+                      <div className="bg-white rounded p-3 border border-blue-100">
+                        <p className="text-xs font-semibold text-blue-900 mb-1">Step 1: Enable 2-Factor Authentication</p>
                         <a
-                          href="https://myaccount.google.com/security"
+                          href="https://myaccount.google.com/signinoptions/two-step-verification"
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-amber-900 underline hover:text-amber-700"
+                          className="inline-flex items-center gap-1 text-xs text-blue-700 underline hover:text-blue-900 font-medium"
                         >
-                          here <ExternalLink className="h-3 w-3" />
+                          Click here to enable 2FA <ExternalLink className="h-3 w-3" />
                         </a>
-                      </li>
-                      <li>
-                        Go to{' '}
+                        <p className="text-xs text-blue-700 mt-1">(Required by Google - skip if already enabled)</p>
+                      </div>
+
+                      <div className="bg-white rounded p-3 border border-blue-100">
+                        <p className="text-xs font-semibold text-blue-900 mb-1">Step 2: Create App Password</p>
                         <a
                           href="https://myaccount.google.com/apppasswords"
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-amber-900 underline hover:text-amber-700"
+                          className="inline-flex items-center gap-1 text-xs text-blue-700 underline hover:text-blue-900 font-medium"
                         >
-                          App Passwords <ExternalLink className="h-3 w-3" />
+                          Click here to create App Password <ExternalLink className="h-3 w-3" />
                         </a>
-                      </li>
-                      <li>Type "CRM Email" as the app name</li>
-                      <li>Click "Generate" - Google will show a 16-character code (like: abcd efgh ijkl mnop)</li>
-                      <li>Copy and paste the entire code below (spaces will be removed automatically)</li>
-                    </ol>
+                        <p className="text-xs text-blue-700 mt-1">Type "CRM" as name → Click Generate → Copy the 16-character code</p>
+                      </div>
+
+                      <div className="bg-white rounded p-3 border border-blue-100">
+                        <p className="text-xs font-semibold text-blue-900 mb-1">Step 3: Paste Below</p>
+                        <p className="text-xs text-blue-700">Enter your email and paste the 16-character code in the form below</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
