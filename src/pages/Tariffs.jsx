@@ -8,7 +8,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../com
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
-import { PlusCircle, Search, Upload, ChevronDown, ChevronRight, AlertCircle, Eye, GitCompare, Download, FileText, Plus, Calendar, Link2, UploadCloud, RefreshCw, FileCheck, ArrowUpDown } from "lucide-react";
+import { PlusCircle, Search, Upload, ChevronDown, ChevronRight, AlertCircle, Eye, GitCompare, Download, FileText, Plus, Calendar, Link2, UploadCloud, RefreshCw, FileCheck, ArrowUpDown, Briefcase, FolderOpen, TrendingUp, Clock } from "lucide-react";
 import { format, isAfter, isBefore, differenceInDays } from "date-fns";
 import { Skeleton } from "../components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
@@ -608,12 +608,94 @@ export default function TariffsPage() {
                               </tr>
                             </thead>
                             <tbody>
-                        {Object.values(group.families || {}).map(family => (
+                        {Object.values(group.families || {}).map(family => {
+                          const activeVersion = family.versions.find(v => v.status === 'active' && (!v.expiry_date || isAfter(new Date(v.expiry_date), new Date())));
+                          const proposedVersion = family.versions.find(v => v.status === 'proposed');
+                          const expiringVersion = family.versions.find(v => {
+                            const expiryDate = v.expiry_date ? new Date(v.expiry_date) : null;
+                            const daysUntilExpiry = expiryDate ? differenceInDays(expiryDate, new Date()) : null;
+                            return expiryDate && daysUntilExpiry !== null && daysUntilExpiry <= 90 && daysUntilExpiry > 0;
+                          });
+                          const mostRecentUpdate = family.versions.reduce((latest, v) => {
+                            const vDate = new Date(v.updated_date || v.created_date);
+                            return !latest || vDate > new Date(latest) ? (v.updated_date || v.created_date) : latest;
+                          }, null);
+                          const cspEvent = activeVersion?.csp_event_id ? cspEvents.find(e => e.id === activeVersion.csp_event_id) : null;
+
+                          return (
                           <React.Fragment key={family.familyId}>
-                            {family.versions.length > 1 && (
-                              <tr className="bg-slate-100 border-b">
-                                <td colSpan="7" className="p-2 px-3 text-xs font-semibold text-slate-700">
-                                  {family.carrierName} ({family.versions.length} versions)
+                            {family.versions.length >= 1 && (
+                              <tr className="bg-gradient-to-r from-slate-50 to-slate-100 border-b-2 border-slate-200">
+                                <td colSpan="7" className="p-4">
+                                  <div className="flex items-start justify-between gap-4">
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2 mb-2">
+                                        <FolderOpen className="w-4 h-4 text-slate-600" />
+                                        <span className="font-semibold text-sm text-slate-900">
+                                          Tariff Family: {group.name} × {family.carrierName}
+                                        </span>
+                                        {ownershipTab === 'rocket_csp' && (
+                                          <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs">
+                                            Rocket CSP
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center gap-1 text-xs text-slate-500">
+                                        <Briefcase className="w-3 h-3" />
+                                        <span>Family ID: {family.familyId.slice(0, 8).toUpperCase()}</span>
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-6 text-xs">
+                                      <div className="flex flex-col gap-1">
+                                        <span className="text-slate-500 font-medium">Versions</span>
+                                        <div className="flex items-center gap-1">
+                                          <Badge variant="secondary" className="font-semibold">{family.versions.length}</Badge>
+                                        </div>
+                                      </div>
+                                      {activeVersion && (
+                                        <div className="flex flex-col gap-1">
+                                          <span className="text-slate-500 font-medium">Active Version</span>
+                                          <span className="text-slate-900 font-semibold">{activeVersion.version}</span>
+                                        </div>
+                                      )}
+                                      {expiringVersion && (
+                                        <div className="flex flex-col gap-1">
+                                          <span className="text-slate-500 font-medium">Expiring In</span>
+                                          <div className="flex items-center gap-1">
+                                            <Clock className="w-3 h-3 text-yellow-600" />
+                                            <span className="text-yellow-700 font-semibold">
+                                              {differenceInDays(new Date(expiringVersion.expiry_date), new Date())}d
+                                            </span>
+                                          </div>
+                                        </div>
+                                      )}
+                                      {proposedVersion && (
+                                        <div className="flex flex-col gap-1">
+                                          <span className="text-slate-500 font-medium">Next Proposed</span>
+                                          <span className="text-blue-700 font-semibold">{proposedVersion.version}</span>
+                                        </div>
+                                      )}
+                                      {cspEvent && (
+                                        <div className="flex flex-col gap-1">
+                                          <span className="text-slate-500 font-medium">Created via</span>
+                                          <Link
+                                            to={createPageUrl(`Pipeline?detailId=${cspEvent.id}`)}
+                                            className="text-blue-600 hover:text-blue-700 hover:underline font-medium flex items-center gap-1"
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            <Link2 className="w-3 h-3" />
+                                            CSP Event
+                                          </Link>
+                                        </div>
+                                      )}
+                                      {mostRecentUpdate && (
+                                        <div className="flex flex-col gap-1">
+                                          <span className="text-slate-500 font-medium">Last Updated</span>
+                                          <span className="text-slate-700 font-medium">{format(new Date(mostRecentUpdate), 'MMM d, yyyy')}</span>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
                                 </td>
                               </tr>
                             )}
@@ -759,10 +841,11 @@ export default function TariffsPage() {
                                 </tr>
                               )}
                             </React.Fragment>
-                              );
+                            );
                             })}
                           </React.Fragment>
-                        ))}
+                        );
+                        })}
                             </tbody>
                           </table>
                         </div>
