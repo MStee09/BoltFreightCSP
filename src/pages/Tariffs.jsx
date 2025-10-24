@@ -479,17 +479,18 @@ export default function TariffsPage() {
                         )}
                         <span className="font-semibold text-slate-900">{group.name}</span>
                         <Badge variant="outline" className="ml-2">
-                          {group.tariffs.length}
+                          {Object.values(group.families || {}).reduce((sum, family) => sum + (family.versions?.length || 0), 0)}
                         </Badge>
                       </div>
                       <div className="flex items-center gap-2">
                         {(() => {
-                          const activeCount = group.tariffs.filter(t => {
+                          const allVersions = Object.values(group.families || {}).flatMap(f => f.versions || []);
+                          const activeCount = allVersions.filter(t => {
                             const today = new Date();
                             const expiryDate = t.expiry_date ? new Date(t.expiry_date) : null;
                             return t.status === 'active' && (!expiryDate || isAfter(expiryDate, today));
                           }).length;
-                          const expiringCount = group.tariffs.filter(t => {
+                          const expiringCount = allVersions.filter(t => {
                             const today = new Date();
                             const expiryDate = t.expiry_date ? new Date(t.expiry_date) : null;
                             const daysUntilExpiry = expiryDate ? differenceInDays(expiryDate, today) : null;
