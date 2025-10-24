@@ -509,6 +509,41 @@ export default function InteractionTimeline({ customerId, entityType }) {
   }, [emailActivities]);
 
   const allActivities = useMemo(() => {
+    const threadRepresentatives = new Map();
+
+    emailActivities.forEach(e => {
+      const threadId = e.thread_id || e.id;
+      const existingThread = threadRepresentatives.get(threadId);
+      const emailTimestamp = new Date(e.sent_at || e.created_at);
+
+      if (!existingThread || emailTimestamp > new Date(existingThread.timestamp)) {
+        threadRepresentatives.set(threadId, {
+          id: `email-thread-${threadId}`,
+          emailId: e.id,
+          type: 'email',
+          activityType: e.direction === 'outbound' ? 'email_sent' : 'email_received',
+          subject: e.subject,
+          from_email: e.from_email,
+          from_name: e.from_name,
+          to_emails: e.to_emails,
+          cc_emails: e.cc_emails,
+          body_text: e.body_text,
+          direction: e.direction,
+          opened_at: e.opened_at,
+          clicked_at: e.clicked_at,
+          timestamp: e.sent_at || e.created_at,
+          tracking_code: e.tracking_code,
+          message_id: e.message_id,
+          thread_id: threadId,
+          awaiting_reply: e.awaiting_reply,
+          awaiting_reply_since: e.awaiting_reply_since,
+          customer_id: e.customer_id,
+          carrier_id: e.carrier_id,
+          csp_event_id: e.csp_event_id
+        });
+      }
+    });
+
     const combined = [
       ...interactions.map(i => ({
         id: `interaction-${i.id}`,
@@ -519,30 +554,7 @@ export default function InteractionTimeline({ customerId, entityType }) {
         timestamp: i.created_date,
         metadata: i.metadata
       })),
-      ...emailActivities.map(e => ({
-        id: `email-${e.id}`,
-        emailId: e.id,
-        type: 'email',
-        activityType: e.direction === 'outbound' ? 'email_sent' : 'email_received',
-        subject: e.subject,
-        from_email: e.from_email,
-        from_name: e.from_name,
-        to_emails: e.to_emails,
-        cc_emails: e.cc_emails,
-        body_text: e.body_text,
-        direction: e.direction,
-        opened_at: e.opened_at,
-        clicked_at: e.clicked_at,
-        timestamp: e.sent_at || e.created_at,
-        tracking_code: e.tracking_code,
-        message_id: e.message_id,
-        thread_id: e.thread_id,
-        awaiting_reply: e.awaiting_reply,
-        awaiting_reply_since: e.awaiting_reply_since,
-        customer_id: e.customer_id,
-        carrier_id: e.carrier_id,
-        csp_event_id: e.csp_event_id
-      }))
+      ...Array.from(threadRepresentatives.values())
     ];
 
     combined.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
