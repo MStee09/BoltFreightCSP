@@ -15,6 +15,8 @@ import { Calendar } from '../ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../contexts/AuthContext';
+import { Checkbox } from '../ui/checkbox';
+import { ScrollArea } from '../ui/scroll-area';
 
 const MOCK_USER_ID = '00000000-0000-0000-0000-000000000000';
 
@@ -32,6 +34,7 @@ export default function CreateAwardedCspDialog({
   const [formData, setFormData] = useState({
     title: '',
     customer_id: preselectedCustomerId || '',
+    carrier_ids: [],
     description: '',
     assigned_to: '',
     due_date: null
@@ -40,6 +43,12 @@ export default function CreateAwardedCspDialog({
   const { data: customers = [], isLoading: isLoadingCustomers } = useQuery({
     queryKey: ['customers'],
     queryFn: () => Customer.list(),
+    enabled: isOpen
+  });
+
+  const { data: carriers = [], isLoading: isLoadingCarriers } = useQuery({
+    queryKey: ['carriers'],
+    queryFn: () => Carrier.list(),
     enabled: isOpen
   });
 
@@ -113,6 +122,15 @@ export default function CreateAwardedCspDialog({
       return;
     }
 
+    if (formData.carrier_ids.length === 0) {
+      toast({
+        title: 'Validation Error',
+        description: 'Please select at least one carrier',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     createCspEventMutation.mutate(formData);
   };
 
@@ -120,10 +138,20 @@ export default function CreateAwardedCspDialog({
     setFormData({
       title: '',
       customer_id: preselectedCustomerId || '',
+      carrier_ids: [],
       description: '',
       assigned_to: '',
       due_date: null
     });
+  };
+
+  const handleCarrierToggle = (carrierId) => {
+    setFormData(prev => ({
+      ...prev,
+      carrier_ids: prev.carrier_ids.includes(carrierId)
+        ? prev.carrier_ids.filter(id => id !== carrierId)
+        : [...prev.carrier_ids, carrierId]
+    }));
   };
 
   const handleCancel = () => {
@@ -175,6 +203,36 @@ export default function CreateAwardedCspDialog({
                 ))}
               </SelectContent>
             </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Carrier(s) *</Label>
+            <div className="border rounded-md p-3 bg-slate-50">
+              <ScrollArea className="h-[120px]">
+                <div className="space-y-2">
+                  {carriers.map((carrier) => (
+                    <div key={carrier.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`carrier-${carrier.id}`}
+                        checked={formData.carrier_ids.includes(carrier.id)}
+                        onCheckedChange={() => handleCarrierToggle(carrier.id)}
+                      />
+                      <label
+                        htmlFor={`carrier-${carrier.id}`}
+                        className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                      >
+                        {carrier.name}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </ScrollArea>
+              {formData.carrier_ids.length > 0 && (
+                <div className="mt-2 pt-2 border-t text-xs text-slate-600">
+                  {formData.carrier_ids.length} carrier(s) selected
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="space-y-2">

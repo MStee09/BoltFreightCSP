@@ -78,9 +78,11 @@ export default function TariffUploadPage() {
 
     const urlParams = new URLSearchParams(window.location.search);
     const preselectedCspEventId = urlParams.get('cspEventId');
+    const preselectedCustomerId = urlParams.get('customerId');
+    const preselectedCarrierIds = urlParams.get('carrierIds')?.split(',').filter(Boolean) || [];
 
-    const [customerId, setCustomerId] = useState(null);
-    const [carrierIds, setCarrierIds] = useState([]);
+    const [customerId, setCustomerId] = useState(preselectedCustomerId || null);
+    const [carrierIds, setCarrierIds] = useState(preselectedCarrierIds);
     const [subCustomerIds, setSubCustomerIds] = useState([]);
     const [version, setVersion] = useState('');
     const [ownershipType, setOwnershipType] = useState('rocket_csp');

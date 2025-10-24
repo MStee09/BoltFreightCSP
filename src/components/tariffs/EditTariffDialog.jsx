@@ -11,7 +11,15 @@ import { Checkbox } from '../ui/checkbox';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-export default function EditTariffDialog({ open, onOpenChange, tariff, preselectedCspEventId = null, onSuccess }) {
+export default function EditTariffDialog({
+  open,
+  onOpenChange,
+  tariff,
+  preselectedCspEventId = null,
+  preselectedCustomerId = null,
+  preselectedCarrierIds = [],
+  onSuccess
+}) {
     const queryClient = useQueryClient();
     const [formData, setFormData] = useState({
         version: '',
@@ -19,9 +27,9 @@ export default function EditTariffDialog({ open, onOpenChange, tariff, preselect
         ownership_type: 'rocket_csp',
         effective_date: '',
         expiry_date: '',
-        customer_id: '',
+        customer_id: preselectedCustomerId || '',
         customer_ids: [],
-        carrier_ids: [],
+        carrier_ids: preselectedCarrierIds || [],
         csp_event_id: preselectedCspEventId || '',
         is_blanket_tariff: false,
         customer_contact_name: '',
@@ -62,10 +70,12 @@ export default function EditTariffDialog({ open, onOpenChange, tariff, preselect
             setFormData(prev => ({
                 ...prev,
                 csp_event_id: preselectedCspEventId,
+                customer_id: preselectedCustomerId || prev.customer_id,
+                carrier_ids: preselectedCarrierIds?.length > 0 ? preselectedCarrierIds : prev.carrier_ids,
                 status: 'active'
             }));
         }
-    }, [tariff, preselectedCspEventId]);
+    }, [tariff, preselectedCspEventId, preselectedCustomerId, preselectedCarrierIds]);
 
     const updateMutation = useMutation({
         mutationFn: (data) => tariff ? Tariff.update(tariff.id, data) : Tariff.create(data),

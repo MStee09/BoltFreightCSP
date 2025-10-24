@@ -1296,7 +1296,12 @@ export default function TariffsPage() {
         onCspCreated={(cspEvent) => {
           setNewTariffCspEvent(cspEvent);
           if (cspActionType === 'upload') {
-            navigate(createPageUrl(`/tariff-upload?cspEventId=${cspEvent.id}`));
+            const params = new URLSearchParams({
+              cspEventId: cspEvent.id,
+              customerId: cspEvent.customer_id,
+              carrierIds: cspEvent.carrier_ids?.join(',') || ''
+            });
+            navigate(createPageUrl(`/tariff-upload?${params.toString()}`));
           } else {
             setShowNewTariffDialog(true);
           }
@@ -1312,6 +1317,8 @@ export default function TariffsPage() {
           carriers={carriers}
           cspEvents={cspEvents}
           preselectedCspEventId={newTariffCspEvent.id}
+          preselectedCustomerId={newTariffCspEvent.customer_id}
+          preselectedCarrierIds={newTariffCspEvent.carrier_ids || []}
           onSuccess={() => {
             setShowNewTariffDialog(false);
             setNewTariffCspEvent(null);
