@@ -17,8 +17,8 @@ import { Calendar } from '../ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../contexts/AuthContext';
+import { CSP_STAGES, formatCspStage } from '../../utils';
 
-const STAGES = ["discovery", "data_room_ready", "rfp_sent", "qa_round", "round_1", "final_offers", "awarded", "implementation", "validation", "live", "renewal_watch"];
 const MOCK_USER_ID = '00000000-0000-0000-0000-000000000000';
 
 export default function NewEventSheet({ isOpen, onOpenChange, customers: customersProp = [] }) {
@@ -203,7 +203,7 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers: custome
                                 <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                                {STAGES.map(s => <SelectItem key={s} value={s} className="capitalize">{s.replace(/_/g, ' ')}</SelectItem>)}
+                                {CSP_STAGES.map(s => <SelectItem key={s} value={s}>{formatCspStage(s)}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     </div>

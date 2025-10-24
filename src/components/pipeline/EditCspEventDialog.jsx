@@ -4,6 +4,7 @@ import { Customer, CSPEvent, Tariff } from '../../api/entities';
 import { supabase } from '../../api/supabaseClient';
 import { createHoneymoonEvents } from '../../utils/calendarHelpers';
 import { format } from 'date-fns';
+import { CSP_STAGES, formatCspStage } from '../../utils';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
@@ -14,19 +15,6 @@ import { useToast } from '../ui/use-toast';
 import { Loader2 } from 'lucide-react';
 import { Checkbox } from '../ui/checkbox';
 
-const STAGES = [
-    "discovery",
-    "data_room_ready",
-    "rfp_sent",
-    "qa_round",
-    "round_1",
-    "final_offers",
-    "awarded",
-    "implementation",
-    "validation",
-    "live",
-    "renewal_watch"
-];
 
 export default function EditCspEventDialog({ isOpen, onOpenChange, eventId }) {
     const { toast } = useToast();
@@ -211,9 +199,9 @@ export default function EditCspEventDialog({ isOpen, onOpenChange, eventId }) {
                                         <SelectValue />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        {STAGES.map(s => (
-                                            <SelectItem key={s} value={s} className="capitalize">
-                                                {s.replace(/_/g, ' ')}
+                                        {CSP_STAGES.map(s => (
+                                            <SelectItem key={s} value={s}>
+                                                {formatCspStage(s)}
                                             </SelectItem>
                                         ))}
                                     </SelectContent>

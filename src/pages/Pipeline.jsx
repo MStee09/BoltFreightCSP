@@ -12,22 +12,9 @@ import { Badge } from "../components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuSeparator, DropdownMenuLabel } from "../components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import NewEventSheet from "../components/pipeline/NewEventSheet";
-import { createPageUrl } from "../utils";
+import { createPageUrl, CSP_STAGES, formatCspStage } from "../utils";
 import { differenceInDays } from "date-fns";
 
-const STAGES = [
-  "discovery",
-  "data_room_ready",
-  "rfp_sent",
-  "qa_round",
-  "round_1",
-  "final_offers",
-  "awarded",
-  "implementation",
-  "validation",
-  "live",
-  "renewal_watch"
-];
 
 const STAGE_DEFINITIONS = {
   discovery: "Initial research and qualification of potential RFP opportunities",
@@ -61,7 +48,7 @@ const StageColumn = ({ stage, events, customers, tariffs, stageRef, onEventClick
     <div className="w-56 flex-shrink-0" ref={stageRef}>
       <div className="flex items-center gap-2 mb-2 px-2">
         <h2 className="text-xs font-semibold text-slate-600 uppercase tracking-wider">
-          {stage.replace(/_/g, ' ')} ({events.length})
+          {formatCspStage(stage)} ({events.length})
         </h2>
         <TooltipProvider>
           <Tooltip>
@@ -428,7 +415,7 @@ export default function PipelinePage() {
     }
   };
 
-  const eventsByStage = STAGES.reduce((acc, stage) => {
+  const eventsByStage = CSP_STAGES.reduce((acc, stage) => {
     acc[stage] = filteredEvents.filter(e => e.stage === stage).sort((a,b) => (a.priority === 'urgent' ? -1 : 1));
     return acc;
   }, {});
@@ -585,7 +572,7 @@ export default function PipelinePage() {
                           <Skeleton className="h-24 w-full mb-2" />
                       </div>
                   </div>
-              )) : STAGES.map((stage) => (
+              )) : CSP_STAGES.map((stage) => (
                 <StageColumn
                   key={stage}
                   stage={stage}
