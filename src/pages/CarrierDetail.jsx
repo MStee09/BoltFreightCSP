@@ -490,10 +490,9 @@ export default function CarrierDetailPage() {
                     Back to All Carriers
                 </Link>
                 
-                <div className="flex items-start justify-between mb-6">
+                <div className="flex items-start justify-between mb-4">
                     <div>
                         <h1 className="text-3xl font-bold text-slate-900">{carrier.name}</h1>
-                        <p className="text-slate-600 mt-1">SCAC: {carrier.scac_code}</p>
                     </div>
                     <div className="flex gap-2">
                         <Button variant="outline" onClick={() => setIsEmailDialogOpen(true)}>
@@ -503,6 +502,37 @@ export default function CarrierDetailPage() {
                             <Edit className="w-4 h-4 mr-2" /> Edit Carrier
                         </Button>
                     </div>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 mb-6 flex items-center gap-6 text-sm">
+                    {carrier.scac_code && (
+                        <div className="flex items-center gap-2">
+                            <span className="font-medium text-slate-600">SCAC:</span>
+                            <span className="text-slate-900 font-mono">{carrier.scac_code}</span>
+                        </div>
+                    )}
+                    {carrier.service_type && (
+                        <div className="flex items-center gap-2">
+                            <span className="font-medium text-slate-600">Service Type:</span>
+                            <Badge variant="outline" className="capitalize">
+                                {carrier.service_type}
+                            </Badge>
+                        </div>
+                    )}
+                    {carrier.status && (
+                        <div className="flex items-center gap-2">
+                            <span className="font-medium text-slate-600">Status:</span>
+                            <Badge variant="secondary" className="capitalize">
+                                {carrier.status}
+                            </Badge>
+                        </div>
+                    )}
+                    {carrier.performance_score && (
+                        <div className="flex items-center gap-2">
+                            <span className="font-medium text-slate-600">Performance:</span>
+                            <span className="text-slate-900 font-medium">{carrier.performance_score.toFixed(1)}/10</span>
+                        </div>
+                    )}
                 </div>
 
                 <Tabs defaultValue={defaultTab}>

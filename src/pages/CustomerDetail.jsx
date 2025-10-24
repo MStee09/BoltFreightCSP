@@ -102,10 +102,9 @@ export default function CustomerDetail() {
                     Back to All Customers
                 </Link>
 
-                <div className="flex items-start justify-between mb-6">
+                <div className="flex items-start justify-between mb-4">
                     <div>
                         <h1 className="text-3xl font-bold text-slate-900">{customer.name}</h1>
-                        <p className="text-slate-600 mt-1">Owner: {customer.account_owner} • Segment: <span className="capitalize">{customer.segment}</span></p>
                     </div>
                     <div className="flex gap-2">
                         <Button variant="outline" onClick={() => setIsEmailDialogOpen(true)}>
@@ -115,6 +114,37 @@ export default function CustomerDetail() {
                             <Edit className="w-4 h-4 mr-2" /> Edit
                         </Button>
                     </div>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 mb-6 flex items-center gap-6 text-sm">
+                    {customer.account_owner && (
+                        <div className="flex items-center gap-2">
+                            <span className="font-medium text-slate-600">Owner:</span>
+                            <span className="text-slate-900">{customer.account_owner}</span>
+                        </div>
+                    )}
+                    {customer.segment && (
+                        <div className="flex items-center gap-2">
+                            <span className="font-medium text-slate-600">Segment:</span>
+                            <Badge variant="outline" className="capitalize">
+                                {customer.segment}
+                            </Badge>
+                        </div>
+                    )}
+                    {customer.status && (
+                        <div className="flex items-center gap-2">
+                            <span className="font-medium text-slate-600">Status:</span>
+                            <Badge variant="secondary" className="capitalize">
+                                {customer.status}
+                            </Badge>
+                        </div>
+                    )}
+                    {customer.health_score && (
+                        <div className="flex items-center gap-2">
+                            <span className="font-medium text-slate-600">Health Score:</span>
+                            <span className="text-slate-900 font-medium">{customer.health_score}</span>
+                        </div>
+                    )}
                 </div>
 
                 <Tabs defaultValue={defaultTab}>

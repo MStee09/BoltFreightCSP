@@ -64,13 +64,9 @@ export default function CspEventDetail() {
                     Back to Pipeline
                 </Link>
 
-                <div className="flex items-start justify-between mb-6">
+                <div className="flex items-start justify-between mb-4">
                     <div>
                         <h1 className="text-3xl font-bold text-slate-900">{event.title}</h1>
-                        <p className="text-slate-600 mt-1">
-                            {customer?.name && `Customer: ${customer.name}`}
-                            {event.stage && ` • Stage: ${event.stage.replace(/_/g, ' ')}`}
-                        </p>
                     </div>
                     <div className="flex gap-2">
                         <Button variant="outline" onClick={() => setIsEmailDialogOpen(true)}>
@@ -80,6 +76,37 @@ export default function CspEventDetail() {
                             <Edit className="w-4 h-4 mr-2" /> Edit
                         </Button>
                     </div>
+                </div>
+
+                <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 mb-6 flex items-center gap-6 text-sm">
+                    {customer?.name && (
+                        <div className="flex items-center gap-2">
+                            <span className="font-medium text-slate-600">Customer:</span>
+                            <span className="text-slate-900">{customer.name}</span>
+                        </div>
+                    )}
+                    {event.stage && (
+                        <div className="flex items-center gap-2">
+                            <span className="font-medium text-slate-600">Stage:</span>
+                            <Badge variant="outline" className="capitalize">
+                                {event.stage.replace(/_/g, ' ')}
+                            </Badge>
+                        </div>
+                    )}
+                    {event.assigned_to && (
+                        <div className="flex items-center gap-2">
+                            <span className="font-medium text-slate-600">Owner:</span>
+                            <span className="text-slate-900">{event.assigned_to}</span>
+                        </div>
+                    )}
+                    {event.mode && (
+                        <div className="flex items-center gap-2">
+                            <span className="font-medium text-slate-600">Mode:</span>
+                            <Badge variant="secondary" className="capitalize">
+                                {event.mode}
+                            </Badge>
+                        </div>
+                    )}
                 </div>
 
                 <Tabs defaultValue={defaultTab}>

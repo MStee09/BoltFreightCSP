@@ -375,11 +375,23 @@ const SystemCard = ({ activity }) => {
 };
 
 export default function InteractionTimeline({ customerId, entityType }) {
-  const [filterTypes, setFilterTypes] = useState([]);
+  const filterStorageKey = `timeline-filter-${entityType}`;
+  const [filterTypes, setFilterTypes] = useState(() => {
+    try {
+      const stored = localStorage.getItem(filterStorageKey);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
   const [replyToEmail, setReplyToEmail] = useState(null);
   const [showComposeDialog, setShowComposeDialog] = useState(false);
   const [currentUserEmail, setCurrentUserEmail] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+
+  useEffect(() => {
+    localStorage.setItem(filterStorageKey, JSON.stringify(filterTypes));
+  }, [filterTypes, filterStorageKey]);
 
   useEffect(() => {
     const getUserEmail = async () => {
