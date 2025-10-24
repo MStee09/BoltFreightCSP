@@ -160,53 +160,69 @@ export default function TariffsPage() {
     const groups = {};
 
     filteredTariffs.forEach(tariff => {
-      let groupKey, groupName;
+      let groupKey, groupName, subGroupKey, subGroupName;
 
       if (ownershipTab === 'rocket_blanket' || ownershipTab === 'priority1_blanket') {
         const carrier = carriers.find(c => tariff.carrier_ids?.includes(c.id));
         groupKey = carrier?.id || 'unknown';
         groupName = carrier ? `${carrier.name} Blanket` : 'Unknown Carrier';
+        subGroupKey = tariff.tariff_family_id || tariff.id;
+        subGroupName = 'Tariff Family';
       } else {
         const customer = customers.find(c => c.id === tariff.customer_id);
         groupKey = customer?.id || 'unknown';
         groupName = customer?.name || 'Unknown Customer';
+
+        const carrier = carriers.find(c => tariff.carrier_ids?.includes(c.id));
+        subGroupKey = tariff.tariff_family_id || tariff.id;
+        subGroupName = carrier?.name || 'Unknown Carrier';
       }
 
       if (!groups[groupKey]) {
         groups[groupKey] = {
           name: groupName,
           key: groupKey,
-          tariffs: []
+          families: {}
         };
       }
 
-      groups[groupKey].tariffs.push(tariff);
+      if (!groups[groupKey].families[subGroupKey]) {
+        groups[groupKey].families[subGroupKey] = {
+          familyId: subGroupKey,
+          carrierName: subGroupName,
+          versions: []
+        };
+      }
+
+      groups[groupKey].families[subGroupKey].versions.push(tariff);
     });
 
     Object.values(groups).forEach(group => {
-      group.tariffs.sort((a, b) => {
-        let valueA, valueB;
+      Object.values(group.families).forEach(family => {
+        family.versions.sort((a, b) => {
+          let valueA, valueB;
 
-        if (sortColumn === 'expiry_date' || sortColumn === 'effective_date') {
-          valueA = new Date(a[sortColumn] || '9999-12-31');
-          valueB = new Date(b[sortColumn] || '9999-12-31');
-        } else if (sortColumn === 'version') {
-          valueA = a.version || '';
-          valueB = b.version || '';
-        } else {
-          return 0;
-        }
+          if (sortColumn === 'expiry_date' || sortColumn === 'effective_date') {
+            valueA = new Date(a[sortColumn] || '9999-12-31');
+            valueB = new Date(b[sortColumn] || '9999-12-31');
+          } else if (sortColumn === 'version' || sortColumn === 'version_number') {
+            valueA = a.version_number || a.version || '';
+            valueB = b.version_number || b.version || '';
+          } else {
+            return 0;
+          }
 
-        if (sortDirection === 'asc') {
-          return valueA > valueB ? 1 : valueA < valueB ? -1 : 0;
-        } else {
-          return valueA < valueB ? 1 : valueA > valueB ? -1 : 0;
-        }
+          if (sortDirection === 'asc') {
+            return valueA > valueB ? 1 : valueA < valueB ? -1 : 0;
+          } else {
+            return valueA < valueB ? 1 : valueA > valueB ? -1 : 0;
+          }
+        });
       });
     });
 
     return Object.values(groups).sort((a, b) => a.name.localeCompare(b.name));
-  }, [filteredTariffs, ownershipTab, customers, carriers]);
+  }, [filteredTariffs, ownershipTab, customers, carriers, sortColumn, sortDirection]);
 
   const toggleGroup = (groupKey) => {
     const newExpanded = new Set(expandedGroups);
