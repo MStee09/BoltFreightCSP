@@ -31,19 +31,16 @@ const STATUS_FILTERS = [
   { value: 'superseded', label: 'Superseded' }
 ];
 
-const MODE_FILTERS = [
-  { value: 'all', label: 'All Modes' },
+const SERVICE_TYPE_FILTERS = [
+  { value: 'all', label: 'All' },
   { value: 'LTL', label: 'LTL' },
-  { value: 'Home Delivery', label: 'Home Delivery' },
-  { value: 'Truckload', label: 'Truckload' },
-  { value: 'Parcel', label: 'Parcel' }
+  { value: 'Home Delivery LTL', label: 'Home Delivery LTL' }
 ];
 
 const SORT_OPTIONS = [
-  { value: 'expiry_date', label: 'Expiry Date' },
-  { value: 'days_left', label: 'Days Left' },
-  { value: 'customer_name', label: 'Customer Name' },
-  { value: 'carrier_name', label: 'Carrier Name' }
+  { value: 'expiry_date', label: 'Expiry Date ▼' },
+  { value: 'customer_name', label: 'Customer Name A-Z' },
+  { value: 'last_activity', label: 'Last Activity Date' }
 ];
 
 export default function TariffsPage() {
@@ -60,7 +57,7 @@ export default function TariffsPage() {
   const [showHistory, setShowHistory] = useState(false);
   const [expandedFamilyHistory, setExpandedFamilyHistory] = useState(new Set());
   const [collapsedFamilies, setCollapsedFamilies] = useState(new Set());
-  const [modeFilter, setModeFilter] = useState('all');
+  const [serviceTypeFilter, setServiceTypeFilter] = useState('all');
   const [showMyAccountsOnly, setShowMyAccountsOnly] = useState(false);
   const [pinnedCustomers, setPinnedCustomers] = useState(new Set());
   const [sortBy, setSortBy] = useState('expiry_date');
@@ -160,7 +157,7 @@ export default function TariffsPage() {
 
       if (showMyAccountsOnly && customer?.account_owner !== 'Current User') return false;
 
-      if (modeFilter !== 'all' && t.mode !== modeFilter) return false;
+      if (serviceTypeFilter !== 'all' && t.mode !== serviceTypeFilter) return false;
 
       const searchCarriers = (t.carrier_ids || []).map(cid => carriers.find(c => c.id === cid)?.name).join(' ').toLowerCase() || '';
       const cspEvent = cspEvents.find(e => e.id === t.csp_event_id);
@@ -198,7 +195,7 @@ export default function TariffsPage() {
 
       return true;
     });
-  }, [tariffs, ownershipTab, statusFilter, searchTerm, customers, carriers, cspEvents, modeFilter, showMyAccountsOnly]);
+  }, [tariffs, ownershipTab, statusFilter, searchTerm, customers, carriers, cspEvents, serviceTypeFilter, showMyAccountsOnly]);
 
   const groupedTariffs = useMemo(() => {
     const groups = {};
@@ -491,43 +488,64 @@ export default function TariffsPage() {
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm text-slate-600 font-medium">Quick Filters:</span>
 
-          <Button
-            variant={modeFilter !== 'all' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setModeFilter(modeFilter === 'all' ? 'LTL' : 'all')}
-            className="h-8 flex items-center gap-1"
-          >
-            <Truck className="w-3.5 h-3.5" />
-            Mode
-            {modeFilter !== 'all' && (
-              <>
-                : {modeFilter}
-                <X className="w-3 h-3 ml-1" onClick={(e) => { e.stopPropagation(); setModeFilter('all'); }} />
-              </>
-            )}
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={serviceTypeFilter !== 'all' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setServiceTypeFilter(serviceTypeFilter === 'all' ? 'LTL' : 'all')}
+                  className="h-8 flex items-center gap-1"
+                >
+                  <Package className="w-3.5 h-3.5" />
+                  Service Type
+                  {serviceTypeFilter !== 'all' && (
+                    <>
+                      : {serviceTypeFilter}
+                      <X className="w-3 h-3 ml-1" onClick={(e) => { e.stopPropagation(); setServiceTypeFilter('all'); }} />
+                    </>
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Filter by service type (LTL, Home Delivery LTL)</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
-          <Button
-            variant={showMyAccountsOnly ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setShowMyAccountsOnly(!showMyAccountsOnly)}
-            className={`h-8 flex items-center gap-1 ${showMyAccountsOnly ? 'bg-blue-600' : ''}`}
-          >
-            <User className="w-3.5 h-3.5" />
-            My Accounts
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={showMyAccountsOnly ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setShowMyAccountsOnly(!showMyAccountsOnly)}
+                  className={`h-8 flex items-center gap-1 ${showMyAccountsOnly ? 'bg-blue-600' : ''}`}
+                >
+                  <User className="w-3.5 h-3.5" />
+                  My Accounts
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Shows only customers assigned to you</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
 
           <div className="h-4 w-px bg-slate-300 mx-1" />
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {}}
-            className="h-8 flex items-center gap-1"
-          >
-            <ArrowUpDown className="w-3.5 h-3.5" />
-            Sort: {SORT_OPTIONS.find(o => o.value === sortBy)?.label}
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {}}
+                  className="h-8 flex items-center gap-1"
+                >
+                  <ArrowUpDown className="w-3.5 h-3.5" />
+                  Sort: {SORT_OPTIONS.find(o => o.value === sortBy)?.label}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Sort families by expiry date, customer name, or activity</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
 
@@ -833,65 +851,113 @@ export default function TariffsPage() {
                           return (
                           <React.Fragment key={family.familyId}>
                             {family.versions.length >= 1 && (
-                              <tr className={`bg-gradient-to-r from-slate-50 to-slate-100 border-b-2 border-slate-200 border-l-4 ${getOwnershipBorderColor(ownershipTab)}`}>
-                                <td colSpan="7" className="p-4">
-                                  <div className="flex items-start justify-between gap-4">
-                                    <div className="flex-1">
-                                      <div className="flex items-center gap-2 mb-2">
-                                        <button
-                                          onClick={() => toggleFamily(family.familyId)}
-                                          className="hover:bg-slate-200 rounded p-0.5 transition-colors"
-                                        >
-                                          {isFamilyCollapsed ? (
-                                            <ChevronRight className="w-4 h-4 text-slate-600" />
-                                          ) : (
+                              <tr className={`border-b-2 border-slate-200 border-l-4 ${getOwnershipBorderColor(ownershipTab)} ${isFamilyCollapsed ? 'hover:bg-slate-50' : 'bg-gradient-to-r from-slate-50 to-slate-100'}`}>
+                                <td colSpan="7" className={`${isFamilyCollapsed ? 'p-2' : 'p-4'}`}>
+                                  {isFamilyCollapsed ? (
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <div className="flex items-center gap-2 text-sm cursor-pointer" onClick={() => toggleFamily(family.familyId)}>
+                                            <button className="hover:bg-slate-200 rounded p-0.5 transition-colors">
+                                              <ChevronRight className="w-3.5 h-3.5 text-slate-600" />
+                                            </button>
+                                            <span className="font-semibold text-slate-900">
+                                              {group.name} × {family.carrierName}
+                                            </span>
+                                            {activeVersion && (
+                                              <>
+                                                <span className="text-slate-500">|</span>
+                                                <span className="font-medium text-slate-700">{activeVersion.version} Active</span>
+                                              </>
+                                            )}
+                                            {expiringVersion && (
+                                              <>
+                                                <span className="text-slate-500">|</span>
+                                                <Clock className="w-3 h-3 text-yellow-600" />
+                                                <span className="text-yellow-700 font-medium">
+                                                  {differenceInDays(new Date(expiringVersion.expiry_date), new Date())}d to expiry
+                                                </span>
+                                              </>
+                                            )}
+                                            {proposedVersion && (
+                                              <>
+                                                <span className="text-slate-500">|</span>
+                                                <span className="text-blue-700 font-medium">Next {proposedVersion.version}</span>
+                                              </>
+                                            )}
+                                            {ownershipTab === 'rocket_csp' && (
+                                              <>
+                                                <span className="text-slate-500">|</span>
+                                                <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs h-5">
+                                                  Rocket CSP
+                                                </Badge>
+                                              </>
+                                            )}
+                                          </div>
+                                        </TooltipTrigger>
+                                        <TooltipContent className="max-w-md">
+                                          <div className="space-y-1 text-xs">
+                                            <div><span className="font-medium">Family ID:</span> {family.familyId.slice(0, 8).toUpperCase()}</div>
+                                            {cspEvent && <div><span className="font-medium">Created via:</span> {cspEvent.title}</div>}
+                                            {mostRecentUpdate && <div><span className="font-medium">Last Updated:</span> {format(new Date(mostRecentUpdate), 'MMM d, yyyy')}</div>}
+                                          </div>
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  ) : (
+                                    <div className="flex items-start justify-between gap-4">
+                                      <div className="flex-1">
+                                        <div className="flex items-center gap-2 mb-2">
+                                          <button
+                                            onClick={() => toggleFamily(family.familyId)}
+                                            className="hover:bg-slate-200 rounded p-0.5 transition-colors"
+                                          >
                                             <ChevronDown className="w-4 h-4 text-slate-600" />
+                                          </button>
+                                          <FolderOpen className="w-4 h-4 text-slate-600" />
+                                          <span className="font-semibold text-sm text-slate-900">
+                                            Tariff Family: {group.name} × {family.carrierName}
+                                          </span>
+                                          {ownershipTab === 'rocket_csp' && (
+                                            <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs">
+                                              Rocket CSP
+                                            </Badge>
                                           )}
-                                        </button>
-                                        <FolderOpen className="w-4 h-4 text-slate-600" />
-                                        <span className="font-semibold text-sm text-slate-900">
-                                          Tariff Family: {group.name} × {family.carrierName}
-                                        </span>
-                                        {ownershipTab === 'rocket_csp' && (
-                                          <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs">
-                                            Rocket CSP
-                                          </Badge>
-                                        )}
-                                        <div className="flex items-center gap-1 ml-2">
-                                          {ownershipTab !== 'rocket_blanket' && ownershipTab !== 'priority1_blanket' && (
-                                            <Link
-                                              to={createPageUrl(`Customers?detailId=${group.key}`)}
-                                              className="text-xs text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1"
-                                              onClick={(e) => e.stopPropagation()}
-                                            >
-                                              <ArrowUpDown className="w-3 h-3 rotate-90" />
-                                              Jump to Customer
-                                            </Link>
-                                          )}
-                                          {(() => {
-                                            const firstVersion = family.versions[0];
-                                            const carrierId = firstVersion?.carrier_ids?.[0];
-                                            if (carrierId) {
-                                              return (
-                                                <Link
-                                                  to={createPageUrl(`CarrierDetail?id=${carrierId}`)}
-                                                  className="text-xs text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1"
-                                                  onClick={(e) => e.stopPropagation()}
-                                                >
-                                                  <ArrowUpDown className="w-3 h-3 rotate-90" />
-                                                  Jump to Carrier
-                                                </Link>
-                                              );
-                                            }
-                                            return null;
-                                          })()}
+                                          <div className="flex items-center gap-1 ml-2">
+                                            {ownershipTab !== 'rocket_blanket' && ownershipTab !== 'priority1_blanket' && (
+                                              <Link
+                                                to={createPageUrl(`Customers?detailId=${group.key}`)}
+                                                className="text-xs text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1"
+                                                onClick={(e) => e.stopPropagation()}
+                                              >
+                                                <ArrowUpDown className="w-3 h-3 rotate-90" />
+                                                Jump to Customer
+                                              </Link>
+                                            )}
+                                            {(() => {
+                                              const firstVersion = family.versions[0];
+                                              const carrierId = firstVersion?.carrier_ids?.[0];
+                                              if (carrierId) {
+                                                return (
+                                                  <Link
+                                                    to={createPageUrl(`CarrierDetail?id=${carrierId}`)}
+                                                    className="text-xs text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                  >
+                                                    <ArrowUpDown className="w-3 h-3 rotate-90" />
+                                                    Jump to Carrier
+                                                  </Link>
+                                                );
+                                              }
+                                              return null;
+                                            })()}
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center gap-1 text-xs text-slate-500">
+                                          <Briefcase className="w-3 h-3" />
+                                          <span>Family ID: {family.familyId.slice(0, 8).toUpperCase()}</span>
                                         </div>
                                       </div>
-                                      <div className="flex items-center gap-1 text-xs text-slate-500">
-                                        <Briefcase className="w-3 h-3" />
-                                        <span>Family ID: {family.familyId.slice(0, 8).toUpperCase()}</span>
-                                      </div>
-                                    </div>
                                     <div className="flex gap-6 text-xs">
                                       <div className="flex flex-col gap-1">
                                         <span className="text-slate-500 font-medium">Versions</span>
@@ -959,6 +1025,7 @@ export default function TariffsPage() {
                                       )}
                                     </div>
                                   </div>
+                                  )}
                                 </td>
                               </tr>
                             )}
