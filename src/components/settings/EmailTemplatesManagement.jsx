@@ -11,6 +11,7 @@ import { Plus, Edit, Trash2, FileText, AlertCircle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 export function EmailTemplatesManagement() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -18,6 +19,8 @@ export function EmailTemplatesManagement() {
   const [formData, setFormData] = useState({
     name: '',
     template_key: '',
+    recipient_type: 'general',
+    category: '',
     subject_template: '',
     body_template: '',
     description: ''
@@ -42,6 +45,8 @@ export function EmailTemplatesManagement() {
     setFormData({
       name: template.name,
       template_key: template.template_key,
+      recipient_type: template.recipient_type || 'general',
+      category: template.category || '',
       subject_template: template.subject_template,
       body_template: template.body_template,
       description: template.description || ''
@@ -54,6 +59,8 @@ export function EmailTemplatesManagement() {
     setFormData({
       name: '',
       template_key: '',
+      recipient_type: 'general',
+      category: '',
       subject_template: '',
       body_template: '',
       description: ''
@@ -73,6 +80,8 @@ export function EmailTemplatesManagement() {
           .from('email_templates')
           .update({
             name: formData.name,
+            recipient_type: formData.recipient_type,
+            category: formData.category,
             subject_template: formData.subject_template,
             body_template: formData.body_template,
             description: formData.description,
@@ -108,6 +117,8 @@ export function EmailTemplatesManagement() {
       setFormData({
         name: '',
         template_key: '',
+        recipient_type: 'general',
+        category: '',
         subject_template: '',
         body_template: '',
         description: ''
@@ -190,6 +201,12 @@ export function EmailTemplatesManagement() {
                       {template.is_system && (
                         <Badge variant="secondary" className="text-xs">System</Badge>
                       )}
+                      {template.recipient_type === 'customer' && (
+                        <Badge variant="default" className="text-xs bg-blue-500">Customer</Badge>
+                      )}
+                      {template.recipient_type === 'carrier' && (
+                        <Badge variant="default" className="text-xs bg-green-500">Carrier</Badge>
+                      )}
                     </div>
                     {template.description && (
                       <p className="text-sm text-slate-600 mb-2">{template.description}</p>
@@ -261,6 +278,35 @@ export function EmailTemplatesManagement() {
                 </p>
               </div>
 
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="recipient_type">Recipient Type *</Label>
+                  <Select
+                    value={formData.recipient_type}
+                    onValueChange={(value) => setFormData({ ...formData, recipient_type: value })}
+                  >
+                    <SelectTrigger id="recipient_type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="general">General</SelectItem>
+                      <SelectItem value="customer">Customer</SelectItem>
+                      <SelectItem value="carrier">Carrier</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="category">Category (Optional)</Label>
+                  <Input
+                    id="category"
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    placeholder="e.g., csp_loa, bid_invite"
+                  />
+                </div>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
                 <Input
@@ -295,8 +341,10 @@ export function EmailTemplatesManagement() {
                   className="font-mono text-sm"
                 />
                 <p className="text-xs text-muted-foreground">
-                  Available variables: {'{{recipientName}}'}, {'{{customerName}}'}, {'{{carrierName}}'},
-                  {'{{contextTitle}}'}, {'{{cspDescription}}'}, {'{{notes}}'}, {'{{mode}}'}
+                  <strong>Available variables:</strong> {'{{recipientName}}'}, {'{{customerName}}'}, {'{{carrierName}}'},
+                  {'{{senderName}}'}, {'{{senderEmail}}'}, {'{{mode}}'}, {'{{bidOpenDate}}'}, {'{{bidCloseDate}}'},
+                  {'{{dueDate}}'}, {'{{carrierCount}}'}, {'{{bidPhase}}'}, {'{{completionDate}}'},
+                  {'{{awardedCarriers}}'}, {'{{estimatedSavings}}'}, {'{{effectiveDate}}'}, {'{{awardedLanes}}'}, {'{{startDate}}'}
                 </p>
               </div>
             </div>

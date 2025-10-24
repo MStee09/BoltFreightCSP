@@ -58,10 +58,17 @@ export function EmailComposeDialog({
       const { data, error } = await supabase
         .from('email_templates')
         .select('*')
-        .order('name');
+        .order('recipient_type', { ascending: true })
+        .order('name', { ascending: true });
 
       if (error) throw error;
-      setTemplates(data || []);
+
+      const recipientType = carrier ? 'carrier' : customer ? 'customer' : 'general';
+      const filtered = (data || []).filter(t =>
+        t.recipient_type === recipientType || t.recipient_type === 'general'
+      );
+
+      setTemplates(filtered);
     } catch (error) {
       console.error('Error loading templates:', error);
       setTemplates([]);
@@ -149,7 +156,20 @@ export function EmailComposeDialog({
       '{{additionalDetails}}': context.additionalDetails,
       '{{updateDetails}}': context.updateDetails,
       '{{context}}': context.context,
-      '{{message}}': context.message
+      '{{message}}': context.message,
+      '{{senderName}}': context.senderName,
+      '{{senderEmail}}': context.senderEmail,
+      '{{carrierCount}}': context.carrierCount,
+      '{{bidPhase}}': context.bidPhase,
+      '{{completionDate}}': context.completionDate,
+      '{{awardedCarriers}}': context.awardedCarriers,
+      '{{estimatedSavings}}': context.estimatedSavings,
+      '{{effectiveDate}}': context.effectiveDate,
+      '{{bidOpenDate}}': context.bidOpenDate,
+      '{{bidCloseDate}}': context.bidCloseDate,
+      '{{dueDate}}': context.dueDate,
+      '{{awardedLanes}}': context.awardedLanes,
+      '{{startDate}}': context.startDate
     };
 
     Object.entries(replacements).forEach(([key, value]) => {
@@ -165,6 +185,14 @@ export function EmailComposeDialog({
     const template = templates.find(t => t.template_key === templateKey);
     if (!template) return;
 
+    const getSenderName = () => {
+      if (userEmail) {
+        const namePart = userEmail.split('@')[0];
+        return namePart.charAt(0).toUpperCase() + namePart.slice(1);
+      }
+      return 'Rocketshipping Team';
+    };
+
     const context = {
       recipientName: getRecipientName(),
       customerName: customer?.name || '[Customer]',
@@ -172,11 +200,24 @@ export function EmailComposeDialog({
       contextTitle: cspEvent?.title || 'our discussion',
       cspDescription: cspEvent?.description || '',
       notes: cspEvent?.notes || '',
-      mode: cspEvent?.metadata?.mode || cspEvent?.mode || 'FTL',
+      mode: cspEvent?.metadata?.mode || cspEvent?.mode || 'LTL',
       additionalDetails: '',
       updateDetails: '',
       context: customer?.name || carrier?.name || 'your inquiry',
-      message: ''
+      message: '',
+      senderName: getSenderName(),
+      senderEmail: userEmail || '',
+      carrierCount: '[carrier count]',
+      bidPhase: '[Open / Reviewing / Awarding]',
+      completionDate: '[completion date]',
+      awardedCarriers: '[awarded carriers]',
+      estimatedSavings: '[savings estimate]',
+      effectiveDate: '[effective date]',
+      bidOpenDate: '[bid open date]',
+      bidCloseDate: '[bid close date]',
+      dueDate: '[due date]',
+      awardedLanes: '[awarded lanes]',
+      startDate: '[start date]'
     };
 
     setSubject(replaceTemplateVariables(template.subject_template, context));
