@@ -6,7 +6,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
-import { ArrowLeft, Edit, Users, FileText, BarChart2, ShieldCheck, Ban, Anchor } from 'lucide-react';
+import { ArrowLeft, Edit, Users, FileText, BarChart2, ShieldCheck, Ban, Anchor, Mail } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Skeleton } from '../components/ui/skeleton';
 import { createPageUrl } from '../utils';
@@ -15,6 +15,7 @@ import { format, formatDistanceToNow, differenceInDays } from "date-fns";
 import EditCarrierSheet from '../components/carriers/EditCarrierSheet';
 import CarrierOverview from '../components/carriers/CarrierOverview';
 import ManageContactsDialog from '../components/carriers/ManageContactsDialog';
+import { EmailComposeDialog } from '../components/email/EmailComposeDialog';
 
 const PlaceholderTab = ({ title, icon }) => (
     <div className="py-12 text-center text-slate-500 border border-dashed rounded-lg mt-4">
@@ -435,6 +436,7 @@ export default function CarrierDetailPage() {
     const defaultTab = searchParams.get('tab') || 'overview';
     const highlightId = searchParams.get('highlight');
     const [isEditSheetOpen, setIsEditSheetOpen] = useState(isNew);
+    const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
 
     const { data: carrier, isLoading } = useQuery({
         queryKey: ['carrier', carrierId],
@@ -492,9 +494,14 @@ export default function CarrierDetailPage() {
                         <h1 className="text-3xl font-bold text-slate-900">{carrier.name}</h1>
                         <p className="text-slate-600 mt-1">SCAC: {carrier.scac_code}</p>
                     </div>
-                    <Button variant="outline" onClick={() => setIsEditSheetOpen(true)}>
-                        <Edit className="w-4 h-4 mr-2" /> Edit Carrier
-                    </Button>
+                    <div className="flex gap-2">
+                        <Button variant="outline" onClick={() => setIsEmailDialogOpen(true)}>
+                            <Mail className="w-4 h-4 mr-2" /> Email
+                        </Button>
+                        <Button variant="outline" onClick={() => setIsEditSheetOpen(true)}>
+                            <Edit className="w-4 h-4 mr-2" /> Edit Carrier
+                        </Button>
+                    </div>
                 </div>
 
                 <Tabs defaultValue={defaultTab}>
@@ -526,10 +533,16 @@ export default function CarrierDetailPage() {
                     </TabsContent>
                 </Tabs>
             </div>
-            <EditCarrierSheet 
+            <EditCarrierSheet
                 carrierId={carrierId}
                 isOpen={isEditSheetOpen}
                 onOpenChange={setIsEditSheetOpen}
+            />
+            <EmailComposeDialog
+                open={isEmailDialogOpen}
+                onOpenChange={setIsEmailDialogOpen}
+                carrier={carrier}
+                defaultTemplate="general"
             />
         </>
     );

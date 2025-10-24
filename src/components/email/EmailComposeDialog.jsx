@@ -5,9 +5,90 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
-import { Send, X, Plus } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Send, X, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/api/supabaseClient';
+
+const EMAIL_TEMPLATES = {
+  new_csp_request: {
+    label: 'New CSP Request',
+    subject: (context) => `CSP Request - ${context.customerName} - ${context.mode || 'Service'} - [${context.trackingCode}]`,
+    body: (context) => `Hi ${context.recipientName || 'there'},
+
+I hope this message finds you well.
+
+We're conducting a Carrier Service Provider review for ${context.customerName} and would like to invite you to participate in our RFP process.
+
+${context.cspEvent?.description || 'Details about this opportunity will be provided in the attached RFP documentation.'}
+
+Please let me know if you're interested in submitting a proposal.
+
+Best regards`
+  },
+  follow_up: {
+    label: 'Follow Up',
+    subject: (context) => `Follow Up: ${context.cspEvent?.title || 'Previous Discussion'} - [${context.trackingCode}]`,
+    body: (context) => `Hi ${context.recipientName || 'there'},
+
+I wanted to follow up on our previous discussion regarding ${context.cspEvent?.title || 'our recent conversation'}.
+
+${context.cspEvent?.description || ''}
+
+Looking forward to hearing from you.
+
+Best regards`
+  },
+  rate_request: {
+    label: 'Rate Request',
+    subject: (context) => `Rate Request - ${context.customerName} - ${context.mode || 'Service'} - [${context.trackingCode}]`,
+    body: (context) => `Hi ${context.recipientName || 'there'},
+
+We're seeking competitive rate proposals for ${context.customerName}.
+
+Service Details:
+- Mode: ${context.mode || 'To be specified'}
+- Customer: ${context.customerName}
+${context.cspEvent?.description ? `- Notes: ${context.cspEvent.description}` : ''}
+
+Please provide your best rates at your earliest convenience.
+
+Best regards`
+  },
+  status_update: {
+    label: 'Status Update',
+    subject: (context) => `Status Update: ${context.cspEvent?.title || 'Project Update'} - [${context.trackingCode}]`,
+    body: (context) => `Hi ${context.recipientName || 'there'},
+
+I wanted to provide you with an update on ${context.cspEvent?.title || 'our project'}.
+
+${context.cspEvent?.description || 'Please see the details below.'}
+
+Let me know if you have any questions.
+
+Best regards`
+  },
+  general: {
+    label: 'General Message',
+    subject: (context) => {
+      if (context.cspEvent) {
+        return `${context.cspEvent.title} - [${context.trackingCode}]`;
+      } else if (context.carrier && context.customer) {
+        return `${context.customerName} - ${context.carrierName} - [${context.trackingCode}]`;
+      } else if (context.customer) {
+        return `Re: ${context.customerName} - [${context.trackingCode}]`;
+      } else if (context.carrier) {
+        return `Re: ${context.carrierName} - [${context.trackingCode}]`;
+      }
+      return `Message - [${context.trackingCode}]`;
+    },
+    body: (context) => `Hi ${context.recipientName || 'there'},
+
+${context.cspEvent?.description || ''}
+
+Best regards`
+  }
+};
 
 export function EmailComposeDialog({
   open,
@@ -17,7 +98,7 @@ export function EmailComposeDialog({
   carrier,
   defaultRecipients = [],
   defaultSubject = '',
-  trackingEmail = 'tracking@csp-crm.app'
+  defaultTemplate = 'general'
 }) {
   const [trackingCode, setTrackingCode] = useState('');
   const [toEmails, setToEmails] = useState([]);
@@ -27,27 +108,49 @@ export function EmailComposeDialog({
   const [toInput, setToInput] = useState('');
   const [ccInput, setCcInput] = useState('');
   const [sending, setSending] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState(defaultTemplate);
+  const [userEmail, setUserEmail] = useState('');
 
   useEffect(() => {
     if (open) {
       generateTrackingCode();
+      loadUserEmail();
+    }
+  }, [open]);
 
+  useEffect(() => {
+    if (open && trackingCode) {
       const recipients = defaultRecipients.length > 0
         ? defaultRecipients
         : collectDefaultRecipients();
 
       setToEmails(recipients);
-      setCcEmails([trackingEmail]);
+      setCcEmails(userEmail ? [userEmail] : []);
 
-      // Use CSP Event title as the subject line
-      const eventSubject = cspEvent?.title || defaultSubject || 'Follow up';
-      setSubject(eventSubject);
-      setBody(generateEmailTemplate());
+      applyTemplate(selectedTemplate);
     }
-  }, [open, defaultRecipients, defaultSubject, cspEvent]);
+  }, [open, trackingCode, defaultRecipients, cspEvent, customer, carrier, selectedTemplate, userEmail]);
+
+  const loadUserEmail = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: credentials } = await supabase
+          .from('user_gmail_credentials')
+          .select('email_address')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (credentials) {
+          setUserEmail(credentials.email_address);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading user email:', error);
+    }
+  };
 
   const generateTrackingCode = () => {
-    // Generate unique tracking code using timestamp + random
     const timestamp = Date.now().toString(36).toUpperCase();
     const random = Math.random().toString(36).substring(2, 6).toUpperCase();
     const code = `CSP-${timestamp}-${random}`;
@@ -57,26 +160,68 @@ export function EmailComposeDialog({
   const collectDefaultRecipients = () => {
     const recipients = [];
 
-    if (carrier?.primary_contact_email) {
-      recipients.push(carrier.primary_contact_email);
+    if (carrier?.contact_email) {
+      recipients.push(carrier.contact_email);
+    }
+    if (carrier?.carrier_rep_email && !recipients.includes(carrier.carrier_rep_email)) {
+      recipients.push(carrier.carrier_rep_email);
     }
 
-    if (customer?.primary_contact_email) {
-      recipients.push(customer.primary_contact_email);
+    if (customer && !carrier) {
+      const customerEmail = extractCustomerEmail();
+      if (customerEmail) {
+        recipients.push(customerEmail);
+      }
     }
 
     return recipients;
   };
 
-  const generateEmailTemplate = () => {
-    const carrierName = carrier?.name || '[Carrier]';
-    const customerName = customer?.name || '[Customer]';
+  const extractCustomerEmail = () => {
+    if (!customer) return null;
 
-    return `Hi team,
+    const notesMatch = customer.notes?.match(/([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z0-9_-]+)/);
+    if (notesMatch) {
+      return notesMatch[1];
+    }
 
-I wanted to follow up regarding ${cspEvent?.title || 'our discussion'}.
+    return null;
+  };
 
-Best regards`;
+  const getRecipientName = () => {
+    if (carrier?.contact_name) return carrier.contact_name;
+    if (toEmails.length > 0) {
+      const email = toEmails[0];
+      const namePart = email.split('@')[0];
+      return namePart.charAt(0).toUpperCase() + namePart.slice(1);
+    }
+    return 'there';
+  };
+
+  const applyTemplate = (templateKey) => {
+    if (!trackingCode) return;
+
+    const template = EMAIL_TEMPLATES[templateKey];
+    if (!template) return;
+
+    const context = {
+      trackingCode,
+      cspEvent,
+      customer,
+      carrier,
+      customerName: customer?.name || '[Customer]',
+      carrierName: carrier?.name || '[Carrier]',
+      recipientName: getRecipientName(),
+      mode: cspEvent?.metadata?.mode || 'FTL'
+    };
+
+    setSubject(template.subject(context));
+    setBody(template.body(context));
+  };
+
+  const handleTemplateChange = (templateKey) => {
+    setSelectedTemplate(templateKey);
+    applyTemplate(templateKey);
   };
 
   const addEmail = (email, type) => {
@@ -106,10 +251,6 @@ Best regards`;
     if (type === 'to') {
       setToEmails(toEmails.filter(e => e !== email));
     } else {
-      if (email === trackingEmail) {
-        toast.error('Cannot remove tracking email');
-        return;
-      }
       setCcEmails(ccEmails.filter(e => e !== email));
     }
   };
@@ -150,10 +291,10 @@ Best regards`;
         .from('user_gmail_credentials')
         .select('email_address')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
       if (!credentials) {
-        toast.error('Gmail not connected. Please connect your Gmail account in Settings → Integrations.');
+        toast.error('Gmail not connected. Please connect your Gmail account in Settings.');
         setSending(false);
         return;
       }
@@ -195,6 +336,7 @@ Best regards`;
       setBody('');
       setToInput('');
       setCcInput('');
+      setSelectedTemplate('general');
     } catch (error) {
       console.error('Error sending email:', error);
       toast.error(error.message || 'Failed to send email. Please try again.');
@@ -203,36 +345,64 @@ Best regards`;
     }
   };
 
+  const getContextInfo = () => {
+    const parts = [];
+    if (cspEvent) parts.push(`CSP Event: ${cspEvent.title}`);
+    if (customer) parts.push(`Customer: ${customer.name}`);
+    if (carrier) parts.push(`Carrier: ${carrier.name}`);
+    return parts.join(' | ');
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Compose Email</DialogTitle>
           <DialogDescription>
-            {cspEvent?.title && `Regarding: ${cspEvent.title}`}
+            {getContextInfo() || 'New email message'}
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
           <div className="space-y-2 bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <div className="flex items-start gap-2">
-              <div className="flex-1">
-                <Label className="text-blue-900">Tracking Code</Label>
-                <div className="flex items-center gap-2 mt-1">
-                  <Badge variant="secondary" className="text-sm font-mono">
-                    {trackingCode}
-                  </Badge>
-                </div>
-                <p className="text-xs text-blue-700 mt-2">
-                  This code links all replies to this conversation, even if recipients forget to CC you.
-                  It's hidden in email headers - recipients won't see it.
-                </p>
-              </div>
+            <Label className="text-blue-900">Tracking Code</Label>
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="text-sm font-mono">
+                {trackingCode}
+              </Badge>
             </div>
+            <p className="text-xs text-blue-700 mt-1">
+              Automatically embedded in email headers to track all replies
+            </p>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="to-emails">To</Label>
+            <Label htmlFor="template">Email Template</Label>
+            <Select value={selectedTemplate} onValueChange={handleTemplateChange}>
+              <SelectTrigger id="template">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(EMAIL_TEMPLATES).map(([key, template]) => (
+                  <SelectItem key={key} value={key}>
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-4 w-4" />
+                      {template.label}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Choose a template to auto-fill the subject and body
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="to-emails">
+              To {carrier && <span className="text-muted-foreground font-normal">(Carrier: {carrier.name})</span>}
+              {customer && !carrier && <span className="text-muted-foreground font-normal">(Customer: {customer.name})</span>}
+            </Label>
             <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[42px]">
               {toEmails.map((email) => (
                 <Badge key={email} variant="secondary" className="gap-1">
@@ -266,24 +436,15 @@ Best regards`;
             <Label htmlFor="cc-emails">CC</Label>
             <div className="flex flex-wrap gap-2 p-2 border rounded-md min-h-[42px]">
               {ccEmails.map((email) => (
-                <Badge
-                  key={email}
-                  variant={email === trackingEmail ? "default" : "secondary"}
-                  className="gap-1"
-                >
+                <Badge key={email} variant="secondary" className="gap-1">
                   {email}
-                  {email === trackingEmail && (
-                    <span className="text-xs ml-1">(Tracking)</span>
-                  )}
-                  {email !== trackingEmail && (
-                    <button
-                      type="button"
-                      onClick={() => removeEmail(email, 'cc')}
-                      className="ml-1 hover:text-destructive"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => removeEmail(email, 'cc')}
+                    className="ml-1 hover:text-destructive"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
                 </Badge>
               ))}
               <input
@@ -297,12 +458,9 @@ Best regards`;
                 className="flex-1 min-w-[200px] outline-none bg-transparent text-sm"
               />
             </div>
-            <div className="bg-purple-50 border border-purple-200 rounded p-2 mt-1">
-              <p className="text-xs text-purple-800">
-                <strong>tracking@csp-crm.app</strong> is automatically CC'd to capture all email replies.
-                This special email address is monitored by the system to log all conversation activity.
-              </p>
-            </div>
+            <p className="text-xs text-muted-foreground">
+              CC yourself to keep a copy in your inbox
+            </p>
           </div>
 
           <div className="space-y-2">

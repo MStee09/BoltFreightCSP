@@ -5,7 +5,7 @@ import { Customer, Carrier, Tariff, CSPEvent, Task, Interaction, Alert, Shipment
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '../ui/sheet';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Skeleton } from '../ui/skeleton';
-import { ExternalLink, Edit } from 'lucide-react';
+import { ExternalLink, Edit, Mail } from 'lucide-react';
 import InteractionTimeline from './InteractionTimeline';
 import { createPageUrl } from '../../utils';
 import { Link } from 'react-router-dom';
@@ -15,6 +15,7 @@ import { format } from 'date-fns';
 import CustomerOverviewTab from './CustomerOverviewTab';
 import EditCustomerDialog from './EditCustomerDialog';
 import DocumentsTab from './DocumentsTab';
+import { EmailComposeDialog } from '../email/EmailComposeDialog';
 
 const PlaceholderTab = ({ title }) => (
     <div className="py-8 text-center text-slate-500 border border-dashed rounded-lg mt-4">
@@ -78,6 +79,7 @@ const CustomerTariffTimeline = ({ customerId }) => {
 
 export default function CustomerDetailSheet({ customerId, isOpen, onOpenChange }) {
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+    const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
 
     const { data: customer, isLoading: isLoadingCustomer } = useQuery({
         queryKey: ['customer', customerId],
@@ -120,15 +122,26 @@ export default function CustomerDetailSheet({ customerId, isOpen, onOpenChange }
                                     <SheetTitle className="text-2xl font-bold text-slate-900">{customer.name}</SheetTitle>
                                     <SheetDescription>Owner: {customer.account_owner} • Segment: <span className="capitalize">{customer.segment}</span></SheetDescription>
                                 </div>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setIsEditDialogOpen(true)}
-                                    className="gap-2"
-                                >
-                                    <Edit className="w-4 h-4" />
-                                    Edit
-                                </Button>
+                                <div className="flex gap-2">
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setIsEmailDialogOpen(true)}
+                                        className="gap-2"
+                                    >
+                                        <Mail className="w-4 h-4" />
+                                        Email
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setIsEditDialogOpen(true)}
+                                        className="gap-2"
+                                    >
+                                        <Edit className="w-4 h-4" />
+                                        Edit
+                                    </Button>
+                                </div>
                             </div>
                         </SheetHeader>
                         <div className="flex-grow p-6 overflow-y-auto">
@@ -162,6 +175,12 @@ export default function CustomerDetailSheet({ customerId, isOpen, onOpenChange }
                 customer={customer}
                 isOpen={isEditDialogOpen}
                 onOpenChange={setIsEditDialogOpen}
+            />
+            <EmailComposeDialog
+                open={isEmailDialogOpen}
+                onOpenChange={setIsEmailDialogOpen}
+                customer={customer}
+                defaultTemplate="general"
             />
         </Sheet>
     );
