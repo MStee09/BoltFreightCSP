@@ -58,15 +58,21 @@ export function EmailComposeDialog({
 
       if (isFollowUp && defaultCc.length > 0) {
         setCcEmails(defaultCc);
-      } else if (!isFollowUp) {
+      } else if (!isFollowUp && inReplyTo) {
         setCcEmails(userEmail ? [userEmail] : []);
       } else {
         setCcEmails([]);
       }
 
-      applyTemplate(selectedTemplate);
+      if (inReplyTo) {
+        setSubject(defaultSubject);
+        const signature = getEmailSignature();
+        setBody(signature);
+      } else {
+        applyTemplate(selectedTemplate);
+      }
     }
-  }, [open, trackingCode, templates, isFollowUp, defaultCc]);
+  }, [open, trackingCode, templates, isFollowUp, defaultCc, inReplyTo, defaultSubject]);
 
   const loadTemplates = async () => {
     try {
@@ -176,6 +182,44 @@ export function EmailComposeDialog({
     return 'there';
   };
 
+  const getEmailSignature = () => {
+    if (userProfile?.email_signature) {
+      return '\n\n' + userProfile.email_signature;
+    }
+
+    const parts = [];
+    parts.push('');
+    parts.push('');
+
+    if (userProfile?.first_name || userProfile?.last_name) {
+      parts.push(`${userProfile.first_name || ''} ${userProfile.last_name || ''}`.trim());
+    }
+
+    if (userProfile?.title) {
+      parts.push(userProfile.title);
+    }
+
+    if (userProfile?.company) {
+      parts.push(userProfile.company);
+    } else {
+      parts.push('Rocketshipping');
+    }
+
+    if (userProfile?.phone) {
+      parts.push(`Phone: ${userProfile.phone}`);
+    }
+
+    if (userEmail) {
+      parts.push(`Email: ${userEmail}`);
+    }
+
+    parts.push('');
+    parts.push('---');
+    parts.push('This email was sent from the Rocketshipping CSP Tool');
+
+    return parts.join('\n');
+  };
+
   const replaceTemplateVariables = (template, context) => {
     let result = template;
 
@@ -233,43 +277,7 @@ export function EmailComposeDialog({
       return 'Rocketshipping Team';
     };
 
-    const getEmailSignature = () => {
-      if (userProfile?.email_signature) {
-        return '\n\n' + userProfile.email_signature;
-      }
-
-      const parts = [];
-      parts.push('');
-      parts.push('');
-
-      if (userProfile?.first_name || userProfile?.last_name) {
-        parts.push(`${userProfile.first_name || ''} ${userProfile.last_name || ''}`.trim());
-      }
-
-      if (userProfile?.title) {
-        parts.push(userProfile.title);
-      }
-
-      if (userProfile?.company) {
-        parts.push(userProfile.company);
-      } else {
-        parts.push('Rocketshipping');
-      }
-
-      if (userProfile?.phone) {
-        parts.push(`Phone: ${userProfile.phone}`);
-      }
-
-      if (userEmail) {
-        parts.push(`Email: ${userEmail}`);
-      }
-
-      parts.push('');
-      parts.push('---');
-      parts.push('This email was sent from the Rocketshipping CSP Tool');
-
-      return parts.join('\n');
-    };
+    const signature = getEmailSignature();
 
     const context = {
       recipientName: getRecipientName(),
@@ -299,7 +307,7 @@ export function EmailComposeDialog({
     };
 
     setSubject(replaceTemplateVariables(template.subject_template, context));
-    const bodyWithSignature = replaceTemplateVariables(template.body_template, context) + getEmailSignature();
+    const bodyWithSignature = replaceTemplateVariables(template.body_template, context) + signature;
     setBody(bodyWithSignature);
   };
 
@@ -471,27 +479,29 @@ export function EmailComposeDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label htmlFor="template">Email Template</Label>
-            <Select value={selectedTemplate} onValueChange={handleTemplateChange}>
-              <SelectTrigger id="template">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {templates.map((template) => (
-                  <SelectItem key={template.template_key} value={template.template_key}>
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4" />
-                      {template.name}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-xs text-muted-foreground">
-              Templates get you 90% there - feel free to edit the subject and message below
-            </p>
-          </div>
+          {!inReplyTo && (
+            <div className="space-y-2">
+              <Label htmlFor="template">Email Template</Label>
+              <Select value={selectedTemplate} onValueChange={handleTemplateChange}>
+                <SelectTrigger id="template">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {templates.map((template) => (
+                    <SelectItem key={template.template_key} value={template.template_key}>
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4" />
+                        {template.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Templates get you 90% there - feel free to edit the subject and message below
+              </p>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label htmlFor="to-emails">
