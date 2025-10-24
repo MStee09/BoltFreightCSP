@@ -78,6 +78,12 @@ const createEntity = (tableName) => ({
         const isDesc = value.startsWith('-');
         const field = isDesc ? value.substring(1) : value;
         query = query.order(field, { ascending: !isDesc });
+      } else if (key.endsWith('.contains')) {
+        const field = key.replace('.contains', '');
+        query = query.contains(field, [value]);
+      } else if (key.endsWith('.icontains')) {
+        const field = key.replace('.icontains', '');
+        query = query.contains(field, [value]);
       } else if (key !== 'order_by') {
         query = query.eq(key, value);
       }
