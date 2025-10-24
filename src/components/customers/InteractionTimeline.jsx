@@ -522,10 +522,14 @@ export default function InteractionTimeline({ customerId, entityType }) {
     return counts;
   }, [interactions, emailActivities]);
 
-  const toggleFilter = (type) => {
-    setFilterTypes(prev =>
-      prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
-    );
+  const setActiveFilter = (type) => {
+    // If clicking the same filter that's already active, show all
+    if (filterTypes.includes(type)) {
+      setFilterTypes([]);
+    } else {
+      // Set only this filter (single selection)
+      setFilterTypes([type]);
+    }
   };
 
   const handleReply = (emailActivity) => {
@@ -572,7 +576,7 @@ export default function InteractionTimeline({ customerId, entityType }) {
           <Button
             variant={filterTypes.includes('email') ? 'default' : 'outline'}
             size="sm"
-            onClick={() => toggleFilter('email')}
+            onClick={() => setActiveFilter('email')}
             className="flex items-center gap-1"
           >
             <Mail className="w-3 h-3" />
@@ -581,7 +585,7 @@ export default function InteractionTimeline({ customerId, entityType }) {
           <Button
             variant={filterTypes.includes('note') ? 'default' : 'outline'}
             size="sm"
-            onClick={() => toggleFilter('note')}
+            onClick={() => setActiveFilter('note')}
             className="flex items-center gap-1"
           >
             <MessageSquare className="w-3 h-3" />
@@ -591,10 +595,11 @@ export default function InteractionTimeline({ customerId, entityType }) {
             variant={filterTypes.includes('system') || filterTypes.includes('ai') ? 'default' : 'outline'}
             size="sm"
             onClick={() => {
+              // Toggle system/ai filter (both together)
               if (filterTypes.includes('system') || filterTypes.includes('ai')) {
-                setFilterTypes(prev => prev.filter(t => t !== 'system' && t !== 'ai'));
+                setFilterTypes([]);
               } else {
-                setFilterTypes(prev => [...prev, 'system', 'ai']);
+                setFilterTypes(['system', 'ai']);
               }
             }}
             className="flex items-center gap-1"
