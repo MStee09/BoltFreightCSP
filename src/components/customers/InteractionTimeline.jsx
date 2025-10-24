@@ -164,7 +164,7 @@ const EmailActivityCard = ({ activity, onReply, threadMessages }) => {
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2 flex-wrap">
                 <Badge className={`${config.color} ${config.bgColor} border ${config.borderColor}`}>
-                  {config.label}
+                  ✉️ {config.label}
                 </Badge>
                 <Badge variant="secondary">{direction}</Badge>
                 {awaitingReply ? (
@@ -295,20 +295,20 @@ const NoteCard = ({ activity }) => {
   const fullDate = format(new Date(activity.timestamp), 'MMM d, yyyy h:mm a');
 
   return (
-    <Card className={`border ${config.borderColor} ${config.bgColor} hover:shadow-md transition-shadow`}>
+    <Card className="border border-amber-200 bg-amber-50/30 hover:shadow-md transition-shadow">
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
-          <div className={`p-2 rounded-lg ${config.bgColor} ${config.color} border ${config.borderColor}`}>
-            {config.icon}
+          <div className="p-2 rounded-lg bg-amber-100 text-amber-700 border border-amber-200">
+            🗒️
           </div>
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <Badge className={`${config.color} ${config.bgColor} border ${config.borderColor}`}>
+                <Badge variant="secondary" className="text-amber-700 bg-amber-100 border-amber-200 text-xs">
                   {config.label}
                 </Badge>
-                <span className="text-xs text-slate-500">Internal-only</span>
+                <span className="text-xs text-amber-700/70">Internal-only</span>
               </div>
               <span className="text-xs text-slate-500 flex-shrink-0" title={fullDate}>
                 {fromNow}
@@ -338,32 +338,32 @@ const SystemCard = ({ activity }) => {
   const fullDate = format(new Date(activity.timestamp), 'MMM d, yyyy h:mm a');
 
   return (
-    <Card className={`border ${config.borderColor} bg-gradient-to-r ${config.bgColor} to-white hover:shadow-md transition-shadow opacity-90`}>
+    <Card className="border border-slate-200 bg-slate-100 hover:shadow-sm transition-shadow">
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
-          <div className={`p-2 rounded-lg ${config.bgColor} ${config.color} border ${config.borderColor}`}>
+          <div className={`p-2 rounded-lg ${config.color}`}>
             {config.icon}
           </div>
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
-                <Badge className={`${config.color} ${config.bgColor} border ${config.borderColor}`}>
-                  {config.label}
+                <Badge variant="secondary" className={`${config.color} text-xs`}>
+                  {isAI ? '🧠' : '⚙️'} {config.label}
                 </Badge>
-                <span className="text-xs text-slate-500">Automated</span>
+                <span className="text-xs text-slate-500 italic">System-generated</span>
               </div>
               <span className="text-xs text-slate-500 flex-shrink-0" title={fullDate}>
                 {fromNow}
               </span>
             </div>
 
-            <h4 className="font-semibold text-slate-900 text-sm mb-2">
+            <p className="text-sm text-slate-700 italic mb-1">
               {activity.summary}
-            </h4>
+            </p>
 
             {activity.details && (
-              <p className="text-xs text-slate-600 whitespace-pre-wrap">
+              <p className="text-xs text-slate-600 italic whitespace-pre-wrap mt-2">
                 {activity.details}
               </p>
             )}
@@ -379,6 +379,7 @@ export default function InteractionTimeline({ customerId, entityType }) {
   const [replyToEmail, setReplyToEmail] = useState(null);
   const [showComposeDialog, setShowComposeDialog] = useState(false);
   const [currentUserEmail, setCurrentUserEmail] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     const getUserEmail = async () => {
@@ -500,6 +501,53 @@ export default function InteractionTimeline({ customerId, entityType }) {
     return combined;
   }, [interactions, emailActivities, filterTypes]);
 
+  const filteredActivities = useMemo(() => {
+    if (!searchTerm) return allActivities;
+
+    const term = searchTerm.toLowerCase();
+    return allActivities.filter(activity => {
+      if (activity.type === 'email') {
+        return activity.subject?.toLowerCase().includes(term) ||
+               activity.body_text?.toLowerCase().includes(term) ||
+               activity.from_email?.toLowerCase().includes(term);
+      } else {
+        return activity.summary?.toLowerCase().includes(term) ||
+               activity.details?.toLowerCase().includes(term);
+      }
+    });
+  }, [allActivities, searchTerm]);
+
+  const groupedByDate = useMemo(() => {
+    const groups = {
+      today: [],
+      yesterday: [],
+      thisWeek: [],
+      earlier: []
+    };
+
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterdayStart = new Date(todayStart);
+    yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+    const thisWeekStart = new Date(todayStart);
+    thisWeekStart.setDate(thisWeekStart.getDate() - 7);
+
+    filteredActivities.forEach(activity => {
+      const activityDate = new Date(activity.timestamp);
+      if (activityDate >= todayStart) {
+        groups.today.push(activity);
+      } else if (activityDate >= yesterdayStart) {
+        groups.yesterday.push(activity);
+      } else if (activityDate >= thisWeekStart) {
+        groups.thisWeek.push(activity);
+      } else {
+        groups.earlier.push(activity);
+      }
+    });
+
+    return groups;
+  }, [filteredActivities]);
+
   const activityTypeCounts = useMemo(() => {
     const counts = { email: 0, note: 0, system: 0, ai: 0 };
 
@@ -564,6 +612,16 @@ export default function InteractionTimeline({ customerId, entityType }) {
           <h3 className="font-semibold text-slate-900">Activity Timeline</h3>
         </div>
 
+        <div className="relative">
+          <Input
+            placeholder="Search activity..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 bg-white"
+          />
+          <Filter className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+        </div>
+
         <div className="flex items-center gap-2">
           <Button
             variant={filterTypes.length === 0 ? 'default' : 'outline'}
@@ -610,15 +668,124 @@ export default function InteractionTimeline({ customerId, entityType }) {
         </div>
       </div>
 
-      {allActivities.length === 0 ? (
+      {filteredActivities.length === 0 ? (
         <div className="text-center py-12 text-slate-500 border border-dashed rounded-lg bg-slate-50">
           <Clock className="w-12 h-12 mx-auto mb-3 text-slate-300" />
-          <p className="font-semibold">No Activities Yet</p>
-          <p className="text-sm">Send an email, log a note, or create a CSP event to get started.</p>
+          <p className="font-semibold">{searchTerm ? 'No Matching Activities' : 'No Activities Yet'}</p>
+          <p className="text-sm">{searchTerm ? 'Try adjusting your search' : 'Send an email, log a note, or create a CSP event to get started.'}</p>
         </div>
       ) : (
-        <div className="space-y-3">
-          {allActivities.map((activity) => {
+        <div className="space-y-6">
+          {groupedByDate.today.length > 0 && (
+            <div>
+              <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-blue-500"></div>
+                Today
+              </h4>
+              <div className="space-y-3">
+                {groupedByDate.today.map((activity) => {
+                  if (activity.type === 'email') {
+                    return (
+                      <EmailActivityCard
+                        key={activity.id}
+                        activity={activity}
+                        onReply={handleReply}
+                        threadMessages={activity.thread_id ? emailThreads[activity.thread_id]?.map(e => ({
+                          id: e.id,
+                          direction: e.direction,
+                          from_email: e.from_email,
+                          from_name: e.from_name,
+                          body_text: e.body_text,
+                          timestamp: e.sent_at || e.created_at
+                        })) : null}
+                      />
+                    );
+                  } else if (activity.activityType === 'system' || activity.activityType === 'ai' || activity.metadata?.source === 'system' || activity.metadata?.source === 'ai') {
+                    return <SystemCard key={activity.id} activity={activity} />;
+                  } else {
+                    return <NoteCard key={activity.id} activity={activity} />;
+                  }
+                })}
+              </div>
+            </div>
+          )}
+
+          {groupedByDate.yesterday.length > 0 && (
+            <div>
+              <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-slate-400"></div>
+                Yesterday
+              </h4>
+              <div className="space-y-3">
+                {groupedByDate.yesterday.map((activity) => {
+                  if (activity.type === 'email') {
+                    return (
+                      <EmailActivityCard
+                        key={activity.id}
+                        activity={activity}
+                        onReply={handleReply}
+                        threadMessages={activity.thread_id ? emailThreads[activity.thread_id]?.map(e => ({
+                          id: e.id,
+                          direction: e.direction,
+                          from_email: e.from_email,
+                          from_name: e.from_name,
+                          body_text: e.body_text,
+                          timestamp: e.sent_at || e.created_at
+                        })) : null}
+                      />
+                    );
+                  } else if (activity.activityType === 'system' || activity.activityType === 'ai' || activity.metadata?.source === 'system' || activity.metadata?.source === 'ai') {
+                    return <SystemCard key={activity.id} activity={activity} />;
+                  } else {
+                    return <NoteCard key={activity.id} activity={activity} />;
+                  }
+                })}
+              </div>
+            </div>
+          )}
+
+          {groupedByDate.thisWeek.length > 0 && (
+            <div>
+              <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-slate-300"></div>
+                Earlier This Week
+              </h4>
+              <div className="space-y-3">
+                {groupedByDate.thisWeek.map((activity) => {
+                  if (activity.type === 'email') {
+                    return (
+                      <EmailActivityCard
+                        key={activity.id}
+                        activity={activity}
+                        onReply={handleReply}
+                        threadMessages={activity.thread_id ? emailThreads[activity.thread_id]?.map(e => ({
+                          id: e.id,
+                          direction: e.direction,
+                          from_email: e.from_email,
+                          from_name: e.from_name,
+                          body_text: e.body_text,
+                          timestamp: e.sent_at || e.created_at
+                        })) : null}
+                      />
+                    );
+                  } else if (activity.activityType === 'system' || activity.activityType === 'ai' || activity.metadata?.source === 'system' || activity.metadata?.source === 'ai') {
+                    return <SystemCard key={activity.id} activity={activity} />;
+                  } else {
+                    return <NoteCard key={activity.id} activity={activity} />;
+                  }
+                })}
+              </div>
+            </div>
+          )}
+
+          {groupedByDate.earlier.length > 0 && (
+            <div>
+              <h4 className="text-sm font-semibold text-slate-700 mb-3 flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-slate-200"></div>
+                Earlier
+              </h4>
+              <div className="space-y-3">
+                {groupedByDate.earlier.map((activity) => {
             if (activity.type === 'email') {
               return (
                 <EmailActivityCard
@@ -641,6 +808,9 @@ export default function InteractionTimeline({ customerId, entityType }) {
               return <NoteCard key={activity.id} activity={activity} />;
             }
           })}
+        </div>
+            </div>
+          )}
         </div>
       )}
 
