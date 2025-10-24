@@ -257,14 +257,23 @@ export function GmailSetupSimple() {
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1 text-xs text-blue-700 underline hover:text-blue-900 font-medium"
                         >
-                          myaccount.google.com/apppasswords <ExternalLink className="h-3 w-3" />
+                          Click here to create app password <ExternalLink className="h-3 w-3" />
                         </a>
-                        <p className="text-xs text-blue-700 mt-1">Type "CSP Freight Tool" as app name → Click Generate → Copy the 16-character code</p>
+                        <div className="text-xs text-blue-700 mt-2 space-y-1">
+                          <p>• The page will ask you to name the app</p>
+                          <p>• Type <strong>"CSP Freight Tool"</strong> as the app name</p>
+                          <p>• Click "Create" and Google will show a 16-character code</p>
+                          <p>• Copy that code (it will look like: xxxx xxxx xxxx xxxx)</p>
+                        </div>
                       </div>
 
                       <div className="bg-white rounded p-3 border border-blue-100">
-                        <p className="text-xs font-semibold text-blue-900 mb-1">Step 3: Paste Below</p>
-                        <p className="text-xs text-blue-700">Enter your email and paste the 16-character code in the form below</p>
+                        <p className="text-xs font-semibold text-blue-900 mb-1">Step 3: Paste in the Form Below</p>
+                        <div className="text-xs text-blue-700 space-y-1">
+                          <p>• Enter your Rocketshipping email address (e.g., yourname@gorocketshipping.com)</p>
+                          <p>• Paste the 16-character code in the "App Password" field</p>
+                          <p>• Click "Connect Gmail"</p>
+                        </div>
                       </div>
                     </div>
                   </div>
