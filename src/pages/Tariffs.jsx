@@ -42,6 +42,8 @@ export default function TariffsPage() {
   });
   const [expandedGroups, setExpandedGroups] = useState(new Set());
   const [expandedCarriers, setExpandedCarriers] = useState(new Set());
+  const [showHistory, setShowHistory] = useState(false);
+  const [expandedFamilyHistory, setExpandedFamilyHistory] = useState(new Set());
   const [hoveredRowId, setHoveredRowId] = useState(null);
   const [sortColumn, setSortColumn] = useState('expiry_date');
   const [sortDirection, setSortDirection] = useState('asc');
@@ -139,7 +141,10 @@ export default function TariffsPage() {
       const expiryDate = t.expiry_date ? new Date(t.expiry_date) : null;
       const daysUntilExpiry = expiryDate ? differenceInDays(expiryDate, today) : null;
 
-      if (statusFilter === 'all') return true;
+      if (statusFilter === 'all') {
+        return t.status === 'active' || t.status === 'proposed' ||
+               (expiryDate && daysUntilExpiry !== null && daysUntilExpiry <= 90 && daysUntilExpiry > 0);
+      }
       if (statusFilter === 'active') {
         return t.status === 'active' && (!expiryDate || isAfter(expiryDate, today));
       }
@@ -199,6 +204,8 @@ export default function TariffsPage() {
 
     Object.values(groups).forEach(group => {
       Object.values(group.families).forEach(family => {
+        const today = new Date();
+
         family.versions.sort((a, b) => {
           let valueA, valueB;
 
@@ -218,10 +225,31 @@ export default function TariffsPage() {
             return valueA < valueB ? 1 : valueA > valueB ? -1 : 0;
           }
         });
+
+        family.hasLiveVersions = family.versions.some(v => {
+          const expiryDate = v.expiry_date ? new Date(v.expiry_date) : null;
+          const daysUntilExpiry = expiryDate ? differenceInDays(expiryDate, today) : null;
+          return v.status === 'active' || v.status === 'proposed' ||
+                 (expiryDate && daysUntilExpiry !== null && daysUntilExpiry <= 90 && daysUntilExpiry > 0);
+        });
       });
     });
 
-    return Object.values(groups).sort((a, b) => a.name.localeCompare(b.name));
+    const filteredGroups = Object.values(groups).map(group => {
+      const liveFamilies = {};
+      Object.entries(group.families).forEach(([key, family]) => {
+        if (statusFilter === 'all' || statusFilter === 'active' || statusFilter === 'proposed' || statusFilter === 'expiring') {
+          if (family.hasLiveVersions || searchTerm) {
+            liveFamilies[key] = family;
+          }
+        } else {
+          liveFamilies[key] = family;
+        }
+      });
+      return { ...group, families: liveFamilies };
+    }).filter(group => Object.keys(group.families).length > 0);
+
+    return filteredGroups.sort((a, b) => a.name.localeCompare(b.name));
   }, [filteredTariffs, ownershipTab, customers, carriers, sortColumn, sortDirection]);
 
   const toggleGroup = (groupKey) => {
@@ -325,18 +353,35 @@ export default function TariffsPage() {
     const today = new Date();
     const currentTabTariffs = tariffs.filter(t => t.ownership_type === ownershipTab);
 
-    const activeCount = currentTabTariffs.filter(t => {
-      const expiryDate = t.expiry_date ? new Date(t.expiry_date) : null;
-      return t.status === 'active' && (!expiryDate || isAfter(expiryDate, today));
-    }).length;
+    const familyMap = new Map();
+    currentTabTariffs.forEach(t => {
+      const familyId = t.tariff_family_id || t.id;
+      if (!familyMap.has(familyId)) {
+        familyMap.set(familyId, []);
+      }
+      familyMap.get(familyId).push(t);
+    });
 
-    const expiringCount = currentTabTariffs.filter(t => {
-      const expiryDate = t.expiry_date ? new Date(t.expiry_date) : null;
-      const daysUntilExpiry = expiryDate ? differenceInDays(expiryDate, today) : null;
-      return expiryDate && daysUntilExpiry !== null && daysUntilExpiry <= 90 && daysUntilExpiry > 0;
-    }).length;
+    let activeCount = 0;
+    let expiringCount = 0;
+    let proposedCount = 0;
 
-    const proposedCount = currentTabTariffs.filter(t => t.status === 'proposed').length;
+    familyMap.forEach(versions => {
+      const hasActive = versions.some(t => {
+        const expiryDate = t.expiry_date ? new Date(t.expiry_date) : null;
+        return t.status === 'active' && (!expiryDate || isAfter(expiryDate, today));
+      });
+      const hasExpiring = versions.some(t => {
+        const expiryDate = t.expiry_date ? new Date(t.expiry_date) : null;
+        const daysUntilExpiry = expiryDate ? differenceInDays(expiryDate, today) : null;
+        return expiryDate && daysUntilExpiry !== null && daysUntilExpiry <= 90 && daysUntilExpiry > 0;
+      });
+      const hasProposed = versions.some(t => t.status === 'proposed');
+
+      if (hasActive) activeCount++;
+      if (hasExpiring) expiringCount++;
+      if (hasProposed) proposedCount++;
+    });
 
     return { activeCount, expiringCount, proposedCount };
   }, [tariffs, ownershipTab]);
@@ -410,17 +455,33 @@ export default function TariffsPage() {
             </Button>
           ))}
         </div>
-        {expiringCount > 0 && (
+        <div className="flex items-center gap-2">
+          {expiringCount > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleStatusFilterChange('expiring')}
+              className="flex items-center gap-1 bg-yellow-50 text-yellow-800 border-yellow-300 hover:bg-yellow-100 h-8"
+            >
+              <AlertCircle className="w-3 h-3" />
+              {expiringCount} Expiring Soon
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
-            onClick={() => handleStatusFilterChange('expiring')}
-            className="flex items-center gap-1 bg-yellow-50 text-yellow-800 border-yellow-300 hover:bg-yellow-100 h-8"
+            onClick={() => setShowHistory(!showHistory)}
+            className={`h-8 flex items-center gap-2 ${showHistory ? 'bg-blue-50 text-blue-700 border-blue-300' : ''}`}
           >
-            <AlertCircle className="w-3 h-3" />
-            {expiringCount} Expiring Soon
+            <input
+              type="checkbox"
+              checked={showHistory}
+              onChange={() => {}}
+              className="w-3.5 h-3.5"
+            />
+            Include history
           </Button>
-        )}
+        </div>
       </div>
 
       <Card>
@@ -639,6 +700,35 @@ export default function TariffsPage() {
                                             Rocket CSP
                                           </Badge>
                                         )}
+                                        <div className="flex items-center gap-1 ml-2">
+                                          {ownershipTab !== 'rocket_blanket' && ownershipTab !== 'priority1_blanket' && (
+                                            <Link
+                                              to={createPageUrl(`Customers?detailId=${group.key}`)}
+                                              className="text-xs text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1"
+                                              onClick={(e) => e.stopPropagation()}
+                                            >
+                                              <ArrowUpDown className="w-3 h-3 rotate-90" />
+                                              Jump to Customer
+                                            </Link>
+                                          )}
+                                          {(() => {
+                                            const firstVersion = family.versions[0];
+                                            const carrierId = firstVersion?.carrier_ids?.[0];
+                                            if (carrierId) {
+                                              return (
+                                                <Link
+                                                  to={createPageUrl(`CarrierDetail?id=${carrierId}`)}
+                                                  className="text-xs text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1"
+                                                  onClick={(e) => e.stopPropagation()}
+                                                >
+                                                  <ArrowUpDown className="w-3 h-3 rotate-90" />
+                                                  Jump to Carrier
+                                                </Link>
+                                              );
+                                            }
+                                            return null;
+                                          })()}
+                                        </div>
                                       </div>
                                       <div className="flex items-center gap-1 text-xs text-slate-500">
                                         <Briefcase className="w-3 h-3" />
@@ -705,6 +795,17 @@ export default function TariffsPage() {
                                 .map(id => carriers.find(c => c.id === id))
                                 .filter(Boolean);
                               const isExpanded = expandedCarriers.has(tariff.id);
+                              const today = new Date();
+                              const expiryDate = tariff.expiry_date ? new Date(tariff.expiry_date) : null;
+                              const daysUntilExpiry = expiryDate ? differenceInDays(expiryDate, today) : null;
+                              const isLive = tariff.status === 'active' || tariff.status === 'proposed' ||
+                                           (expiryDate && daysUntilExpiry !== null && daysUntilExpiry <= 90 && daysUntilExpiry > 0);
+                              const isHistory = !isLive && (tariff.status === 'expired' || tariff.status === 'superseded' ||
+                                              (expiryDate && isBefore(expiryDate, today)));
+
+                              if (isHistory && !showHistory && !expandedFamilyHistory.has(family.familyId)) {
+                                return null;
+                              }
 
                               return (
                                 <React.Fragment key={tariff.id}>
@@ -843,6 +944,36 @@ export default function TariffsPage() {
                             </React.Fragment>
                             );
                             })}
+                            {(() => {
+                              const historyCount = family.versions.filter(v => {
+                                const today = new Date();
+                                const expiryDate = v.expiry_date ? new Date(v.expiry_date) : null;
+                                const daysUntilExpiry = expiryDate ? differenceInDays(expiryDate, today) : null;
+                                const isLive = v.status === 'active' || v.status === 'proposed' ||
+                                             (expiryDate && daysUntilExpiry !== null && daysUntilExpiry <= 90 && daysUntilExpiry > 0);
+                                return !isLive;
+                              }).length;
+
+                              if (historyCount > 0 && !showHistory && !expandedFamilyHistory.has(family.familyId)) {
+                                return (
+                                  <tr key={`${family.familyId}-history-toggle`}>
+                                    <td colSpan="7" className="p-2 text-center bg-slate-50 border-b">
+                                      <button
+                                        onClick={() => {
+                                          const newExpanded = new Set(expandedFamilyHistory);
+                                          newExpanded.add(family.familyId);
+                                          setExpandedFamilyHistory(newExpanded);
+                                        }}
+                                        className="text-xs text-blue-600 hover:text-blue-700 hover:underline font-medium"
+                                      >
+                                        Show history ({historyCount})
+                                      </button>
+                                    </td>
+                                  </tr>
+                                );
+                              }
+                              return null;
+                            })()}
                           </React.Fragment>
                         );
                         })}

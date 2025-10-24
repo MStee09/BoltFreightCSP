@@ -6,71 +6,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Button } from '../components/ui/button';
 import { Skeleton } from '../components/ui/skeleton';
 import { Badge } from '../components/ui/badge';
-import { ArrowLeft, Edit, Mail, ExternalLink } from 'lucide-react';
-import { format } from 'date-fns';
+import { ArrowLeft, Edit, Mail, ExternalLink, ChevronRight } from 'lucide-react';
+import { format, differenceInDays } from 'date-fns';
 import { createPageUrl } from '../utils';
 import InteractionTimeline from '../components/customers/InteractionTimeline';
 import CustomerOverviewTab from '../components/customers/CustomerOverviewTab';
 import EditCustomerDialog from '../components/customers/EditCustomerDialog';
 import DocumentsTab from '../components/customers/DocumentsTab';
+import CustomerTariffTimeline from '../components/customers/CustomerTariffTimeline';
 import { EmailComposeDialog } from '../components/email/EmailComposeDialog';
-
-const CustomerTariffTimeline = ({ customerId }) => {
-    const { data: tariffs = [], isLoading: isLoadingTariffs } = useQuery({
-        queryKey: ['tariffs', { forCustomer: customerId }],
-        queryFn: async () => {
-            console.log('Fetching tariffs for customer:', customerId);
-            const result = await Tariff.filter({ customer_id: customerId });
-            console.log('Tariffs fetched:', result);
-            return result;
-        },
-        enabled: !!customerId,
-        initialData: []
-    });
-    const { data: carriers = [], isLoading: isLoadingCarriers } = useQuery({
-        queryKey: ['carriers'],
-        queryFn: () => Carrier.list(),
-        initialData: []
-    });
-
-    if (isLoadingTariffs || isLoadingCarriers) {
-        return <div className="space-y-2 mt-4"><Skeleton className="h-12 w-full" /><Skeleton className="h-12 w-full" /></div>;
-    }
-
-    if (tariffs.length === 0) {
-        return <div className="py-8 text-center text-slate-500 border border-dashed rounded-lg mt-4">No tariffs found for this customer.</div>
-    }
-
-    return (
-        <div className="space-y-3 mt-4">
-            {tariffs.map(tariff => {
-                const carrierIds = tariff.carrier_ids || [];
-                const firstCarrier = carriers.find(c => carrierIds.includes(c.id));
-                return (
-                    <Link
-                        key={tariff.id}
-                        to={createPageUrl(`CarrierDetail?id=${firstCarrier?.id}&tab=tariffs&highlight=${tariff.id}`)}
-                        className="block p-3 rounded-lg border hover:bg-slate-50 transition-colors"
-                    >
-                        <div className="flex justify-between items-start">
-                            <div>
-                                <p className="font-semibold">{firstCarrier?.name || (carrierIds.length > 1 ? `${carrierIds.length} carriers` : 'Multiple Carriers')}</p>
-                                <p className="text-sm text-slate-600">Version: {tariff.version}</p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                               <Badge variant={tariff.status === 'active' ? 'default' : 'outline'} className={tariff.status === 'active' ? 'bg-green-100 text-green-800' : ''}>{tariff.status}</Badge>
-                               <ExternalLink className="w-4 h-4 text-slate-400" />
-                            </div>
-                        </div>
-                        <p className="text-xs text-slate-500 mt-2">
-                            Effective: {format(new Date(tariff.effective_date), 'MMM d, yyyy')} • Expires: {format(new Date(tariff.expiry_date), 'MMM d, yyyy')}
-                        </p>
-                    </Link>
-                );
-            })}
-        </div>
-    );
-};
 
 export default function CustomerDetail() {
     const [searchParams] = useSearchParams();
