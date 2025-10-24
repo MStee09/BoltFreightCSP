@@ -59,6 +59,7 @@ export default function TariffsPage() {
   const [expandedCarriers, setExpandedCarriers] = useState(new Set());
   const [showHistory, setShowHistory] = useState(false);
   const [expandedFamilyHistory, setExpandedFamilyHistory] = useState(new Set());
+  const [collapsedFamilies, setCollapsedFamilies] = useState(new Set());
   const [modeFilter, setModeFilter] = useState('all');
   const [showMyAccountsOnly, setShowMyAccountsOnly] = useState(false);
   const [pinnedCustomers, setPinnedCustomers] = useState(new Set());
@@ -139,6 +140,16 @@ export default function TariffsPage() {
   const getOwnershipColor = (ownershipType) => {
     const type = OWNERSHIP_TYPES.find(t => t.value === ownershipType);
     return type?.color || 'bg-slate-50 border-l-4 border-l-slate-300';
+  };
+
+  const getOwnershipBorderColor = (ownershipType) => {
+    const colorMap = {
+      'rocket_csp': 'border-l-purple-400',
+      'customer_direct': 'border-l-blue-400',
+      'rocket_blanket': 'border-l-orange-400',
+      'priority1_blanket': 'border-l-green-400'
+    };
+    return colorMap[ownershipType] || 'border-l-slate-300';
   };
 
   const filteredTariffs = useMemo(() => {
@@ -315,6 +326,16 @@ export default function TariffsPage() {
       newExpanded.add(tariffId);
     }
     setExpandedCarriers(newExpanded);
+  };
+
+  const toggleFamily = (familyId) => {
+    const newCollapsed = new Set(collapsedFamilies);
+    if (newCollapsed.has(familyId)) {
+      newCollapsed.delete(familyId);
+    } else {
+      newCollapsed.add(familyId);
+    }
+    setCollapsedFamilies(newCollapsed);
   };
 
   const getRowColorClass = (tariff) => {
@@ -611,8 +632,23 @@ export default function TariffsPage() {
               <p className="text-slate-500">No tariffs found matching your criteria</p>
             </div>
           ) : (
-            <div className="space-y-4">
-              {groupedTariffs.map(group => {
+            <>
+              <div className="sticky top-0 z-20 bg-white border-b px-4 py-2 -mx-6 -mt-6 mb-4 flex items-center gap-3 text-sm">
+                <Badge variant="outline" className="font-medium">
+                  {OWNERSHIP_TYPES.find(t => t.value === ownershipTab)?.label}
+                </Badge>
+                <span className="text-slate-600">
+                  Active <span className="font-semibold text-green-700">{tabSummary.activeCount}</span> •
+                  Expiring <span className="font-semibold text-yellow-700">{tabSummary.expiringCount}</span> •
+                  Proposed <span className="font-semibold text-blue-700">{tabSummary.proposedCount}</span>
+                </span>
+                <span className="text-slate-500 ml-auto">
+                  Showing Families 1–{groupedTariffs.length} of {groupedTariffs.length}
+                </span>
+              </div>
+
+              <div className="space-y-4">
+                {groupedTariffs.map(group => {
                 const isExpanded = expandedGroups.has(group.key);
                 const isPinned = pinnedCustomers.has(group.key);
                 return (
@@ -791,15 +827,27 @@ export default function TariffsPage() {
                             return !latest || vDate > new Date(latest) ? (v.updated_date || v.created_date) : latest;
                           }, null);
                           const cspEvent = activeVersion?.csp_event_id ? cspEvents.find(e => e.id === activeVersion.csp_event_id) : null;
+                          const isFamilyCollapsed = collapsedFamilies.has(family.familyId);
+                          const firstVersion = family.versions[0];
 
                           return (
                           <React.Fragment key={family.familyId}>
                             {family.versions.length >= 1 && (
-                              <tr className="bg-gradient-to-r from-slate-50 to-slate-100 border-b-2 border-slate-200">
+                              <tr className={`bg-gradient-to-r from-slate-50 to-slate-100 border-b-2 border-slate-200 border-l-4 ${getOwnershipBorderColor(ownershipTab)}`}>
                                 <td colSpan="7" className="p-4">
                                   <div className="flex items-start justify-between gap-4">
                                     <div className="flex-1">
                                       <div className="flex items-center gap-2 mb-2">
+                                        <button
+                                          onClick={() => toggleFamily(family.familyId)}
+                                          className="hover:bg-slate-200 rounded p-0.5 transition-colors"
+                                        >
+                                          {isFamilyCollapsed ? (
+                                            <ChevronRight className="w-4 h-4 text-slate-600" />
+                                          ) : (
+                                            <ChevronDown className="w-4 h-4 text-slate-600" />
+                                          )}
+                                        </button>
                                         <FolderOpen className="w-4 h-4 text-slate-600" />
                                         <span className="font-semibold text-sm text-slate-900">
                                           Tariff Family: {group.name} × {family.carrierName}
@@ -893,12 +941,28 @@ export default function TariffsPage() {
                                           <span className="text-slate-700 font-medium">{format(new Date(mostRecentUpdate), 'MMM d, yyyy')}</span>
                                         </div>
                                       )}
+                                      {family.versions.length > 1 && (
+                                        <div className="flex flex-col gap-1">
+                                          <span className="text-slate-500 font-medium">Actions</span>
+                                          <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="h-6 text-xs px-2"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                            }}
+                                          >
+                                            <GitCompare className="w-3 h-3 mr-1" />
+                                            Compare
+                                          </Button>
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
                                 </td>
                               </tr>
                             )}
-                            {family.versions.map((tariff, index) => {
+                            {!isFamilyCollapsed && family.versions.map((tariff, index) => {
                               const customer = customers.find(c => c.id === tariff.customer_id);
                               const tariffCarriers = (tariff.carrier_ids || [])
                                 .map(id => carriers.find(c => c.id === id))
@@ -1094,7 +1158,8 @@ export default function TariffsPage() {
                   </div>
                 );
               })}
-            </div>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>
