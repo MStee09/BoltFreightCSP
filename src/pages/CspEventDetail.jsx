@@ -11,6 +11,7 @@ import { createPageUrl } from '../utils';
 import { EmailComposeDialog } from '../components/email/EmailComposeDialog';
 import { EmailTimeline } from '../components/email/EmailTimeline';
 import CspStrategyTab from '../components/customers/CspStrategyTab';
+import CspEventOverview from '../components/pipeline/CspEventOverview';
 import EditCspEventDialog from '../components/pipeline/EditCspEventDialog';
 import ManageCarriersDialog from '../components/pipeline/ManageCarriersDialog';
 import InteractionTimeline from '../components/customers/InteractionTimeline';
@@ -83,16 +84,20 @@ export default function CspEventDetail() {
 
                 <Tabs defaultValue={defaultTab}>
                     <TabsList className="bg-slate-100">
-                        <TabsTrigger value="activity">Activity</TabsTrigger>
+                        <TabsTrigger value="overview">Overview</TabsTrigger>
                         <TabsTrigger value="strategy">Strategy</TabsTrigger>
+                        <TabsTrigger value="activity">Activity</TabsTrigger>
                         <TabsTrigger value="emails">Emails</TabsTrigger>
                         <TabsTrigger value="carriers">Carriers</TabsTrigger>
                     </TabsList>
-                    <TabsContent value="activity">
-                        <InteractionTimeline customerId={event.customer_id} entityType="customer" />
+                    <TabsContent value="overview">
+                        <CspEventOverview event={event} customer={customer} />
                     </TabsContent>
                     <TabsContent value="strategy">
                         <CspStrategyTab customer={customer} cspEventId={eventId} cspEvent={event} />
+                    </TabsContent>
+                    <TabsContent value="activity">
+                        <InteractionTimeline customerId={event.customer_id} entityType="customer" />
                     </TabsContent>
                     <TabsContent value="emails">
                         <EmailTimeline cspEventId={eventId} customerId={event?.customer_id} />

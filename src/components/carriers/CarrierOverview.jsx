@@ -1,9 +1,7 @@
 
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from "../ui/badge";
-import InteractionTimeline from '../customers/InteractionTimeline';
-import { format } from "date-fns";
 import { Mail, Phone, Globe, MapPin } from 'lucide-react';
 
 // Updated InfoItem component to support value or children, and without icons as per new design
@@ -22,8 +20,8 @@ export default function CarrierOverview({ carrier }) {
     if (!carrier) return null;
 
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-4">
-            <div className="lg:col-span-2 space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
+            <div className="space-y-6">
                 <Card>
                     <CardHeader>
                         <CardTitle>Carrier Details</CardTitle>
@@ -156,14 +154,52 @@ export default function CarrierOverview({ carrier }) {
                     </CardContent>
                 </Card>
             </div>
-            <div className="lg:col-span-1">
-                 <Card>
+
+            <div className="space-y-6">
+                <Card>
                     <CardHeader>
-                        <CardTitle>Recent Activity</CardTitle>
-                        <CardDescription>A log of all interactions with this carrier.</CardDescription>
+                        <CardTitle>Performance Metrics</CardTitle>
                     </CardHeader>
-                    <CardContent>
-                        <InteractionTimeline customerId={carrier.id} entityType="carrier" />
+                    <CardContent className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <p className="text-sm font-medium text-slate-500">Performance Score</p>
+                                <p className="text-2xl font-bold text-slate-900">{carrier.performance_score ? `${carrier.performance_score.toFixed(1)}/10` : 'N/A'}</p>
+                            </div>
+                            <div>
+                                <p className="text-sm font-medium text-slate-500">Status</p>
+                                <Badge variant="outline" className="mt-1 capitalize">{carrier.status || 'N/A'}</Badge>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Key Information</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        <div>
+                            <p className="text-sm font-medium text-slate-500">SCAC Code</p>
+                            <p className="text-sm text-slate-800 font-mono">{carrier.scac_code}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-slate-500">Service Type</p>
+                            <p className="text-sm text-slate-800 capitalize">{carrier.service_type || 'N/A'}</p>
+                        </div>
+                        <div>
+                            <p className="text-sm font-medium text-slate-500">Coverage</p>
+                            <Badge variant="secondary" className="capitalize">{carrier.coverage_type || 'Regional'}</Badge>
+                        </div>
+                        {carrier.website && (
+                            <div>
+                                <p className="text-sm font-medium text-slate-500">Website</p>
+                                <a href={carrier.website} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline flex items-center gap-1">
+                                    <Globe className="w-3 h-3" />
+                                    Visit Site
+                                </a>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             </div>
