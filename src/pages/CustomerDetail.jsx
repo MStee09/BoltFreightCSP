@@ -18,7 +18,12 @@ import { EmailComposeDialog } from '../components/email/EmailComposeDialog';
 const CustomerTariffTimeline = ({ customerId }) => {
     const { data: tariffs = [], isLoading: isLoadingTariffs } = useQuery({
         queryKey: ['tariffs', { forCustomer: customerId }],
-        queryFn: () => Tariff.filter({ customer_id: customerId }),
+        queryFn: async () => {
+            console.log('Fetching tariffs for customer:', customerId);
+            const result = await Tariff.filter({ customer_id: customerId });
+            console.log('Tariffs fetched:', result);
+            return result;
+        },
         enabled: !!customerId,
         initialData: []
     });
