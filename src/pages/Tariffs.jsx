@@ -273,16 +273,27 @@ export default function TariffsPage() {
 
     const filteredGroups = Object.values(groups).map(group => {
       const liveFamilies = {};
+      const archivedFamilies = {};
+
       Object.entries(group.families).forEach(([key, family]) => {
+        const isArchived = !family.hasLiveVersions;
+
         if (statusFilter === 'all' || statusFilter === 'active' || statusFilter === 'proposed' || statusFilter === 'expiring') {
           if (family.hasLiveVersions || searchTerm) {
-            liveFamilies[key] = family;
+            liveFamilies[key] = { ...family, isArchived: false };
+          } else if (showHistory) {
+            archivedFamilies[key] = { ...family, isArchived: true };
           }
         } else {
-          liveFamilies[key] = family;
+          if (isArchived && showHistory) {
+            archivedFamilies[key] = { ...family, isArchived: true };
+          } else {
+            liveFamilies[key] = { ...family, isArchived: false };
+          }
         }
       });
-      return { ...group, families: liveFamilies };
+
+      return { ...group, families: { ...liveFamilies, ...archivedFamilies } };
     }).filter(group => Object.keys(group.families).length > 0);
 
     const pinnedGroups = filteredGroups.filter(g => pinnedCustomers.has(g.key));
@@ -832,26 +843,46 @@ export default function TariffsPage() {
                               </tr>
                             </thead>
                             <tbody>
-                        {Object.values(group.families || {}).map(family => {
-                          const activeVersion = family.versions.find(v => v.status === 'active' && (!v.expiry_date || isAfter(new Date(v.expiry_date), new Date())));
-                          const proposedVersion = family.versions.find(v => v.status === 'proposed');
-                          const expiringVersion = family.versions.find(v => {
-                            const expiryDate = v.expiry_date ? new Date(v.expiry_date) : null;
-                            const daysUntilExpiry = expiryDate ? differenceInDays(expiryDate, new Date()) : null;
-                            return expiryDate && daysUntilExpiry !== null && daysUntilExpiry <= 90 && daysUntilExpiry > 0;
-                          });
-                          const mostRecentUpdate = family.versions.reduce((latest, v) => {
-                            const vDate = new Date(v.updated_date || v.created_date);
-                            return !latest || vDate > new Date(latest) ? (v.updated_date || v.created_date) : latest;
-                          }, null);
-                          const cspEvent = activeVersion?.csp_event_id ? cspEvents.find(e => e.id === activeVersion.csp_event_id) : null;
-                          const isFamilyCollapsed = collapsedFamilies.has(family.familyId);
-                          const firstVersion = family.versions[0];
+                        {(() => {
+                          const families = Object.values(group.families || {});
+                          const liveFamily = families.filter(f => !f.isArchived);
+                          const archivedFamily = families.filter(f => f.isArchived);
+                          let firstArchived = true;
 
-                          return (
-                          <React.Fragment key={family.familyId}>
-                            {family.versions.length >= 1 && (
-                              <tr className={`border-b-2 border-slate-200 border-l-4 ${getOwnershipBorderColor(ownershipTab)} ${isFamilyCollapsed ? 'hover:bg-slate-50' : 'bg-gradient-to-r from-slate-50 to-slate-100'}`}>
+                          return [...liveFamily, ...archivedFamily].map(family => {
+                            const activeVersion = family.versions.find(v => v.status === 'active' && (!v.expiry_date || isAfter(new Date(v.expiry_date), new Date())));
+                            const proposedVersion = family.versions.find(v => v.status === 'proposed');
+                            const expiringVersion = family.versions.find(v => {
+                              const expiryDate = v.expiry_date ? new Date(v.expiry_date) : null;
+                              const daysUntilExpiry = expiryDate ? differenceInDays(expiryDate, new Date()) : null;
+                              return expiryDate && daysUntilExpiry !== null && daysUntilExpiry <= 90 && daysUntilExpiry > 0;
+                            });
+                            const mostRecentUpdate = family.versions.reduce((latest, v) => {
+                              const vDate = new Date(v.updated_date || v.created_date);
+                              return !latest || vDate > new Date(latest) ? (v.updated_date || v.created_date) : latest;
+                            }, null);
+                            const cspEvent = activeVersion?.csp_event_id ? cspEvents.find(e => e.id === activeVersion.csp_event_id) : null;
+                            const isFamilyCollapsed = collapsedFamilies.has(family.familyId);
+                            const firstVersion = family.versions[0];
+                            const isArchived = family.isArchived;
+                            const showDivider = isArchived && firstArchived;
+                            if (isArchived) firstArchived = false;
+
+                            return (
+                            <React.Fragment key={family.familyId}>
+                              {showDivider && (
+                                <tr>
+                                  <td colSpan="7" className="p-3 bg-slate-100 border-t-4 border-slate-300">
+                                    <div className="flex items-center gap-2 text-sm font-medium text-slate-600">
+                                      <div className="h-px flex-1 bg-slate-300"></div>
+                                      <span>Archived Families (Expired/Superseded)</span>
+                                      <div className="h-px flex-1 bg-slate-300"></div>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                              {family.versions.length >= 1 && (
+                                <tr className={`border-b-2 border-slate-200 border-l-4 ${getOwnershipBorderColor(ownershipTab)} ${isArchived ? 'bg-slate-50/50' : ''} ${isFamilyCollapsed ? 'hover:bg-slate-50' : isArchived ? 'bg-slate-100/60' : 'bg-gradient-to-r from-slate-50 to-slate-100'}`}>
                                 <td colSpan="7" className={`${isFamilyCollapsed ? 'p-2' : 'p-4'}`}>
                                   {isFamilyCollapsed ? (
                                     <TooltipProvider>
@@ -864,6 +895,11 @@ export default function TariffsPage() {
                                             <span className="font-semibold text-slate-900">
                                               {group.name} × {family.carrierName}
                                             </span>
+                                            {isArchived && (
+                                              <Badge variant="outline" className="bg-slate-200 text-slate-600 border-slate-400 text-xs h-5">
+                                                Expired Family
+                                              </Badge>
+                                            )}
                                             {activeVersion && (
                                               <>
                                                 <span className="text-slate-500">|</span>
@@ -918,6 +954,11 @@ export default function TariffsPage() {
                                           <span className="font-semibold text-sm text-slate-900">
                                             Tariff Family: {group.name} × {family.carrierName}
                                           </span>
+                                          {isArchived && (
+                                            <Badge variant="outline" className="bg-slate-200 text-slate-600 border-slate-400 text-xs">
+                                              Expired Family
+                                            </Badge>
+                                          )}
                                           {ownershipTab === 'rocket_csp' && (
                                             <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs">
                                               Rocket CSP
@@ -1216,7 +1257,8 @@ export default function TariffsPage() {
                             })()}
                           </React.Fragment>
                         );
-                        })}
+                          });
+                        })()}
                             </tbody>
                           </table>
                         </div>
