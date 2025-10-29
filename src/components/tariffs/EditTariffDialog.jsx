@@ -148,7 +148,7 @@ export default function EditTariffDialog({
                                 <SelectTrigger>
                                     <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent className="z-[100]">
                                     <SelectItem value="proposed">Proposed</SelectItem>
                                     <SelectItem value="active">Active</SelectItem>
                                     <SelectItem value="expired">Expired</SelectItem>
@@ -163,7 +163,7 @@ export default function EditTariffDialog({
                                 <SelectTrigger>
                                     <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent className="z-[100]">
                                     <SelectItem value="customer_direct">Direct</SelectItem>
                                     <SelectItem value="rocket_csp">Rocket CSP</SelectItem>
                                     <SelectItem value="rocket_blanket">Rocket Blanket</SelectItem>
@@ -178,7 +178,7 @@ export default function EditTariffDialog({
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select service type" />
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent className="z-[100]">
                                     <SelectItem value="LTL">LTL</SelectItem>
                                     <SelectItem value="Home Delivery">Home Delivery</SelectItem>
                                 </SelectContent>
@@ -228,7 +228,7 @@ export default function EditTariffDialog({
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select a customer" />
                                 </SelectTrigger>
-                                <SelectContent>
+                                <SelectContent className="z-[100]">
                                     {customers.map(customer => (
                                         <SelectItem key={customer.id} value={customer.id}>
                                             {customer.name}
