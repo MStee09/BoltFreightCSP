@@ -106,8 +106,8 @@ const StageColumn = ({ stage, events, customers, tariffs, stageRef, onEventClick
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent>
                                     <DropdownMenuItem onClick={() => onEventClick(event.id)}>View Details</DropdownMenuItem>
-                                    <DropdownMenuItem>Add Note</DropdownMenuItem>
-                                    <DropdownMenuItem>Assign Owner</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleQuickAction('note', event); }}>Add Note</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={(e) => { e.stopPropagation(); handleQuickAction('assign', event); }}>Assign Owner</DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         </CardHeader>
@@ -203,6 +203,16 @@ export default function PipelinePage() {
   const { data: tariffs = [] } = useQuery({
     queryKey: ["tariffs"],
     queryFn: () => Tariff.list(),
+    initialData: []
+  });
+
+  const { data: users = [] } = useQuery({
+    queryKey: ['users'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_all_users');
+      if (error) throw error;
+      return data || [];
+    },
     initialData: []
   });
 
@@ -427,6 +437,91 @@ export default function PipelinePage() {
     setIsDetailSheetOpen(true);
   };
 
+  const addNoteMutation = useMutation({
+    mutationFn: async ({ eventId, note }) => {
+      const event = events.find(e => e.id === eventId);
+      const { data, error } = await supabase
+        .from('interactions')
+        .insert({
+          entity_type: 'csp_event',
+          entity_id: eventId,
+          interaction_type: 'note',
+          notes: note,
+          customer_id: event?.customer_id
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['interactions'] });
+      toast({
+        title: "Note Added",
+        description: "Your note has been saved.",
+      });
+      setQuickActionDialog({ open: false, type: null, event: null });
+      setQuickNote('');
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to add note. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const assignOwnerMutation = useMutation({
+    mutationFn: async ({ eventId, assignee }) => {
+      const { data, error } = await supabase
+        .from('csp_events')
+        .update({ assigned_to: assignee })
+        .eq('id', eventId)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['csp_events'] });
+      toast({
+        title: "Owner Assigned",
+        description: "Event owner has been updated.",
+      });
+      setQuickActionDialog({ open: false, type: null, event: null });
+      setQuickAssignee('');
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to assign owner. Please try again.",
+        variant: "destructive"
+      });
+    }
+  });
+
+  const handleQuickAction = (type, event) => {
+    setQuickActionDialog({ open: true, type, event });
+    if (type === 'assign') {
+      setQuickAssignee(event.assigned_to || '');
+    }
+  };
+
+  const handleSaveQuickAction = () => {
+    if (quickActionDialog.type === 'note' && quickNote.trim()) {
+      addNoteMutation.mutate({
+        eventId: quickActionDialog.event.id,
+        note: quickNote
+      });
+    } else if (quickActionDialog.type === 'assign' && quickAssignee) {
+      assignOwnerMutation.mutate({
+        eventId: quickActionDialog.event.id,
+        assignee: quickAssignee
+      });
+    }
+  };
+
   return (
     <>
       <div className="h-full flex flex-col overflow-hidden">
@@ -597,6 +692,85 @@ export default function PipelinePage() {
         onOpenChange={setIsNewEventSheetOpen}
         customers={customers}
       />
+
+      <Dialog open={quickActionDialog.open} onOpenChange={(open) => {
+        if (!open) {
+          setQuickActionDialog({ open: false, type: null, event: null });
+          setQuickNote('');
+          setQuickAssignee('');
+        }
+      }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {quickActionDialog.type === 'note' ? 'Add Quick Note' : 'Assign Owner'}
+            </DialogTitle>
+            <DialogDescription>
+              {quickActionDialog.type === 'note'
+                ? `Add a note to ${quickActionDialog.event?.title}`
+                : `Assign an owner to ${quickActionDialog.event?.title}`
+              }
+            </DialogDescription>
+          </DialogHeader>
+
+          {quickActionDialog.type === 'note' ? (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="quick-note">Note</Label>
+                <Textarea
+                  id="quick-note"
+                  placeholder="Enter your note..."
+                  value={quickNote}
+                  onChange={(e) => setQuickNote(e.target.value)}
+                  rows={4}
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="quick-assignee">Owner</Label>
+                <Select value={quickAssignee} onValueChange={setQuickAssignee}>
+                  <SelectTrigger id="quick-assignee">
+                    <SelectValue placeholder="Select owner" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {users.map((user) => (
+                      <SelectItem key={user.id} value={user.full_name || user.email}>
+                        {user.full_name || user.email}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setQuickActionDialog({ open: false, type: null, event: null });
+                setQuickNote('');
+                setQuickAssignee('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveQuickAction}
+              disabled={
+                (quickActionDialog.type === 'note' && !quickNote.trim()) ||
+                (quickActionDialog.type === 'assign' && !quickAssignee) ||
+                addNoteMutation.isPending ||
+                assignOwnerMutation.isPending
+              }
+            >
+              {(addNoteMutation.isPending || assignOwnerMutation.isPending) ? 'Saving...' : 'Save'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
