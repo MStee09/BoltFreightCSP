@@ -174,28 +174,6 @@ const CarrierKPIs = ({ carrier }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
             <Card>
                 <CardHeader>
-                    <CardTitle>Performance Score</CardTitle>
-                    <CardDescription>Overall carrier performance rating</CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <div className="text-4xl font-bold text-slate-900">
-                        {carrier.performance_score ? `${carrier.performance_score.toFixed(1)}/10` : 'N/A'}
-                    </div>
-                    {carrier.performance_score && (
-                        <div className="mt-2">
-                            <div className="w-full bg-slate-200 rounded-full h-2">
-                                <div
-                                    className="bg-blue-600 h-2 rounded-full"
-                                    style={{ width: `${(carrier.performance_score / 10) * 100}%` }}
-                                />
-                            </div>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
-
-            <Card>
-                <CardHeader>
                     <CardTitle>Service Type</CardTitle>
                     <CardDescription>Primary service offering</CardDescription>
                 </CardHeader>
@@ -525,12 +503,6 @@ export default function CarrierDetailPage() {
                             <Badge variant="secondary" className="capitalize">
                                 {carrier.status}
                             </Badge>
-                        </div>
-                    )}
-                    {carrier.performance_score && (
-                        <div className="flex items-center gap-2">
-                            <span className="font-medium text-slate-600">Performance:</span>
-                            <span className="text-slate-900 font-medium">{carrier.performance_score.toFixed(1)}/10</span>
                         </div>
                     )}
                 </div>

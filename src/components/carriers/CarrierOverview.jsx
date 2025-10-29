@@ -40,7 +40,6 @@ export default function CarrierOverview({ carrier }) {
                                 </a>
                             </InfoItem>
                         )}
-                        <InfoItem label="Performance Score" value={carrier.performance_score ? `${carrier.performance_score.toFixed(1)}/10` : 'N/A'} />
                     </CardContent>
                 </Card>
 
@@ -158,19 +157,10 @@ export default function CarrierOverview({ carrier }) {
             <div className="space-y-6">
                 <Card>
                     <CardHeader>
-                        <CardTitle>Performance Metrics</CardTitle>
+                        <CardTitle>Status</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <p className="text-sm font-medium text-slate-500">Performance Score</p>
-                                <p className="text-2xl font-bold text-slate-900">{carrier.performance_score ? `${carrier.performance_score.toFixed(1)}/10` : 'N/A'}</p>
-                            </div>
-                            <div>
-                                <p className="text-sm font-medium text-slate-500">Status</p>
-                                <Badge variant="outline" className="mt-1 capitalize">{carrier.status || 'N/A'}</Badge>
-                            </div>
-                        </div>
+                    <CardContent>
+                        <Badge variant="outline" className="capitalize text-lg">{carrier.status || 'N/A'}</Badge>
                     </CardContent>
                 </Card>
 
