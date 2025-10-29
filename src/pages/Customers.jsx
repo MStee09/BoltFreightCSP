@@ -66,7 +66,10 @@ export default function CustomersPage() {
             <h1 className="text-3xl font-bold text-slate-900">Customers</h1>
             <p className="text-slate-600 mt-1">Manage all your customer accounts and relationships.</p>
           </div>
-          <Button className="bg-blue-600 hover:bg-blue-700">
+          <Button
+            className="bg-blue-600 hover:bg-blue-700"
+            onClick={() => navigate(createPageUrl("CustomerDetail?new=true"))}
+          >
             <PlusCircle className="mr-2 h-4 w-4" />
             New Customer
           </Button>

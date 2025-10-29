@@ -19,15 +19,40 @@ import { EmailComposeDialog } from '../components/email/EmailComposeDialog';
 export default function CustomerDetail() {
     const [searchParams] = useSearchParams();
     const customerId = searchParams.get('id');
+    const isNew = searchParams.get('new') === 'true';
     const defaultTab = searchParams.get('tab') || 'overview';
-    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(isNew);
     const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
 
     const { data: customer, isLoading } = useQuery({
         queryKey: ['customer', customerId],
         queryFn: () => Customer.get(customerId),
-        enabled: !!customerId,
+        enabled: !!customerId && !isNew,
     });
+
+    if (isNew) {
+        return (
+            <>
+                <div className="p-6 lg:p-8 max-w-[1600px] mx-auto">
+                    <Link to={createPageUrl("Customers")} className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 mb-6">
+                        <ArrowLeft className="w-4 h-4" />
+                        Back to Customers
+                    </Link>
+                    <div className="mb-8">
+                        <h1 className="text-3xl font-bold text-slate-900">Create New Customer</h1>
+                        <p className="text-slate-600 mt-2">Add a new customer to your database</p>
+                    </div>
+                </div>
+                <EditCustomerDialog
+                    open={true}
+                    onOpenChange={(open) => {
+                        if (!open) window.history.back();
+                    }}
+                    customer={null}
+                />
+            </>
+        );
+    }
 
     if (isLoading) {
         return (
