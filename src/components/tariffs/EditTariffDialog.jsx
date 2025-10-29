@@ -25,6 +25,7 @@ export default function EditTariffDialog({
         version: '',
         status: 'active',
         ownership_type: 'rocket_csp',
+        mode: '',
         effective_date: '',
         expiry_date: '',
         customer_id: preselectedCustomerId || '',
@@ -55,6 +56,7 @@ export default function EditTariffDialog({
                 version: tariff.version || '',
                 status: tariff.status || 'proposed',
                 ownership_type: tariff.ownership_type || 'Direct',
+                mode: tariff.mode || '',
                 effective_date: tariff.effective_date || '',
                 expiry_date: tariff.expiry_date || '',
                 customer_id: tariff.customer_id || '',
@@ -175,6 +177,25 @@ export default function EditTariffDialog({
                             </Select>
                         </div>
 
+                        <div className="space-y-2">
+                            <Label htmlFor="mode">Service Type *</Label>
+                            <Select value={formData.mode} onValueChange={(value) => setFormData({ ...formData, mode: value })}>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Select service type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="LTL">LTL</SelectItem>
+                                    <SelectItem value="Home Delivery">Home Delivery</SelectItem>
+                                    <SelectItem value="TL">TL (Truckload)</SelectItem>
+                                    <SelectItem value="Parcel">Parcel</SelectItem>
+                                    <SelectItem value="Ocean">Ocean</SelectItem>
+                                    <SelectItem value="Air">Air</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <div className="flex items-center gap-2 h-10">
                                 <Checkbox
