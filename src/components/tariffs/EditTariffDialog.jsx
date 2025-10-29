@@ -144,7 +144,7 @@ export default function EditTariffDialog({
 
                         <div className="space-y-2">
                             <Label htmlFor="status">Status *</Label>
-                            <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })}>
+                            <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })} modal={false}>
                                 <SelectTrigger>
                                     <SelectValue />
                                 </SelectTrigger>
@@ -159,7 +159,7 @@ export default function EditTariffDialog({
 
                         <div className="space-y-2">
                             <Label htmlFor="ownership_type">Ownership *</Label>
-                            <Select value={formData.ownership_type} onValueChange={(value) => setFormData({ ...formData, ownership_type: value })}>
+                            <Select value={formData.ownership_type} onValueChange={(value) => setFormData({ ...formData, ownership_type: value })} modal={false}>
                                 <SelectTrigger>
                                     <SelectValue />
                                 </SelectTrigger>
@@ -174,7 +174,7 @@ export default function EditTariffDialog({
 
                         <div className="space-y-2">
                             <Label htmlFor="mode">Service Type *</Label>
-                            <Select value={formData.mode} onValueChange={(value) => setFormData({ ...formData, mode: value })}>
+                            <Select value={formData.mode} onValueChange={(value) => setFormData({ ...formData, mode: value })} modal={false}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select service type" />
                                 </SelectTrigger>
@@ -224,7 +224,7 @@ export default function EditTariffDialog({
                     {!formData.is_blanket_tariff ? (
                         <div className="space-y-2">
                             <Label htmlFor="customer_id">Customer *</Label>
-                            <Select value={formData.customer_id} onValueChange={(value) => setFormData({ ...formData, customer_id: value })}>
+                            <Select value={formData.customer_id} onValueChange={(value) => setFormData({ ...formData, customer_id: value })} modal={false}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select a customer" />
                                 </SelectTrigger>
