@@ -37,7 +37,7 @@ const STATUS_FILTERS = [
 const SERVICE_TYPE_FILTERS = [
   { value: 'all', label: 'All' },
   { value: 'LTL', label: 'LTL' },
-  { value: 'Home Delivery LTL', label: 'Home Delivery LTL' }
+  { value: 'Home Delivery', label: 'Home Delivery' }
 ];
 
 const SORT_OPTIONS = [
@@ -62,7 +62,6 @@ export default function TariffsPage() {
   const [expandedFamilyHistory, setExpandedFamilyHistory] = useState(new Set());
   const [collapsedFamilies, setCollapsedFamilies] = useState(new Set());
   const [serviceTypeFilter, setServiceTypeFilter] = useState('all');
-  const [showMyAccountsOnly, setShowMyAccountsOnly] = useState(false);
   const [pinnedCustomers, setPinnedCustomers] = useState(new Set());
   const [sortBy, setSortBy] = useState('expiry_date');
   const [showArchived, setShowArchived] = useState(false);
@@ -181,8 +180,6 @@ export default function TariffsPage() {
 
       const customer = customers.find(c => c.id === t.customer_id);
 
-      if (showMyAccountsOnly && customer?.account_owner !== 'Current User') return false;
-
       if (serviceTypeFilter !== 'all' && t.mode !== serviceTypeFilter) return false;
 
       const searchCarriers = (t.carrier_ids || []).map(cid => carriers.find(c => c.id === cid)?.name).join(' ').toLowerCase() || '';
@@ -221,7 +218,7 @@ export default function TariffsPage() {
 
       return true;
     });
-  }, [tariffs, ownershipTab, statusFilter, searchTerm, customers, carriers, cspEvents, serviceTypeFilter, showMyAccountsOnly]);
+  }, [tariffs, ownershipTab, statusFilter, searchTerm, customers, carriers, cspEvents, serviceTypeFilter]);
 
   const groupedTariffs = useMemo(() => {
     const groups = {};
@@ -336,6 +333,16 @@ export default function TariffsPage() {
           f.versions.map(v => v.expiry_date ? new Date(v.expiry_date).getTime() : Infinity)
         ));
         return aEarliestExpiry - bEarliestExpiry;
+      });
+    } else if (sortBy === 'last_activity') {
+      unpinnedGroups.sort((a, b) => {
+        const aLatestActivity = Math.max(...Object.values(a.families).flatMap(f =>
+          f.versions.map(v => v.updated_at ? new Date(v.updated_at).getTime() : 0)
+        ));
+        const bLatestActivity = Math.max(...Object.values(b.families).flatMap(f =>
+          f.versions.map(v => v.updated_at ? new Date(v.updated_at).getTime() : 0)
+        ));
+        return bLatestActivity - aLatestActivity;
       });
     }
 
@@ -527,7 +534,11 @@ export default function TariffsPage() {
                 <Button
                   variant={serviceTypeFilter !== 'all' ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setServiceTypeFilter(serviceTypeFilter === 'all' ? 'LTL' : 'all')}
+                  onClick={() => {
+                    const currentIndex = SERVICE_TYPE_FILTERS.findIndex(f => f.value === serviceTypeFilter);
+                    const nextIndex = (currentIndex + 1) % SERVICE_TYPE_FILTERS.length;
+                    setServiceTypeFilter(SERVICE_TYPE_FILTERS[nextIndex].value);
+                  }}
                   className="h-8 flex items-center gap-1"
                 >
                   <Package className="w-3.5 h-3.5" />
@@ -540,28 +551,10 @@ export default function TariffsPage() {
                   )}
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Filter by service type (LTL, Home Delivery LTL)</TooltipContent>
+              <TooltipContent>Filter by service type (LTL, Home Delivery)</TooltipContent>
             </Tooltip>
           </TooltipProvider>
 
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant={showMyAccountsOnly ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setShowMyAccountsOnly(!showMyAccountsOnly)}
-                  className={`h-8 flex items-center gap-1 ${showMyAccountsOnly ? 'bg-blue-600' : ''}`}
-                >
-                  <User className="w-3.5 h-3.5" />
-                  My Accounts
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Shows only customers assigned to you</TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-
-          <div className="h-4 w-px bg-slate-300 mx-1" />
 
           <TooltipProvider>
             <Tooltip>
@@ -569,7 +562,11 @@ export default function TariffsPage() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => {}}
+                  onClick={() => {
+                    const currentIndex = SORT_OPTIONS.findIndex(o => o.value === sortBy);
+                    const nextIndex = (currentIndex + 1) % SORT_OPTIONS.length;
+                    setSortBy(SORT_OPTIONS[nextIndex].value);
+                  }}
                   className="h-8 flex items-center gap-1"
                 >
                   <ArrowUpDown className="w-3.5 h-3.5" />
