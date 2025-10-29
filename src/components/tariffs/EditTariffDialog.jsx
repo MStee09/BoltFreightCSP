@@ -33,9 +33,6 @@ export default function EditTariffDialog({
         carrier_ids: preselectedCarrierIds || [],
         csp_event_id: preselectedCspEventId || '',
         is_blanket_tariff: false,
-        customer_contact_name: '',
-        carrier_contact_name: '',
-        credential_notes: '',
     });
 
     const { data: customers = [] } = useQuery({
@@ -64,9 +61,6 @@ export default function EditTariffDialog({
                 carrier_ids: tariff.carrier_ids || [],
                 csp_event_id: tariff.csp_event_id || '',
                 is_blanket_tariff: tariff.is_blanket_tariff || false,
-                customer_contact_name: tariff.customer_contact_name || '',
-                carrier_contact_name: tariff.carrier_contact_name || '',
-                credential_notes: tariff.credential_notes || '',
             });
         } else if (preselectedCspEventId) {
             setFormData(prev => ({
@@ -288,37 +282,6 @@ export default function EditTariffDialog({
                                 </div>
                             ))}
                         </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="customer_contact_name">Customer Contact</Label>
-                            <Input
-                                id="customer_contact_name"
-                                value={formData.customer_contact_name}
-                                onChange={(e) => setFormData({ ...formData, customer_contact_name: e.target.value })}
-                            />
-                        </div>
-
-                        <div className="space-y-2">
-                            <Label htmlFor="carrier_contact_name">Carrier Contact</Label>
-                            <Input
-                                id="carrier_contact_name"
-                                value={formData.carrier_contact_name}
-                                onChange={(e) => setFormData({ ...formData, carrier_contact_name: e.target.value })}
-                            />
-                        </div>
-                    </div>
-
-                    <div className="space-y-2">
-                        <Label htmlFor="credential_notes">Credential Notes</Label>
-                        <Textarea
-                            id="credential_notes"
-                            value={formData.credential_notes}
-                            onChange={(e) => setFormData({ ...formData, credential_notes: e.target.value })}
-                            rows={4}
-                            className="font-mono text-sm"
-                        />
                     </div>
 
                     <div className="flex justify-end gap-2">
