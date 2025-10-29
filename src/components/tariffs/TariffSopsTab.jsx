@@ -25,7 +25,6 @@ export default function TariffSopsTab({ tariffId, tariffFamilyId, carrierName, c
     const [expandedRevisions, setExpandedRevisions] = useState({});
     const [formData, setFormData] = useState({
         title: '',
-        type: 'note',
         content: '',
         visibility: 'internal',
         document_url: ''
@@ -166,7 +165,6 @@ export default function TariffSopsTab({ tariffId, tariffFamilyId, carrierName, c
     const resetForm = () => {
         setFormData({
             title: '',
-            type: 'note',
             content: '',
             visibility: 'internal',
             document_url: ''
@@ -231,15 +229,32 @@ export default function TariffSopsTab({ tariffId, tariffFamilyId, carrierName, c
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        if (!formData.content && !selectedFile && !formData.document_url) {
+            toast({
+                title: 'Content Required',
+                description: 'Please add notes, upload a document, or both.',
+                variant: 'destructive'
+            });
+            return;
+        }
+
         setIsUploading(true);
 
         try {
             let sopData = { ...formData };
 
-            if (selectedFile && formData.type === 'document') {
+            if (selectedFile) {
                 const { url, type } = await uploadFile(selectedFile);
                 sopData.document_url = url;
                 sopData.document_type = type;
+                sopData.type = 'document';
+            } else if (sopData.content && !sopData.document_url) {
+                sopData.type = 'note';
+            } else if (sopData.content && sopData.document_url) {
+                sopData.type = 'document';
+            } else if (!sopData.content && sopData.document_url) {
+                sopData.type = 'document';
             }
 
             if (editingSop) {
@@ -262,7 +277,6 @@ export default function TariffSopsTab({ tariffId, tariffFamilyId, carrierName, c
         setEditingSop(sop);
         setFormData({
             title: sop.title,
-            type: sop.type,
             content: sop.content || '',
             visibility: sop.visibility,
             document_url: sop.document_url || ''
@@ -466,107 +480,94 @@ export default function TariffSopsTab({ tariffId, tariffFamilyId, carrierName, c
                             />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="type">Type</Label>
-                                <Select
-                                    value={formData.type}
-                                    onValueChange={(value) => setFormData({ ...formData, type: value })}
-                                >
-                                    <SelectTrigger id="type">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="note">Note</SelectItem>
-                                        <SelectItem value="document">Document</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="visibility">Visibility</Label>
-                                <Select
-                                    value={formData.visibility}
-                                    onValueChange={(value) => setFormData({ ...formData, visibility: value })}
-                                >
-                                    <SelectTrigger id="visibility">
-                                        <SelectValue />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="internal">
-                                            <div className="flex items-center gap-2">
-                                                <Lock className="h-4 w-4" />
-                                                Internal Only
-                                            </div>
-                                        </SelectItem>
-                                        <SelectItem value="shared">
-                                            <div className="flex items-center gap-2">
-                                                <Share2 className="h-4 w-4" />
-                                                Share with Carrier
-                                            </div>
-                                        </SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="visibility">Visibility</Label>
+                            <Select
+                                value={formData.visibility}
+                                onValueChange={(value) => setFormData({ ...formData, visibility: value })}
+                            >
+                                <SelectTrigger id="visibility">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="internal">
+                                        <div className="flex items-center gap-2">
+                                            <Lock className="h-4 w-4" />
+                                            Internal Only
+                                        </div>
+                                    </SelectItem>
+                                    <SelectItem value="shared">
+                                        <div className="flex items-center gap-2">
+                                            <Share2 className="h-4 w-4" />
+                                            Share with Carrier
+                                        </div>
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
                         </div>
 
-                        {formData.type === 'document' && (
-                            <div className="space-y-2">
-                                <Label>Upload Document</Label>
-                                {selectedFile ? (
-                                    <div className="flex items-center gap-3 p-4 border rounded-lg bg-slate-50">
-                                        <File className="h-8 w-8 text-blue-600" />
-                                        <div className="flex-1 min-w-0">
-                                            <p className="font-medium text-sm truncate">{selectedFile.name}</p>
-                                            <p className="text-xs text-slate-500">
-                                                {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                                            </p>
-                                        </div>
-                                        <Button
-                                            type="button"
-                                            variant="ghost"
-                                            size="icon"
-                                            onClick={() => setSelectedFile(null)}
-                                        >
-                                            <X className="h-4 w-4" />
-                                        </Button>
-                                    </div>
-                                ) : (
-                                    <div className="relative">
-                                        <div className="flex items-center justify-center w-full h-32 border-2 border-dashed border-slate-300 rounded-lg hover:border-blue-500 transition-colors cursor-pointer bg-slate-50">
-                                            <div className="text-center">
-                                                <Upload className="h-8 w-8 mx-auto text-slate-400 mb-2" />
-                                                <p className="text-sm font-medium text-slate-700">
-                                                    Click to upload or drag and drop
-                                                </p>
-                                                <p className="text-xs text-slate-500 mt-1">
-                                                    PDF, Word, or Excel (max 50MB)
-                                                </p>
-                                            </div>
-                                        </div>
-                                        <input
-                                            type="file"
-                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                            accept=".pdf,.doc,.docx,.xls,.xlsx"
-                                            onChange={handleFileSelect}
-                                        />
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
                         <div className="space-y-2">
-                            <Label htmlFor="content">
-                                {formData.type === 'document' ? 'Description (Optional)' : 'Content *'}
-                            </Label>
+                            <Label htmlFor="content">Notes</Label>
                             <Textarea
                                 id="content"
                                 value={formData.content}
                                 onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-                                placeholder={formData.type === 'document' ? 'Brief description of the document' : 'Enter procedural notes and instructions...'}
+                                placeholder="Enter procedural notes, instructions, or description..."
                                 rows={8}
-                                required={formData.type === 'note'}
                             />
+                            <p className="text-xs text-slate-500">You can add notes, a PDF, or both.</p>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label>Upload PDF Document (Optional)</Label>
+                            {selectedFile || (editingSop?.document_url && !selectedFile) ? (
+                                <div className="flex items-center gap-3 p-4 border rounded-lg bg-slate-50">
+                                    <File className="h-8 w-8 text-blue-600" />
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-medium text-sm truncate">
+                                            {selectedFile ? selectedFile.name : 'Existing document'}
+                                        </p>
+                                        {selectedFile && (
+                                            <p className="text-xs text-slate-500">
+                                                {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                                            </p>
+                                        )}
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => {
+                                            setSelectedFile(null);
+                                            if (editingSop) {
+                                                setFormData({ ...formData, document_url: '' });
+                                            }
+                                        }}
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            ) : (
+                                <div className="relative">
+                                    <div className="flex items-center justify-center w-full h-32 border-2 border-dashed border-slate-300 rounded-lg hover:border-blue-500 transition-colors cursor-pointer bg-slate-50">
+                                        <div className="text-center">
+                                            <Upload className="h-8 w-8 mx-auto text-slate-400 mb-2" />
+                                            <p className="text-sm font-medium text-slate-700">
+                                                Click to upload or drag and drop
+                                            </p>
+                                            <p className="text-xs text-slate-500 mt-1">
+                                                PDF, Word, or Excel (max 50MB)
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <input
+                                        type="file"
+                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                        accept=".pdf,.doc,.docx,.xls,.xlsx"
+                                        onChange={handleFileSelect}
+                                    />
+                                </div>
+                            )}
                         </div>
 
                         <DialogFooter>
