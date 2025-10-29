@@ -52,7 +52,7 @@ export default function EditTariffDialog({
             setFormData({
                 version: tariff.version || '',
                 status: tariff.status || 'proposed',
-                ownership_type: tariff.ownership_type || 'Direct',
+                ownership_type: tariff.ownership_type || 'customer_direct',
                 mode: tariff.mode || '',
                 effective_date: tariff.effective_date || '',
                 expiry_date: tariff.expiry_date || '',
@@ -164,9 +164,10 @@ export default function EditTariffDialog({
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="Direct">Direct</SelectItem>
-                                    <SelectItem value="Rocket CSP">Rocket CSP</SelectItem>
-                                    <SelectItem value="Priority 1">Priority 1</SelectItem>
+                                    <SelectItem value="customer_direct">Direct</SelectItem>
+                                    <SelectItem value="rocket_csp">Rocket CSP</SelectItem>
+                                    <SelectItem value="rocket_blanket">Rocket Blanket</SelectItem>
+                                    <SelectItem value="priority1_blanket">Priority 1 Blanket</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
