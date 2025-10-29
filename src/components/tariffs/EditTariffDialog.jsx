@@ -186,10 +186,6 @@ export default function EditTariffDialog({
                                 <SelectContent>
                                     <SelectItem value="LTL">LTL</SelectItem>
                                     <SelectItem value="Home Delivery">Home Delivery</SelectItem>
-                                    <SelectItem value="TL">TL (Truckload)</SelectItem>
-                                    <SelectItem value="Parcel">Parcel</SelectItem>
-                                    <SelectItem value="Ocean">Ocean</SelectItem>
-                                    <SelectItem value="Air">Air</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
