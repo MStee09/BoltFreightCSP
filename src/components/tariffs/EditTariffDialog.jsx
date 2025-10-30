@@ -45,7 +45,9 @@ export default function EditTariffDialog({
     });
 
     useEffect(() => {
-        if (tariff && open) {
+        if (!open) return;
+
+        if (tariff) {
             setVersion(tariff.version || '');
             setStatus(tariff.status || 'proposed');
             setOwnershipType(tariff.ownership_type || 'customer_direct');
@@ -56,7 +58,7 @@ export default function EditTariffDialog({
             setCustomerIds(tariff.customer_ids || []);
             setCarrierIds(tariff.carrier_ids || []);
             setIsBlanketTariff(tariff.is_blanket_tariff || false);
-        } else if (!tariff && open) {
+        } else {
             setVersion('');
             setStatus('active');
             setOwnershipType('rocket_csp');
@@ -68,7 +70,7 @@ export default function EditTariffDialog({
             setCarrierIds(preselectedCarrierIds || []);
             setIsBlanketTariff(false);
         }
-    }, [tariff, open, preselectedCustomerId, preselectedCarrierIds]);
+    }, [open]);
 
     const updateMutation = useMutation({
         mutationFn: (data) => tariff ? Tariff.update(tariff.id, data) : Tariff.create(data),
