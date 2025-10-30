@@ -2,7 +2,9 @@
 
 
 export function createPageUrl(pageName: string) {
-    return '/' + pageName.toLowerCase().replace(/ /g, '-');
+    const [path, query] = pageName.split('?');
+    const processedPath = path.toLowerCase().replace(/ /g, '-');
+    return query ? `/${processedPath}?${query}` : `/${processedPath}`;
 }
 
 export function formatCspStage(stage: string): string {
