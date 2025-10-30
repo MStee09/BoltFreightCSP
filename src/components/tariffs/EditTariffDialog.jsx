@@ -137,14 +137,14 @@ export default function EditTariffDialog({
                             <Input
                                 id="version"
                                 value={formData.version}
-                                onChange={(e) => setFormData({ ...formData, version: e.target.value })}
+                                onChange={(e) => setFormData(prev => ({ ...prev, version: e.target.value }))}
                                 required
                             />
                         </div>
 
                         <div className="space-y-2">
                             <Label htmlFor="status">Status *</Label>
-                            <Select value={formData.status} onValueChange={(value) => setFormData({ ...formData, status: value })} modal={false}>
+                            <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))} modal={false}>
                                 <SelectTrigger>
                                     <SelectValue />
                                 </SelectTrigger>
@@ -159,7 +159,7 @@ export default function EditTariffDialog({
 
                         <div className="space-y-2">
                             <Label htmlFor="ownership_type">Ownership *</Label>
-                            <Select value={formData.ownership_type} onValueChange={(value) => setFormData({ ...formData, ownership_type: value })} modal={false}>
+                            <Select value={formData.ownership_type} onValueChange={(value) => setFormData(prev => ({ ...prev, ownership_type: value }))} modal={false}>
                                 <SelectTrigger>
                                     <SelectValue />
                                 </SelectTrigger>
@@ -174,7 +174,7 @@ export default function EditTariffDialog({
 
                         <div className="space-y-2">
                             <Label htmlFor="mode">Service Type *</Label>
-                            <Select value={formData.mode} onValueChange={(value) => setFormData({ ...formData, mode: value })} modal={false}>
+                            <Select value={formData.mode} onValueChange={(value) => setFormData(prev => ({ ...prev, mode: value }))} modal={false}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select service type" />
                                 </SelectTrigger>
@@ -192,7 +192,7 @@ export default function EditTariffDialog({
                                 <Checkbox
                                     id="is_blanket_tariff"
                                     checked={formData.is_blanket_tariff}
-                                    onCheckedChange={(checked) => setFormData({ ...formData, is_blanket_tariff: checked })}
+                                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_blanket_tariff: checked }))}
                                 />
                                 <Label htmlFor="is_blanket_tariff" className="cursor-pointer">Blanket Tariff</Label>
                             </div>
@@ -204,7 +204,7 @@ export default function EditTariffDialog({
                                 id="effective_date"
                                 type="date"
                                 value={formData.effective_date}
-                                onChange={(e) => setFormData({ ...formData, effective_date: e.target.value })}
+                                onChange={(e) => setFormData(prev => ({ ...prev, effective_date: e.target.value }))}
                                 required
                             />
                         </div>
@@ -215,7 +215,7 @@ export default function EditTariffDialog({
                                 id="expiry_date"
                                 type="date"
                                 value={formData.expiry_date}
-                                onChange={(e) => setFormData({ ...formData, expiry_date: e.target.value })}
+                                onChange={(e) => setFormData(prev => ({ ...prev, expiry_date: e.target.value }))}
                                 required
                             />
                         </div>
@@ -224,7 +224,7 @@ export default function EditTariffDialog({
                     {!formData.is_blanket_tariff ? (
                         <div className="space-y-2">
                             <Label htmlFor="customer_id">Customer *</Label>
-                            <Select value={formData.customer_id} onValueChange={(value) => setFormData({ ...formData, customer_id: value })} modal={false}>
+                            <Select value={formData.customer_id} onValueChange={(value) => setFormData(prev => ({ ...prev, customer_id: value }))} modal={false}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select a customer" />
                                 </SelectTrigger>
