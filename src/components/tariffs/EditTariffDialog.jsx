@@ -144,11 +144,11 @@ export default function EditTariffDialog({
 
                         <div className="space-y-2">
                             <Label htmlFor="status">Status *</Label>
-                            <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))} modal={false}>
+                            <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}>
                                 <SelectTrigger>
                                     <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent className="z-[100]">
+                                <SelectContent>
                                     <SelectItem value="proposed">Proposed</SelectItem>
                                     <SelectItem value="active">Active</SelectItem>
                                     <SelectItem value="expired">Expired</SelectItem>
@@ -159,11 +159,11 @@ export default function EditTariffDialog({
 
                         <div className="space-y-2">
                             <Label htmlFor="ownership_type">Ownership *</Label>
-                            <Select value={formData.ownership_type} onValueChange={(value) => setFormData(prev => ({ ...prev, ownership_type: value }))} modal={false}>
+                            <Select value={formData.ownership_type} onValueChange={(value) => setFormData(prev => ({ ...prev, ownership_type: value }))}>
                                 <SelectTrigger>
                                     <SelectValue />
                                 </SelectTrigger>
-                                <SelectContent className="z-[100]">
+                                <SelectContent>
                                     <SelectItem value="customer_direct">Direct</SelectItem>
                                     <SelectItem value="rocket_csp">Rocket CSP</SelectItem>
                                     <SelectItem value="rocket_blanket">Rocket Blanket</SelectItem>
@@ -174,11 +174,11 @@ export default function EditTariffDialog({
 
                         <div className="space-y-2">
                             <Label htmlFor="mode">Service Type *</Label>
-                            <Select value={formData.mode} onValueChange={(value) => setFormData(prev => ({ ...prev, mode: value }))} modal={false}>
+                            <Select value={formData.mode} onValueChange={(value) => setFormData(prev => ({ ...prev, mode: value }))}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select service type" />
                                 </SelectTrigger>
-                                <SelectContent className="z-[100]">
+                                <SelectContent>
                                     <SelectItem value="LTL">LTL</SelectItem>
                                     <SelectItem value="Home Delivery">Home Delivery</SelectItem>
                                 </SelectContent>
@@ -224,11 +224,11 @@ export default function EditTariffDialog({
                     {!formData.is_blanket_tariff ? (
                         <div className="space-y-2">
                             <Label htmlFor="customer_id">Customer *</Label>
-                            <Select value={formData.customer_id} onValueChange={(value) => setFormData(prev => ({ ...prev, customer_id: value }))} modal={false}>
+                            <Select value={formData.customer_id} onValueChange={(value) => setFormData(prev => ({ ...prev, customer_id: value }))}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select a customer" />
                                 </SelectTrigger>
-                                <SelectContent className="z-[100]">
+                                <SelectContent>
                                     {customers.map(customer => (
                                         <SelectItem key={customer.id} value={customer.id}>
                                             {customer.name}
