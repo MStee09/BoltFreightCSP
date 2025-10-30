@@ -228,13 +228,20 @@ export default function TariffDetailPage() {
 
                     <Card>
                         <CardHeader><CardTitle>Key Information</CardTitle></CardHeader>
-                        <CardContent className="grid grid-cols-2 md:grid-cols-4 gap-6">
+                        <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                            <InfoItem label="Version" value={tariff.version} />
                             <InfoItem label="Status">
                                 <span className={`px-2 py-1 text-xs font-medium rounded-full ${ {active: 'bg-green-100 text-green-800', proposed: 'bg-blue-100 text-blue-800', expired: 'bg-slate-100 text-slate-700', superseded: 'bg-purple-100 text-purple-700'}[tariff.status] || 'bg-gray-100'}`}>{tariff.status}</span>
                             </InfoItem>
+                            <InfoItem label="Ownership" value={tariff.ownership_type} />
+                            <InfoItem label="Service Type" value={tariff.mode || 'N/A'} />
+                            <InfoItem label="Blanket Tariff">
+                                <Badge variant={tariff.is_blanket_tariff ? "default" : "outline"}>
+                                    {tariff.is_blanket_tariff ? "Yes" : "No"}
+                                </Badge>
+                            </InfoItem>
                             <InfoItem label="Effective Date" value={tariff.effective_date ? format(new Date(tariff.effective_date), 'MMM d, yyyy') : 'N/A'} />
                             <InfoItem label="Expiry Date" value={tariff.expiry_date ? format(new Date(tariff.expiry_date), 'MMM d, yyyy') : 'N/A'} />
-                            <InfoItem label="Ownership" value={tariff.ownership_type} />
                             {!tariff.is_blanket_tariff && customer && <InfoItem label="Customer" value={customer.name} />}
                             <InfoItem label="Customer Contact" value={tariff.customer_contact_name} />
                             <InfoItem label="Carrier Contact" value={tariff.carrier_contact_name} />
