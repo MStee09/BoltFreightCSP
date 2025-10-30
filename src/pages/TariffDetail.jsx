@@ -215,7 +215,7 @@ export default function TariffDetailPage() {
                                 )}
                                 {cspEvent && (
                                     <Button variant="outline" className="bg-white" asChild>
-                                        <Link to={createPageUrl(`Pipeline?event=${cspEvent.id}`)}>
+                                        <Link to={createPageUrl(`CspEventDetail?id=${cspEvent.id}`)}>
                                             <File className="w-4 h-4 mr-2" />
                                             View RFP
                                             <ArrowRight className="w-4 h-4 ml-2" />
