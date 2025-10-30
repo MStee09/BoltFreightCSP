@@ -5,7 +5,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
-import { Textarea } from '../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Checkbox } from '../ui/checkbox';
 import { Loader2 } from 'lucide-react';
@@ -21,19 +20,17 @@ export default function EditTariffDialog({
   onSuccess
 }) {
     const queryClient = useQueryClient();
-    const [formData, setFormData] = useState({
-        version: '',
-        status: 'active',
-        ownership_type: 'rocket_csp',
-        mode: '',
-        effective_date: '',
-        expiry_date: '',
-        customer_id: preselectedCustomerId || '',
-        customer_ids: [],
-        carrier_ids: preselectedCarrierIds || [],
-        csp_event_id: preselectedCspEventId || '',
-        is_blanket_tariff: false,
-    });
+
+    const [version, setVersion] = useState('');
+    const [status, setStatus] = useState('active');
+    const [ownershipType, setOwnershipType] = useState('rocket_csp');
+    const [mode, setMode] = useState('');
+    const [effectiveDate, setEffectiveDate] = useState('');
+    const [expiryDate, setExpiryDate] = useState('');
+    const [customerId, setCustomerId] = useState('');
+    const [customerIds, setCustomerIds] = useState([]);
+    const [carrierIds, setCarrierIds] = useState([]);
+    const [isBlanketTariff, setIsBlanketTariff] = useState(false);
 
     const { data: customers = [] } = useQuery({
         queryKey: ['customers'],
@@ -48,30 +45,30 @@ export default function EditTariffDialog({
     });
 
     useEffect(() => {
-        if (tariff) {
-            setFormData({
-                version: tariff.version || '',
-                status: tariff.status || 'proposed',
-                ownership_type: tariff.ownership_type || 'customer_direct',
-                mode: tariff.mode || '',
-                effective_date: tariff.effective_date || '',
-                expiry_date: tariff.expiry_date || '',
-                customer_id: tariff.customer_id || '',
-                customer_ids: tariff.customer_ids || [],
-                carrier_ids: tariff.carrier_ids || [],
-                csp_event_id: tariff.csp_event_id || '',
-                is_blanket_tariff: tariff.is_blanket_tariff || false,
-            });
-        } else if (preselectedCspEventId) {
-            setFormData(prev => ({
-                ...prev,
-                csp_event_id: preselectedCspEventId,
-                customer_id: preselectedCustomerId || prev.customer_id,
-                carrier_ids: preselectedCarrierIds?.length > 0 ? preselectedCarrierIds : prev.carrier_ids,
-                status: 'active'
-            }));
+        if (tariff && open) {
+            setVersion(tariff.version || '');
+            setStatus(tariff.status || 'proposed');
+            setOwnershipType(tariff.ownership_type || 'customer_direct');
+            setMode(tariff.mode || '');
+            setEffectiveDate(tariff.effective_date || '');
+            setExpiryDate(tariff.expiry_date || '');
+            setCustomerId(tariff.customer_id || '');
+            setCustomerIds(tariff.customer_ids || []);
+            setCarrierIds(tariff.carrier_ids || []);
+            setIsBlanketTariff(tariff.is_blanket_tariff || false);
+        } else if (!tariff && open) {
+            setVersion('');
+            setStatus('active');
+            setOwnershipType('rocket_csp');
+            setMode('');
+            setEffectiveDate('');
+            setExpiryDate('');
+            setCustomerId(preselectedCustomerId || '');
+            setCustomerIds([]);
+            setCarrierIds(preselectedCarrierIds || []);
+            setIsBlanketTariff(false);
         }
-    }, [tariff, preselectedCspEventId, preselectedCustomerId, preselectedCarrierIds]);
+    }, [tariff, open, preselectedCustomerId, preselectedCarrierIds]);
 
     const updateMutation = useMutation({
         mutationFn: (data) => tariff ? Tariff.update(tariff.id, data) : Tariff.create(data),
@@ -91,38 +88,49 @@ export default function EditTariffDialog({
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        updateMutation.mutate(formData);
+        const data = {
+            version,
+            status,
+            ownership_type: ownershipType,
+            mode,
+            effective_date: effectiveDate,
+            expiry_date: expiryDate,
+            customer_id: customerId,
+            customer_ids: customerIds,
+            carrier_ids: carrierIds,
+            csp_event_id: preselectedCspEventId || tariff?.csp_event_id || '',
+            is_blanket_tariff: isBlanketTariff,
+        };
+        updateMutation.mutate(data);
     };
 
     const handleCarrierToggle = (carrierId) => {
-        setFormData(prev => ({
-            ...prev,
-            carrier_ids: prev.carrier_ids.includes(carrierId)
-                ? prev.carrier_ids.filter(id => id !== carrierId)
-                : [...prev.carrier_ids, carrierId]
-        }));
+        setCarrierIds(prev =>
+            prev.includes(carrierId)
+                ? prev.filter(id => id !== carrierId)
+                : [...prev, carrierId]
+        );
     };
 
     const handleCustomerToggle = (customerId) => {
-        setFormData(prev => ({
-            ...prev,
-            customer_ids: prev.customer_ids.includes(customerId)
-                ? prev.customer_ids.filter(id => id !== customerId)
-                : [...prev.customer_ids, customerId]
-        }));
+        setCustomerIds(prev =>
+            prev.includes(customerId)
+                ? prev.filter(id => id !== customerId)
+                : [...prev, customerId]
+        );
     };
 
     const handleSelectAllCustomers = () => {
-        if (formData.customer_ids.length === customers.length) {
-            setFormData(prev => ({ ...prev, customer_ids: [] }));
+        if (customerIds.length === customers.length) {
+            setCustomerIds([]);
         } else {
-            setFormData(prev => ({ ...prev, customer_ids: customers.map(c => c.id) }));
+            setCustomerIds(customers.map(c => c.id));
         }
     };
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent key={tariff?.id || 'new'} className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle>{tariff ? 'Edit Tariff Details' : 'Create New Tariff'}</DialogTitle>
                     <DialogDescription>
@@ -136,15 +144,15 @@ export default function EditTariffDialog({
                             <Label htmlFor="version">Version *</Label>
                             <Input
                                 id="version"
-                                value={formData.version}
-                                onChange={(e) => setFormData(prev => ({ ...prev, version: e.target.value }))}
+                                value={version}
+                                onChange={(e) => setVersion(e.target.value)}
                                 required
                             />
                         </div>
 
                         <div className="space-y-2">
                             <Label htmlFor="status">Status *</Label>
-                            <Select value={formData.status} onValueChange={(value) => setFormData(prev => ({ ...prev, status: value }))}>
+                            <Select value={status} onValueChange={setStatus}>
                                 <SelectTrigger>
                                     <SelectValue />
                                 </SelectTrigger>
@@ -159,7 +167,7 @@ export default function EditTariffDialog({
 
                         <div className="space-y-2">
                             <Label htmlFor="ownership_type">Ownership *</Label>
-                            <Select value={formData.ownership_type} onValueChange={(value) => setFormData(prev => ({ ...prev, ownership_type: value }))}>
+                            <Select value={ownershipType} onValueChange={setOwnershipType}>
                                 <SelectTrigger>
                                     <SelectValue />
                                 </SelectTrigger>
@@ -174,7 +182,7 @@ export default function EditTariffDialog({
 
                         <div className="space-y-2">
                             <Label htmlFor="mode">Service Type *</Label>
-                            <Select value={formData.mode} onValueChange={(value) => setFormData(prev => ({ ...prev, mode: value }))}>
+                            <Select value={mode} onValueChange={setMode}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select service type" />
                                 </SelectTrigger>
@@ -191,8 +199,8 @@ export default function EditTariffDialog({
                             <div className="flex items-center gap-2 h-10">
                                 <Checkbox
                                     id="is_blanket_tariff"
-                                    checked={formData.is_blanket_tariff}
-                                    onCheckedChange={(checked) => setFormData(prev => ({ ...prev, is_blanket_tariff: checked }))}
+                                    checked={isBlanketTariff}
+                                    onCheckedChange={setIsBlanketTariff}
                                 />
                                 <Label htmlFor="is_blanket_tariff" className="cursor-pointer">Blanket Tariff</Label>
                             </div>
@@ -203,8 +211,8 @@ export default function EditTariffDialog({
                             <Input
                                 id="effective_date"
                                 type="date"
-                                value={formData.effective_date}
-                                onChange={(e) => setFormData(prev => ({ ...prev, effective_date: e.target.value }))}
+                                value={effectiveDate}
+                                onChange={(e) => setEffectiveDate(e.target.value)}
                                 required
                             />
                         </div>
@@ -214,17 +222,17 @@ export default function EditTariffDialog({
                             <Input
                                 id="expiry_date"
                                 type="date"
-                                value={formData.expiry_date}
-                                onChange={(e) => setFormData(prev => ({ ...prev, expiry_date: e.target.value }))}
+                                value={expiryDate}
+                                onChange={(e) => setExpiryDate(e.target.value)}
                                 required
                             />
                         </div>
                     </div>
 
-                    {!formData.is_blanket_tariff ? (
+                    {!isBlanketTariff ? (
                         <div className="space-y-2">
                             <Label htmlFor="customer_id">Customer *</Label>
-                            <Select value={formData.customer_id} onValueChange={(value) => setFormData(prev => ({ ...prev, customer_id: value }))}>
+                            <Select value={customerId} onValueChange={setCustomerId}>
                                 <SelectTrigger>
                                     <SelectValue placeholder="Select a customer" />
                                 </SelectTrigger>
@@ -247,7 +255,7 @@ export default function EditTariffDialog({
                                     size="sm"
                                     onClick={handleSelectAllCustomers}
                                 >
-                                    {formData.customer_ids.length === customers.length ? 'Deselect All' : 'Select All'}
+                                    {customerIds.length === customers.length ? 'Deselect All' : 'Select All'}
                                 </Button>
                             </div>
                             <div className="border rounded-lg p-4 space-y-2 max-h-48 overflow-y-auto">
@@ -255,7 +263,7 @@ export default function EditTariffDialog({
                                     <div key={customer.id} className="flex items-center gap-2">
                                         <Checkbox
                                             id={`customer-${customer.id}`}
-                                            checked={formData.customer_ids.includes(customer.id)}
+                                            checked={customerIds.includes(customer.id)}
                                             onCheckedChange={() => handleCustomerToggle(customer.id)}
                                         />
                                         <Label htmlFor={`customer-${customer.id}`} className="cursor-pointer flex-1">
@@ -274,7 +282,7 @@ export default function EditTariffDialog({
                                 <div key={carrier.id} className="flex items-center gap-2">
                                     <Checkbox
                                         id={`carrier-${carrier.id}`}
-                                        checked={formData.carrier_ids.includes(carrier.id)}
+                                        checked={carrierIds.includes(carrier.id)}
                                         onCheckedChange={() => handleCarrierToggle(carrier.id)}
                                     />
                                     <Label htmlFor={`carrier-${carrier.id}`} className="cursor-pointer flex-1">
