@@ -1052,7 +1052,7 @@ export default function TariffsPage() {
                                         <div className="flex flex-col gap-1">
                                           <span className="text-slate-500 font-medium">Created via</span>
                                           <Link
-                                            to={createPageUrl(`Pipeline?detailId=${cspEvent.id}`)}
+                                            to={createPageUrl(`CspEventDetail?id=${cspEvent.id}`)}
                                             className="text-blue-600 hover:text-blue-700 hover:underline font-medium flex items-center gap-1"
                                             onClick={(e) => e.stopPropagation()}
                                           >
