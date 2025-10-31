@@ -122,15 +122,41 @@ export function UserManagement() {
 
   const fetchInvitations = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: invitationsData, error: invitationsError } = await supabase
         .from('user_invitations')
-        .select('*, invited_by_profile:user_profiles!invited_by(full_name, email)')
+        .select('*')
         .eq('status', 'pending')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (invitationsError) throw invitationsError;
 
-      setInvitations(data || []);
+      if (!invitationsData || invitationsData.length === 0) {
+        setInvitations([]);
+        return;
+      }
+
+      const inviterIds = [...new Set(invitationsData.map(inv => inv.invited_by).filter(Boolean))];
+
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('user_profiles')
+        .select('id, full_name, email')
+        .in('id', inviterIds);
+
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError);
+      }
+
+      const profilesMap = (profilesData || []).reduce((acc, profile) => {
+        acc[profile.id] = profile;
+        return acc;
+      }, {});
+
+      const enrichedInvitations = invitationsData.map(inv => ({
+        ...inv,
+        invited_by_profile: profilesMap[inv.invited_by] || null
+      }));
+
+      setInvitations(enrichedInvitations);
     } catch (error) {
       console.error('Error fetching invitations:', error);
       toast.error('Failed to load invitations');
