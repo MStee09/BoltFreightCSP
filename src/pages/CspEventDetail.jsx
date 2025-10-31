@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Customer, Carrier, CSPEvent } from '../api/entities';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
@@ -17,6 +17,7 @@ import ManageCarriersDialog from '../components/pipeline/ManageCarriersDialog';
 import InteractionTimeline from '../components/customers/InteractionTimeline';
 
 export default function CspEventDetail() {
+    const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const eventId = searchParams.get('id');
     const defaultTab = searchParams.get('tab') || 'activity';
@@ -59,10 +60,14 @@ export default function CspEventDetail() {
     return (
         <>
             <div className="p-6 lg:p-8 max-w-[1600px] mx-auto">
-                <Link to={createPageUrl("Pipeline")} className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 mb-6">
+                <Button
+                    variant="ghost"
+                    onClick={() => navigate(createPageUrl("Pipeline"))}
+                    className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 mb-6 -ml-2"
+                >
                     <ArrowLeft className="w-4 h-4" />
                     Back to Pipeline
-                </Link>
+                </Button>
 
                 <div className="flex items-start justify-between mb-4">
                     <div>
