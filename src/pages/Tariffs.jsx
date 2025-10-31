@@ -802,15 +802,6 @@ export default function TariffsPage() {
                             <Plus className="w-3 h-3 mr-1" />
                             Add Tariff
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-7 text-xs"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <GitCompare className="w-3 h-3 mr-1" />
-                            Compare
-                          </Button>
                         </div>
                       </div>
                       </button>
@@ -1067,22 +1058,6 @@ export default function TariffsPage() {
                                           <span className="text-slate-700 font-medium">{format(new Date(mostRecentUpdate), 'MMM d, yyyy')}</span>
                                         </div>
                                       )}
-                                      {family.versions.length > 1 && (
-                                        <div className="flex flex-col gap-1">
-                                          <span className="text-slate-500 font-medium">Actions</span>
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="h-6 text-xs px-2"
-                                            onClick={(e) => {
-                                              e.stopPropagation();
-                                            }}
-                                          >
-                                            <GitCompare className="w-3 h-3 mr-1" />
-                                            Compare
-                                          </Button>
-                                        </div>
-                                      )}
                                     </div>
                                   </div>
                                   )}
@@ -1180,40 +1155,6 @@ export default function TariffsPage() {
                                           </Button>
                                         </TooltipTrigger>
                                         <TooltipContent>View</TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-7 w-7"
-                                            onClick={(e) => {
-                                              e.preventDefault();
-                                            }}
-                                          >
-                                            <GitCompare className="w-3.5 h-3.5" />
-                                          </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>Compare</TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-7 w-7"
-                                            onClick={(e) => {
-                                              e.preventDefault();
-                                            }}
-                                          >
-                                            <RefreshCw className="w-3.5 h-3.5" />
-                                          </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>Renew</TooltipContent>
                                       </Tooltip>
                                     </TooltipProvider>
                                     <TooltipProvider>
