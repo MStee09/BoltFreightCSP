@@ -95,16 +95,25 @@ export default function Dashboard() {
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
   const sevenDaysAgoStr = sevenDaysAgo.toISOString();
 
-  const previousWeekCustomers = customers.filter(c => new Date(c.created_date) < sevenDaysAgo).length;
-  const previousWeekCarriers = carriers.filter(c => new Date(c.created_date) < sevenDaysAgo).length;
-  const previousWeekActiveTariffs = tariffs.filter(t =>
+  const customersAddedLastWeek = customers.filter(c => c.created_date && new Date(c.created_date) >= sevenDaysAgo).length;
+  const previousWeekCustomers = customers.length - customersAddedLastWeek;
+
+  const carriersAddedLastWeek = carriers.filter(c => c.created_date && new Date(c.created_date) >= sevenDaysAgo).length;
+  const previousWeekCarriers = carriers.length - carriersAddedLastWeek;
+
+  const activeTariffsAddedLastWeek = tariffs.filter(t =>
     t.status === 'active' &&
-    new Date(t.created_date || t.effective_date) < sevenDaysAgo
+    t.created_date &&
+    new Date(t.created_date || t.effective_date) >= sevenDaysAgo
   ).length;
-  const previousWeekOpenEvents = cspEvents.filter(e =>
+  const previousWeekActiveTariffs = tariffs.filter(t => t.status === 'active').length - activeTariffsAddedLastWeek;
+
+  const openEventsAddedLastWeek = cspEvents.filter(e =>
     e.status === 'in_progress' &&
-    new Date(e.created_date) < sevenDaysAgo
+    e.created_date &&
+    new Date(e.created_date) >= sevenDaysAgo
   ).length;
+  const previousWeekOpenEvents = cspEvents.filter(e => e.status === 'in_progress').length - openEventsAddedLastWeek;
 
   const handleClearMockData = async () => {
     setIsLoadingMockData(true);
