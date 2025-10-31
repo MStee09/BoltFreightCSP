@@ -5,10 +5,11 @@ import { Input } from '../ui/input';
 import { ScrollArea } from '../ui/scroll-area';
 import { Badge } from '../ui/badge';
 import { useToast } from '../ui/use-toast';
-import { MessageCircle, Send, X, Minimize2, Maximize2, Loader2, Sparkles, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { MessageCircle, Send, X, Minimize2, Maximize2, Loader2, Sparkles, AlertCircle, CheckCircle2, MessageSquarePlus } from 'lucide-react';
 import { supabase } from '../../api/supabaseClient';
 import { Customer, Carrier } from '../../api/entities';
 import { useQuery } from '@tanstack/react-query';
+import FeedbackDialog from '../feedback/FeedbackDialog';
 
 function FormattedMessage({ content }) {
   const formatContent = (text) => {
@@ -105,6 +106,7 @@ export function DashboardChatbot() {
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const scrollRef = useRef(null);
   const { toast } = useToast();
 
@@ -250,6 +252,12 @@ export function DashboardChatbot() {
     "How does the workflow work?"
   ];
 
+  const feedbackOption = {
+    text: "Submit Feedback or Report Issue",
+    icon: MessageSquarePlus,
+    action: () => setFeedbackOpen(true)
+  };
+
   const handleSuggestedQuestion = (question) => {
     setMessage(question);
   };
@@ -354,6 +362,13 @@ export function DashboardChatbot() {
                       {question}
                     </button>
                   ))}
+                  <button
+                    onClick={feedbackOption.action}
+                    className="w-full text-left px-4 py-3 text-sm bg-gradient-to-r from-green-50 to-blue-50 hover:from-green-100 hover:to-blue-100 rounded-lg border-2 border-green-200 hover:border-green-300 transition-all shadow-sm hover:shadow flex items-center gap-2 font-medium text-green-900"
+                  >
+                    <MessageSquarePlus className="w-4 h-4" />
+                    {feedbackOption.text}
+                  </button>
                 </div>
               </div>
             ) : (
@@ -412,6 +427,7 @@ export function DashboardChatbot() {
           </p>
         </div>
       </CardContent>
+      <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
     </Card>
   );
 }
