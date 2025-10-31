@@ -18,7 +18,8 @@ import {
   AreaChart,
   Settings,
   Shield,
-  HelpCircle
+  HelpCircle,
+  MessageSquarePlus
 } from "lucide-react";
 import {
   Sidebar,
@@ -35,9 +36,11 @@ import {
   SidebarTrigger,
 } from "../components/ui/sidebar";
 import { Badge } from "../components/ui/badge";
+import { Button } from "../components/ui/button";
 import { DashboardChatbot } from "../components/dashboard/DashboardChatbot";
 import NotificationBell from "../components/notifications/NotificationBell";
 import OnboardingTour from "../components/onboarding/OnboardingTour";
+import FeedbackDialog from "../components/feedback/FeedbackDialog";
 
 
 const navigationItems = [
@@ -92,6 +95,7 @@ export default function Layout({ children, currentPageName }) {
   const location = useLocation();
   const { isAdmin, userProfile } = useUserRole();
   const [currentUser, setCurrentUser] = useState(null);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   const { data: rawCustomers = [] } = useQuery({
     queryKey: ['customers'],
@@ -297,6 +301,16 @@ export default function Layout({ children, currentPageName }) {
           </div>
         </main>
         <DashboardChatbot />
+
+        <Button
+          onClick={() => setFeedbackOpen(true)}
+          className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg bg-gradient-to-br from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 z-40 group"
+          title="Submit Feedback"
+        >
+          <MessageSquarePlus className="w-6 h-6 group-hover:scale-110 transition-transform" />
+        </Button>
+
+        <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
       </div>
     </SidebarProvider>
     </>
