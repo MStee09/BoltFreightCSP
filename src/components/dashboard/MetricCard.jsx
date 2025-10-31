@@ -19,11 +19,13 @@ export default function MetricCard({
   const linkUrl = linkTo ? `${createPageUrl(linkTo)}${filterParam ? `?filter=${filterParam}` : ''}` : '';
   const cardProps = linkTo ? { to: linkUrl, className: "block" } : {};
 
-  const calculatedTrend = previousValue !== undefined && previousValue !== null && value !== previousValue
-    ? Math.round(((value - previousValue) / (previousValue || 1)) * 100)
+  const calculatedTrend = previousValue !== undefined && previousValue !== null
+    ? previousValue === 0
+      ? (value > 0 ? 100 : 0)
+      : Math.round(((value - previousValue) / previousValue) * 100)
     : null;
 
-  const isTrendUp = calculatedTrend !== null ? calculatedTrend > 0 : trendUp;
+  const isTrendUp = calculatedTrend !== null ? calculatedTrend >= 0 : trendUp;
   const trendDisplay = calculatedTrend !== null ? `${calculatedTrend > 0 ? '+' : ''}${calculatedTrend}%` : trend;
 
   return (
