@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation, Link, useNavigate } from "react-router-dom";
 import { Customer, Carrier, Tariff, CSPEvent, Task, Interaction, Alert, Shipment, LostOpportunity, ReportSnapshot } from "../api/entities";
+import { supabase } from "../api/supabaseClient";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -188,6 +189,9 @@ export default function PipelinePage() {
   const [filterCustomer, setFilterCustomer] = useState(null);
   const [filterMode, setFilterMode] = useState(null);
   const [showStaleOnly, setShowStaleOnly] = useState(false);
+  const [quickActionDialog, setQuickActionDialog] = useState({ open: false, type: null, event: null });
+  const [quickNote, setQuickNote] = useState('');
+  const [quickAssignee, setQuickAssignee] = useState('');
   const rfpSentRef = useRef(null);
   const containerRef = useRef(null);
   const stageRefs = useRef({});
