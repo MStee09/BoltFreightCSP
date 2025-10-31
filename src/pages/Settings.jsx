@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 import { GmailSetupSimple } from '@/components/email/GmailSetupSimple';
 import { UserManagement } from '@/components/admin/UserManagement';
 import { SystemSettings } from '@/components/admin/SystemSettings';
@@ -14,7 +16,10 @@ import { AlertSettings } from '@/components/settings/AlertSettings';
 import { UserProfile } from '@/components/settings/UserProfile';
 import KnowledgeBaseSettings from '@/components/settings/KnowledgeBase';
 import { useUserRole } from '@/hooks/useUserRole';
-import { Settings as SettingsIcon, Shield, AlertCircle } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from '@/api/supabaseClient';
+import { useToast } from '@/components/ui/use-toast';
+import { Settings as SettingsIcon, Shield, AlertCircle, PlayCircle } from 'lucide-react';
 
 const ROLE_DESCRIPTIONS = {
   admin: {
@@ -88,7 +93,45 @@ const ROLE_DESCRIPTIONS = {
 };
 
 export default function Settings() {
+  const { user } = useAuth();
   const { isAdmin, isElite, role, loading, userProfile } = useUserRole();
+  const { toast } = useToast();
+  const [restartingTour, setRestartingTour] = useState(false);
+
+  const handleRestartTour = async () => {
+    setRestartingTour(true);
+    try {
+      const { error } = await supabase
+        .from('user_onboarding_state')
+        .update({
+          onboarding_completed: false,
+          current_step: 0,
+          skipped: false,
+          completed_at: null
+        })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Tour restarted",
+        description: "The onboarding tour will appear when you refresh the page."
+      });
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+    } catch (error) {
+      console.error('Error restarting tour:', error);
+      toast({
+        title: "Error",
+        description: "Failed to restart the tour. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setRestartingTour(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -239,10 +282,22 @@ export default function Settings() {
                   Customize your experience
                 </CardDescription>
               </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Additional preferences coming soon...
-                </p>
+              <CardContent className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-medium text-slate-900 mb-2">Onboarding Tour</h3>
+                  <p className="text-sm text-slate-600 mb-3">
+                    Replay the interactive tour to learn about all the features and become a power user.
+                  </p>
+                  <Button
+                    onClick={handleRestartTour}
+                    disabled={restartingTour}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <PlayCircle className="w-4 h-4 mr-2" />
+                    {restartingTour ? 'Restarting...' : 'Restart Onboarding Tour'}
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </div>

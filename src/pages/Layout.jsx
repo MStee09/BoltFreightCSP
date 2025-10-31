@@ -37,6 +37,7 @@ import {
 import { Badge } from "../components/ui/badge";
 import { DashboardChatbot } from "../components/dashboard/DashboardChatbot";
 import NotificationBell from "../components/notifications/NotificationBell";
+import OnboardingTour from "../components/onboarding/OnboardingTour";
 
 
 const navigationItems = [
@@ -154,8 +155,10 @@ export default function Layout({ children, currentPageName }) {
   }).length;
 
   return (
-    <SidebarProvider>
-      <div className="min-h-screen flex w-full bg-gradient-to-br from-slate-50 via-white to-blue-50">
+    <>
+      <OnboardingTour />
+      <SidebarProvider>
+        <div className="min-h-screen flex w-full bg-gradient-to-br from-slate-50 via-white to-blue-50">
         <Sidebar className="border-r border-slate-200 bg-white">
           <SidebarHeader className="border-b border-slate-200 p-6">
             <div className="flex items-center justify-between gap-3">
@@ -296,6 +299,7 @@ export default function Layout({ children, currentPageName }) {
         <DashboardChatbot />
       </div>
     </SidebarProvider>
+    </>
   );
 }
 
