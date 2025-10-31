@@ -36,6 +36,7 @@ import {
 } from "../components/ui/sidebar";
 import { Badge } from "../components/ui/badge";
 import { DashboardChatbot } from "../components/dashboard/DashboardChatbot";
+import NotificationBell from "../components/notifications/NotificationBell";
 
 
 const navigationItems = [
@@ -157,14 +158,17 @@ export default function Layout({ children, currentPageName }) {
       <div className="min-h-screen flex w-full bg-gradient-to-br from-slate-50 via-white to-blue-50">
         <Sidebar className="border-r border-slate-200 bg-white">
           <SidebarHeader className="border-b border-slate-200 p-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-lg">
-                <Truck className="w-6 h-6 text-white" />
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl flex items-center justify-center shadow-lg">
+                  <Truck className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h2 className="font-bold text-slate-900 text-lg">FreightOps</h2>
+                  <p className="text-xs text-slate-500">CSP & Carrier Management</p>
+                </div>
               </div>
-              <div>
-                <h2 className="font-bold text-slate-900 text-lg">FreightOps</h2>
-                <p className="text-xs text-slate-500">CSP & Carrier Management</p>
-              </div>
+              <NotificationBell />
             </div>
           </SidebarHeader>
           
@@ -276,9 +280,12 @@ export default function Layout({ children, currentPageName }) {
 
         <main className="flex-1 flex flex-col">
           <header className="bg-white border-b border-slate-200 px-6 py-4 lg:hidden">
-            <div className="flex items-center gap-4">
-              <SidebarTrigger className="hover:bg-slate-100 p-2 rounded-lg transition-colors" />
-              <h1 className="text-xl font-bold text-slate-900">FreightOps</h1>
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <SidebarTrigger className="hover:bg-slate-100 p-2 rounded-lg transition-colors" />
+                <h1 className="text-xl font-bold text-slate-900">FreightOps</h1>
+              </div>
+              <NotificationBell />
             </div>
           </header>
 
