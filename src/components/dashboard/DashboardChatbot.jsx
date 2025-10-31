@@ -243,9 +243,11 @@ export function DashboardChatbot() {
 
   const suggestedQuestions = [
     "What should I focus on today?",
+    "How do I start a new CSP bid?",
     "Show me my top customers",
+    "Where do I find expiring tariffs?",
     "Any data quality issues?",
-    "What's happening in my pipeline?"
+    "How does the workflow work?"
   ];
 
   const handleSuggestedQuestion = (question) => {

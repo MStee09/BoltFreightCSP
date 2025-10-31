@@ -141,7 +141,195 @@ Deno.serve(async (req: Request) => {
       `- [${a.priority}] ${a.title} (${a.entity_type})`
     ).join('\n') || 'No active alerts';
 
-    const defaultInstructions = `You are a knowledgeable logistics and procurement assistant helping ${userFirstName} understand their transportation management data. Address them by their first name occasionally to keep the conversation personal and friendly. Provide clear, data-driven insights. Be conversational but professional. When asked about specific data, reference the actual numbers provided in the context.\n\nIMPORTANT: When the user asks about data quality or what they should focus on, actively look for issues in the data:\n- Missing contact information (email, phone, names)\n- Incomplete carrier information (missing SCAC codes)\n- Customers without segments or spend data\n- Tariffs without proper dates or rates\n\nIf you notice data quality issues in the message context, proactively point them out and tell the user exactly where to fix them (e.g., "Go to the Customers page and fill in contact emails for 3 customers" or "Visit the Carriers page - 2 carriers are missing SCAC codes").`;
+    const appUsageGuide = `
+# FreightOps Complete Usage Guide
+
+## Core Purpose
+FreightOps is a CSP (Carrier Service Procurement) management system designed to manage the entire lifecycle: identifying opportunities, creating CSP events, inviting carriers, collecting bids, awarding contracts, publishing tariffs, and tracking renewals.
+
+## The Golden Workflow Sequence
+
+### 1. Identify the Opportunity
+- Navigate to Customers page
+- Search for the customer or create a new one (Name, Ownership, Assigned Owner, Contact Info)
+- Review their Tariffs tab to check for expiring tariffs or improvement opportunities
+- Goal: Identify which customer's lanes need bidding
+
+### 2. Create a New CSP Event
+- Go to Pipeline → Click "+ New CSP Event"
+- Fill in: Name (e.g., "2025 Contract Renewal – LTL"), Customer, Priority, Assigned Owner
+- Select Service Type (LTL or Home Delivery LTL) and Ownership (Rocket CSP or Customer Direct)
+- Add context in Description/Notes explaining the rebid reason
+- Goal: Create a centralized workspace for the entire CSP process
+
+### 3. Upload Data for Strategy
+- Inside the CSP Event → Navigate to Documents/Data Room section
+- Upload: Shipment/lane data files (Excel, CSV), Historical rate performance, Accessorial notes
+- Add summary notes (e.g., "2024 historical volume with 3-month lane averages")
+- Goal: Have a ready-to-go bid package for carriers
+
+### 4. Choose Carriers and Send Invitations
+- In the CSP Event → Click "Invite Carriers" or "Manage Carriers"
+- Select carriers from your list
+- Add SOP documents or bid rules
+- Use standardized subject lines: "Rocketshipping | Invitation to Participate – [Customer Name] CSP Bid"
+- Goal: All invited carriers are logged and tracked within the CSP Event
+
+### 5. Manage Email Communication
+- Compose emails directly in the CSP Event (not in Outlook)
+- System automatically saves all emails to Activity Timeline
+- Use standardized subject lines for consistency
+- Goal: Never lose track of email conversations
+
+### 6. Collect Carrier Submissions (QA Stage)
+- Upload carrier rate sheets to the CSP Event
+- Record validation notes (missing lanes, incorrect FSC, etc.)
+- Log submission results in event timeline
+- Move the CSP card to "Carrier Submissions / QA Round" → "Round 2 / Optimization"
+- Goal: All bids stored, validated, and ready for analysis
+
+### 7. Optimize and Select Winners
+- Review all bids (manually or via export)
+- Document analysis in Activity Timeline
+- Select winning carriers per region, lane, or mode
+- Move CSP card to "Award & Tariff Finalization"
+- System prompts you to create a Proposed Tariff Version
+- Goal: Lock in winning carriers and generate proposed tariff
+
+### 8. Award the Tariff
+- Go to Tariffs → Rocket CSP
+- Review the Proposed Tariff Version
+- Upload: Awarded rate table, Finalized carrier list, Effective/expiry dates
+- Mark as "Finalized / Published → Active"
+- System automatically closes CSP Event and creates audit entries
+- Goal: Tariff is now active and linked to Customer and Carrier
+
+### 9. Upload Supporting SOPs
+- Open the Tariff → SOP tab
+- Add SOP Notes (internal guidance or special handling rules)
+- Upload SOP Documents (carrier procedures, weekend delivery guides, PDFs)
+- Tag as "Internal" (team only) or "Shared" (carrier viewable)
+- Version control is automatic
+- Goal: Complete operational documentation
+
+### 10. Implementation & Validation
+- Verify billing accuracy with carriers/customers
+- Confirm rates loaded correctly in TMS
+- Log validation completion in Activity Timeline
+- Move CSP Event to "Validation & Monitoring" stage
+- Goal: Confirm tariff works in practice
+
+### 11. Renewal Watch and Alerts
+- System alerts when tariffs are expiring < 90 days
+- Check Dashboard → Alerts or Calendar View
+- Monitor for Stale CSP Events (30+ days idle)
+- Review Task Due notifications
+- Goal: Never miss an expiry or renewal window
+
+### 12. Continuous Improvement
+- Review performance metrics (on-time awards, savings, response rates)
+- Update SOPs based on lessons learned
+- Document insights in Activity Timeline
+- Goal: Each cycle gets faster and more effective
+
+## Key Features & How to Use Them
+
+### Pipeline Board
+- Visual Kanban board for managing all active CSPs
+- Drag-and-drop cards between stages
+- Filter by assignee, customer, mode, or show only stale events
+- Click any card to view detailed information
+
+### Tariffs Tab
+- View all live or expiring contracts
+- Organized by ownership type (Rocket CSP vs Customer Direct) and family
+- Documents tab shows uploaded tariff files
+- SOPs tab contains operational procedures
+
+### Customers Page
+- Complete customer relationship management
+- View all interactions, tariffs, and documents per customer
+- Track customer segments, revenue tiers, and active lanes
+- Access CSP Strategy tab for upcoming opportunities
+
+### Carriers Page
+- Manage carrier relationships and performance metrics
+- Track SCAC codes, service quality scores, on-time percentages
+- View all tariffs and interactions per carrier
+- Manage carrier contacts
+
+### Activity Timelines
+- Every entity (Customer, Carrier, Tariff, CSP Event) has an activity timeline
+- Automatic logging of all emails, notes, and status changes
+- Full audit trail for compliance and review
+
+### Alerts & Calendar
+- Smart reminders for expirations, reviews, and overdue tasks
+- Calendar view shows all important dates
+- Dashboard displays high-priority alerts
+
+### Reports
+- CSP Effectiveness Reports: bid success rates, savings achieved
+- User Performance Reports: productivity metrics, awards completed
+- Analyze carrier response times and quality
+
+## Power User Habits
+
+1. **Start every project in Pipeline**: Keeps process structured
+2. **Keep communication inside CSP Events**: Ensures transparency and traceability
+3. **Move cards weekly**: Prevents stale events
+4. **Log everything in Activity Timeline**: Your future self will thank you
+5. **Check 'Expiring < 90d' every Monday**: Stay ahead of renewals
+6. **Update SOPs quarterly**: Ensures operational accuracy
+7. **Always finalize tariffs via Award Stage**: Keeps audit trail complete
+
+## Navigation Tips
+
+- **Dashboard**: Your command center with metrics, alerts, and tasks
+- **Pipeline**: Kanban board for active CSP events
+- **Customers**: Relationship management and tariff history
+- **Carriers**: Carrier performance and contact management
+- **Tariffs**: All active contracts with documents and SOPs
+- **Calendar**: Timeline view of all important dates
+- **Reports**: Analytics and performance metrics
+- **Settings**: Configure email, AI chatbot, user profile, and system preferences
+
+## Common Questions Answered
+
+**Q: How do I start a new CSP bid?**
+A: Pipeline → + New CSP Event → Fill in details → Upload data → Invite carriers
+
+**Q: Where do I find expiring tariffs?**
+A: Dashboard shows "Expiring < 90 Days" or go to Tariffs and filter by expiration date
+
+**Q: How do I send emails to carriers?**
+A: Open the CSP Event → Click email compose → Recipients are automatically tracked
+
+**Q: Where are documents stored?**
+A: Each CSP Event and Tariff has a Documents tab for file uploads
+
+**Q: How do I track what happened?**
+A: Check the Activity Timeline on any Customer, Carrier, Tariff, or CSP Event detail page
+
+**Q: What if I need help?**
+A: Click Help in the sidebar for the complete guide, or ask me (the AI chatbot) anything!
+`;
+
+    const defaultInstructions = `You are a knowledgeable logistics and procurement assistant helping ${userFirstName} understand their transportation management data and learn how to use FreightOps effectively. Address them by their first name occasionally to keep the conversation personal and friendly. Provide clear, data-driven insights. Be conversational but professional.
+
+When asked about specific data, reference the actual numbers provided in the context. When asked about how to use the app or what to do next, reference the comprehensive usage guide provided.
+
+IMPORTANT: When users ask "how do I...", "where can I...", "what should I...", or "help with..." questions, provide step-by-step guidance from the usage guide. Be specific about which page to visit, which buttons to click, and what fields to fill in.
+
+When the user asks about data quality or what they should focus on, actively look for issues in the data:
+- Missing contact information (email, phone, names)
+- Incomplete carrier information (missing SCAC codes)
+- Customers without segments or spend data
+- Tariffs without proper dates or rates
+
+If you notice data quality issues, proactively point them out and tell the user exactly where to fix them (e.g., "Go to the Customers page and fill in contact emails for 3 customers" or "Visit the Carriers page - 2 carriers are missing SCAC codes").
+
+You have complete knowledge of how FreightOps works. Help users navigate the system, understand best practices, and follow the Golden Workflow Sequence for maximum efficiency.`;
 
     const systemPrompt = aiSettings?.instructions || defaultInstructions;
     const knowledgeBase = aiSettings?.knowledge_base || '';
@@ -152,6 +340,7 @@ Deno.serve(async (req: Request) => {
 
     const messages = [
       { role: "system", content: systemPrompt },
+      { role: "system", content: appUsageGuide },
       { role: "system", content: dataContext }
     ];
 
