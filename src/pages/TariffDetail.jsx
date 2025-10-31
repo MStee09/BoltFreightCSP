@@ -139,6 +139,7 @@ export default function TariffDetailPage() {
 
     useEffect(() => {
         if (location.hash === '#documents' && tariff) {
+            setActiveTab('documents');
             setTimeout(() => {
                 const element = document.getElementById('documents-section');
                 if (element) {
