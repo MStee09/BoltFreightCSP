@@ -6,7 +6,7 @@ import { createPageUrl } from "../utils";
 import { useUserRole } from "../hooks/useUserRole";
 import { supabase } from "../api/supabaseClient";
 import { useQuery } from "@tanstack/react-query";
-import { Tariff, CSPEvent, Alert } from "../api/entities";
+import { Tariff, CSPEvent, Alert, Customer, Carrier } from "../api/entities";
 import { differenceInDays } from "date-fns";
 import {
   LayoutDashboard,
@@ -91,6 +91,16 @@ export default function Layout({ children, currentPageName }) {
   const { isAdmin, userProfile } = useUserRole();
   const [currentUser, setCurrentUser] = useState(null);
 
+  const { data: rawCustomers = [] } = useQuery({
+    queryKey: ['customers'],
+    queryFn: () => Customer.list(),
+  });
+
+  const { data: rawCarriers = [] } = useQuery({
+    queryKey: ['carriers'],
+    queryFn: () => Carrier.list(),
+  });
+
   const { data: rawTariffs = [] } = useQuery({
     queryKey: ['tariffs'],
     queryFn: () => Tariff.list(),
@@ -122,9 +132,14 @@ export default function Layout({ children, currentPageName }) {
     return [];
   };
 
+  const customers = toArray(rawCustomers);
+  const carriers = toArray(rawCarriers);
   const tariffs = toArray(rawTariffs);
   const cspEvents = toArray(rawCspEvents);
   const alerts = toArray(rawAlerts);
+
+  const activeCustomersCount = customers.filter(c => c.status === 'active').length;
+  const activeCarriersCount = carriers.length;
 
   const expiringTariffsCount = tariffs.filter(t => {
     if (!t?.expiry_date || t.status !== 'active') return false;
@@ -208,19 +223,19 @@ export default function Layout({ children, currentPageName }) {
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-slate-600">Active Customers</span>
                     <Badge variant="secondary" className="bg-blue-50 text-blue-700 font-semibold">
-                      0
+                      {activeCustomersCount}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-slate-600">Active Carriers</span>
                     <Badge variant="secondary" className="bg-green-50 text-green-700 font-semibold">
-                      0
+                      {activeCarriersCount}
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-slate-600">Expiring Soon</span>
                     <Badge variant="secondary" className="bg-amber-50 text-amber-700 font-semibold">
-                      0
+                      {expiringTariffsCount}
                     </Badge>
                   </div>
                 </div>
