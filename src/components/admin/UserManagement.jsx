@@ -37,7 +37,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Users, Plus, Edit, Trash2, Shield, User, CheckCircle, XCircle, Star, FileText, Eye } from 'lucide-react';
+import { Users, Plus, Edit, Trash2, Shield, User, CheckCircle, XCircle, Star, FileText, Eye, Mail, Clock, X } from 'lucide-react';
 import { supabase } from '@/api/supabaseClient';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -45,6 +45,7 @@ import { InviteUserDialog } from './InviteUserDialog';
 
 export function UserManagement() {
   const [users, setUsers] = useState([]);
+  const [invitations, setInvitations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editingUser, setEditingUser] = useState(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -55,9 +56,10 @@ export function UserManagement() {
 
   useEffect(() => {
     fetchUsers();
+    fetchInvitations();
     getCurrentUser();
 
-    const channel = supabase
+    const profilesChannel = supabase
       .channel('user-profiles-changes')
       .on(
         'postgres_changes',
@@ -72,8 +74,24 @@ export function UserManagement() {
       )
       .subscribe();
 
+    const invitationsChannel = supabase
+      .channel('user-invitations-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_invitations',
+        },
+        () => {
+          fetchInvitations();
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(profilesChannel);
+      supabase.removeChannel(invitationsChannel);
     };
   }, []);
 
@@ -99,6 +117,72 @@ export function UserManagement() {
       toast.error('Failed to load users');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchInvitations = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('user_invitations')
+        .select('*, invited_by_profile:user_profiles!invited_by(full_name, email)')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      setInvitations(data || []);
+    } catch (error) {
+      console.error('Error fetching invitations:', error);
+      toast.error('Failed to load invitations');
+    }
+  };
+
+  const handleCancelInvitation = async (invitationId) => {
+    try {
+      const { error } = await supabase
+        .from('user_invitations')
+        .update({ status: 'cancelled' })
+        .eq('id', invitationId);
+
+      if (error) throw error;
+
+      toast.success('Invitation cancelled');
+      fetchInvitations();
+    } catch (error) {
+      console.error('Error cancelling invitation:', error);
+      toast.error('Failed to cancel invitation');
+    }
+  };
+
+  const handleResendInvitation = async (invitation) => {
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const { data: { session } } = await supabase.auth.getSession();
+
+      const inviteUrl = `${window.location.origin}/register?token=${invitation.token}`;
+
+      const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-invitation`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+        },
+        body: JSON.stringify({
+          email: invitation.email,
+          role: invitation.role,
+          inviteUrl,
+        }),
+      });
+
+      if (!emailResponse.ok) {
+        const errorData = await emailResponse.json();
+        throw new Error(errorData.error || 'Failed to send email');
+      }
+
+      toast.success('Invitation email resent');
+    } catch (error) {
+      console.error('Error resending invitation:', error);
+      toast.error('Failed to resend invitation');
     }
   };
 
@@ -185,6 +269,104 @@ export function UserManagement() {
 
   return (
     <>
+      {invitations.length > 0 && (
+        <Card className="mb-6">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Mail className="h-5 w-5" />
+                  Pending Invitations
+                </CardTitle>
+                <CardDescription>
+                  Users who have been invited but haven't registered yet
+                </CardDescription>
+              </div>
+              <Badge variant="secondary">{invitations.length} Pending</Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Email</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Invited By</TableHead>
+                    <TableHead>Sent</TableHead>
+                    <TableHead>Expires</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {invitations.map((invitation) => {
+                    const isExpired = new Date(invitation.expires_at) < new Date();
+                    return (
+                      <TableRow key={invitation.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Mail className="h-4 w-4 text-muted-foreground" />
+                            <span className="font-medium">{invitation.email}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="gap-1">
+                            {invitation.role === 'admin' && <Shield className="h-3 w-3" />}
+                            {invitation.role === 'elite' && <Star className="h-3 w-3" />}
+                            {invitation.role === 'tariff_master' && <FileText className="h-3 w-3" />}
+                            {invitation.role === 'basic' && <User className="h-3 w-3" />}
+                            {invitation.role === 'viewer' && <Eye className="h-3 w-3" />}
+                            {invitation.role === 'admin' && 'Administrator'}
+                            {invitation.role === 'elite' && 'Elite User'}
+                            {invitation.role === 'tariff_master' && 'Tariff Master'}
+                            {invitation.role === 'basic' && 'Basic User'}
+                            {invitation.role === 'viewer' && 'Viewer'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {invitation.invited_by_profile?.full_name || invitation.invited_by_profile?.email || 'Unknown'}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {format(new Date(invitation.created_at), 'MMM d, yyyy')}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-3 w-3 text-muted-foreground" />
+                            <span className={`text-sm ${isExpired ? 'text-red-600 font-medium' : 'text-muted-foreground'}`}>
+                              {isExpired ? 'Expired' : format(new Date(invitation.expires_at), 'MMM d, yyyy')}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleResendInvitation(invitation)}
+                              title="Resend invitation email"
+                            >
+                              <Mail className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleCancelInvitation(invitation.id)}
+                              title="Cancel invitation"
+                            >
+                              <X className="h-4 w-4 text-red-500" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
