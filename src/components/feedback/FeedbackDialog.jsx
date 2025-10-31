@@ -170,32 +170,45 @@ export default function FeedbackDialog({ open, onOpenChange }) {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-      const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-feedback-email`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${supabaseAnonKey}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          feedbackType: formData.feedbackType,
-          title: formData.title,
-          description: formData.description,
-          currentPage,
-          priority: formData.priority,
-          userName: userProfile?.full_name || 'Unknown User',
-          userEmail: userProfile?.email || user.email,
-          boltPromptSuggestion,
-        }),
-      });
+      try {
+        const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-feedback-email`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${supabaseAnonKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            feedbackType: formData.feedbackType,
+            title: formData.title,
+            description: formData.description,
+            currentPage,
+            priority: formData.priority,
+            userName: userProfile?.full_name || 'Unknown User',
+            userEmail: userProfile?.email || user.email,
+            boltPromptSuggestion,
+          }),
+        });
 
-      if (!emailResponse.ok) {
-        console.error('Email sending failed, but feedback was saved');
+        const emailResult = await emailResponse.json();
+
+        if (emailResult.emailSkipped) {
+          toast({
+            title: "Feedback submitted!",
+            description: "Your feedback has been saved. Email notifications will be sent once configured.",
+          });
+        } else {
+          toast({
+            title: "Feedback submitted!",
+            description: "Your feedback has been sent to the development team. Thank you!",
+          });
+        }
+      } catch (emailError) {
+        console.error('Email sending failed, but feedback was saved:', emailError);
+        toast({
+          title: "Feedback submitted!",
+          description: "Your feedback has been saved. There was an issue sending the email notification.",
+        });
       }
-
-      toast({
-        title: "Feedback submitted!",
-        description: "Your feedback has been sent to the development team. Thank you!",
-      });
 
       setFormData({
         feedbackType: 'improvement',

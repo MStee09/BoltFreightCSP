@@ -42,7 +42,21 @@ Deno.serve(async (req: Request) => {
     const emailFrom = Deno.env.get('EMAIL_FROM');
 
     if (!emailUsername || !emailPassword || !emailFrom) {
-      throw new Error('Email configuration is missing');
+      console.warn('Email configuration is missing - feedback saved to database but email not sent');
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: 'Feedback saved successfully (email notifications not configured)',
+          emailSkipped: true
+        }),
+        {
+          status: 200,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
     }
 
     const feedbackTypeLabel = {
