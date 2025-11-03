@@ -53,36 +53,196 @@ Deno.serve(async (req: Request) => {
     const requestData: InvitationRequest = await req.json();
     const { email, role, inviteUrl, invitedBy } = requestData;
 
+    const emailUsername = Deno.env.get('EMAIL_USERNAME');
+    const emailPassword = Deno.env.get('EMAIL_PASSWORD');
+    const emailFrom = Deno.env.get('EMAIL_FROM');
+
+    if (!emailUsername || !emailPassword || !emailFrom) {
+      console.warn('Email configuration is missing - invitation saved but email not sent');
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: 'Invitation saved successfully (email notifications not configured)',
+          emailSkipped: true
+        }),
+        {
+          status: 200,
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+    }
+
+    const roleLabel = {
+      'admin': 'Administrator',
+      'elite': 'Elite User',
+      'basic': 'Basic User'
+    }[role] || 'User';
+
     const emailSubject = 'Invitation to Join FreightOps CRM';
     const emailBody = `
-Hello,
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background-color: #f5f5f5;
+      margin: 0;
+      padding: 0;
+    }
+    .container {
+      max-width: 600px;
+      margin: 40px auto;
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    .header {
+      background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+    .header h1 {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 600;
+    }
+    .content {
+      padding: 30px;
+    }
+    .content p {
+      margin: 0 0 15px;
+    }
+    .role-badge {
+      display: inline-block;
+      background-color: #dbeafe;
+      color: #1e40af;
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 14px;
+      margin: 10px 0;
+    }
+    .invite-button {
+      display: inline-block;
+      background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+      color: white;
+      text-decoration: none;
+      padding: 14px 32px;
+      border-radius: 8px;
+      font-weight: 600;
+      margin: 20px 0;
+      text-align: center;
+      box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    }
+    .invite-button:hover {
+      background: linear-gradient(135deg, #1d4ed8 0%, #1e3a8a 100%);
+    }
+    .info-box {
+      background-color: #f0f9ff;
+      border-left: 4px solid #2563eb;
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 4px;
+    }
+    .footer {
+      background-color: #f8fafc;
+      padding: 20px 30px;
+      text-align: center;
+      font-size: 12px;
+      color: #64748b;
+      border-top: 1px solid #e2e8f0;
+    }
+    .button-container {
+      text-align: center;
+      margin: 30px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🚚 FreightOps CRM Invitation</h1>
+    </div>
 
-${invitedBy} has invited you to join the FreightOps CRM system as a ${role === 'admin' ? 'Administrator' : 'User'}.
+    <div class="content">
+      <p>Hello,</p>
 
-To accept this invitation and create your account, please click the link below:
+      <p><strong>${invitedBy}</strong> has invited you to join the FreightOps CRM system.</p>
 
-${inviteUrl}
+      <div class="info-box">
+        <p style="margin: 0;"><strong>Your Role:</strong></p>
+        <div class="role-badge">${roleLabel}</div>
+      </div>
 
-This invitation will expire in 7 days.
+      <p>FreightOps is a comprehensive transportation management system for managing customers, carriers, tariffs, and CSP (Continuous Service Provider) negotiations.</p>
 
-If you did not expect this invitation, you can safely ignore this email.
+      <div class="button-container">
+        <a href="${inviteUrl}" class="invite-button">Accept Invitation & Create Account</a>
+      </div>
 
-Best regards,
-The FreightOps Team
-    `;
+      <div class="info-box">
+        <p style="margin: 0;"><strong>⏰ Important:</strong> This invitation will expire in 7 days.</p>
+      </div>
 
-    console.log('Invitation email prepared for:', email);
-    console.log('Invite URL:', inviteUrl);
-    console.log('Role:', role);
+      <p>If the button above doesn't work, copy and paste this link into your browser:</p>
+      <p style="word-break: break-all; color: #2563eb; font-size: 14px;">${inviteUrl}</p>
+
+      <p style="margin-top: 30px;">If you did not expect this invitation, you can safely ignore this email.</p>
+    </div>
+
+    <div class="footer">
+      <p>This is an automated message from FreightOps CRM</p>
+      <p>&copy; ${new Date().getFullYear()} FreightOps. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>
+    `.trim();
+
+    const nodemailer = await import('npm:nodemailer@6.9.7');
+
+    const transporter = nodemailer.default.createTransport({
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false,
+      auth: {
+        user: emailUsername,
+        pass: emailPassword,
+      },
+    });
+
+    const mailOptions = {
+      from: emailFrom,
+      to: email,
+      subject: emailSubject,
+      html: emailBody,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+
+    console.log('Invitation email sent to:', email);
+    console.log('Message ID:', info.messageId);
+    console.log('Role:', roleLabel);
     console.log('Invited by:', invitedBy);
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: 'Invitation email sent (simulated)',
+      JSON.stringify({
+        success: true,
+        message: 'Invitation email sent successfully',
         details: {
           to: email,
-          subject: emailSubject,
+          role: roleLabel,
+          messageId: info.messageId,
           inviteUrl
         }
       }),
