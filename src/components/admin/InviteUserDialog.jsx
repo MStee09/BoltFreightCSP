@@ -50,7 +50,7 @@ export function InviteUserDialog({ open, onOpenChange, onInviteSent }) {
         .from('user_profiles')
         .select('id')
         .eq('email', email.toLowerCase())
-        .single();
+        .maybeSingle();
 
       if (existingUser) {
         toast.error('A user with this email already exists');
@@ -62,7 +62,7 @@ export function InviteUserDialog({ open, onOpenChange, onInviteSent }) {
         .select('id')
         .eq('email', email.toLowerCase())
         .eq('status', 'pending')
-        .single();
+        .maybeSingle();
 
       if (existingInvitation) {
         toast.error('An invitation has already been sent to this email');
