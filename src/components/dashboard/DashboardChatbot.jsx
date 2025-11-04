@@ -244,16 +244,11 @@ export function DashboardChatbot() {
   };
 
   const suggestedQuestions = [
-    "What should I focus on today?",
-    "How do I start a new CSP bid?",
-    "Show me my top customers",
-    "Where do I find expiring tariffs?",
-    "Any data quality issues?",
-    "How does the workflow work?"
+    "What should I focus on today?"
   ];
 
   const feedbackOption = {
-    text: "Submit Feedback or Report Issue",
+    text: "Submit Feedback",
     icon: MessageSquarePlus,
     action: () => setFeedbackOpen(true)
   };
@@ -348,9 +343,8 @@ export function DashboardChatbot() {
                     <Sparkles className="w-10 h-10 text-blue-600" />
                   </div>
                   <p className="text-base text-slate-700 font-medium mb-2">
-                    {firstName ? `Hi ${firstName}!` : 'Hi!'} I can help you understand your transportation data.
+                    {firstName ? `Hi ${firstName}!` : 'Hi!'} How can I help?
                   </p>
-                  <p className="text-sm text-slate-500">Try asking me:</p>
                 </div>
                 <div className="space-y-2">
                   {suggestedQuestions.map((question, idx) => (
