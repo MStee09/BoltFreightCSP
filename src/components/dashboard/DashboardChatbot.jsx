@@ -345,6 +345,9 @@ export function DashboardChatbot() {
                   <p className="text-base text-slate-700 font-medium mb-2">
                     {firstName ? `Hi ${firstName}!` : 'Hi!'} How can I help?
                   </p>
+                  <p className="text-sm text-slate-500 max-w-xs mx-auto">
+                    I can help you understand your freight data, find important tasks, check on customers and carriers, or answer questions about your CSP pipeline.
+                  </p>
                 </div>
                 <div className="space-y-2">
                   {suggestedQuestions.map((question, idx) => (
