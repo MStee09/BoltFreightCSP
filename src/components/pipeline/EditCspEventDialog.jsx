@@ -24,6 +24,7 @@ export default function EditCspEventDialog({ isOpen, onOpenChange, eventId }) {
         customer_id: '',
         stage: 'discovery',
         priority: 'medium',
+        mode: '',
         description: '',
         assigned_to: '',
         go_live_date: '',
@@ -59,6 +60,7 @@ export default function EditCspEventDialog({ isOpen, onOpenChange, eventId }) {
                 customer_id: event.customer_id || '',
                 stage: event.stage || 'discovery',
                 priority: event.priority || 'medium',
+                mode: event.mode || '',
                 description: event.notes || '',
                 assigned_to: event.assigned_to || '',
                 go_live_date: event.go_live_date || '',
@@ -184,6 +186,27 @@ export default function EditCspEventDialog({ isOpen, onOpenChange, eventId }) {
                                     {customers.map(c => (
                                         <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                                     ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="mode">Mode</Label>
+                            <Select
+                                value={formData.mode}
+                                onValueChange={(value) => handleValueChange('mode', value)}
+                            >
+                                <SelectTrigger id="mode">
+                                    <SelectValue placeholder="Select mode" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="LTL">LTL</SelectItem>
+                                    <SelectItem value="Truckload">Truckload</SelectItem>
+                                    <SelectItem value="Home Delivery">Home Delivery</SelectItem>
+                                    <SelectItem value="Parcel">Parcel</SelectItem>
+                                    <SelectItem value="Intermodal">Intermodal</SelectItem>
+                                    <SelectItem value="Ocean">Ocean</SelectItem>
+                                    <SelectItem value="Air">Air</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
