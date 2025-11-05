@@ -53,20 +53,21 @@ Deno.serve(async (req: Request) => {
     const requestData: InvitationRequest = await req.json();
     const { email, role, inviteUrl, invitedBy } = requestData;
 
-    const emailUsername = Deno.env.get('EMAIL_USERNAME');
-    const emailPassword = Deno.env.get('EMAIL_PASSWORD');
-    const emailFrom = Deno.env.get('EMAIL_FROM');
+    const { data: gmailTokens, error: tokenError } = await supabaseClient
+      .from('user_gmail_tokens')
+      .select('access_token, refresh_token, token_expiry')
+      .eq('user_id', user.id)
+      .maybeSingle();
 
-    if (!emailUsername || !emailPassword || !emailFrom) {
-      console.warn('Email configuration is missing - invitation saved but email not sent');
+    if (tokenError || !gmailTokens) {
       return new Response(
         JSON.stringify({
-          success: true,
-          message: 'Invitation saved successfully (email notifications not configured)',
-          emailSkipped: true
+          success: false,
+          error: 'Gmail not connected. Please connect your Gmail account in Settings → Integrations to send invitations.',
+          requiresGmailSetup: true
         }),
         {
-          status: 200,
+          status: 400,
           headers: {
             ...corsHeaders,
             'Content-Type': 'application/json',
@@ -74,6 +75,14 @@ Deno.serve(async (req: Request) => {
         }
       );
     }
+
+    const { data: userProfileEmail } = await supabaseClient
+      .from('user_profiles')
+      .select('email')
+      .eq('id', user.id)
+      .single();
+
+    const fromEmail = userProfileEmail?.email || user.email;
 
     const roleLabel = {
       'admin': 'Administrator',
@@ -209,29 +218,43 @@ Deno.serve(async (req: Request) => {
 </html>
     `.trim();
 
-    const nodemailer = await import('npm:nodemailer@6.9.7');
+    const gmailApiUrl = 'https://gmail.googleapis.com/gmail/v1/users/me/messages/send';
 
-    const transporter = nodemailer.default.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587,
-      secure: false,
-      auth: {
-        user: emailUsername,
-        pass: emailPassword,
+    const emailContent = [
+      `To: ${email}`,
+      `From: ${fromEmail}`,
+      `Subject: ${emailSubject}`,
+      'Content-Type: text/html; charset=utf-8',
+      '',
+      emailBody
+    ].join('\r\n');
+
+    const encodedMessage = btoa(emailContent)
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+
+    const response = await fetch(gmailApiUrl, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${gmailTokens.access_token}`,
+        'Content-Type': 'application/json',
       },
+      body: JSON.stringify({
+        raw: encodedMessage
+      })
     });
 
-    const mailOptions = {
-      from: emailFrom,
-      to: email,
-      subject: emailSubject,
-      html: emailBody,
-    };
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('Gmail API error:', errorData);
+      throw new Error(`Failed to send email: ${errorData.error?.message || 'Unknown error'}`);
+    }
 
-    const info = await transporter.sendMail(mailOptions);
+    const info = await response.json();
 
     console.log('Invitation email sent to:', email);
-    console.log('Message ID:', info.messageId);
+    console.log('Message ID:', info.id);
     console.log('Role:', roleLabel);
     console.log('Invited by:', invitedBy);
 
@@ -242,7 +265,7 @@ Deno.serve(async (req: Request) => {
         details: {
           to: email,
           role: roleLabel,
-          messageId: info.messageId,
+          messageId: info.id,
           inviteUrl
         }
       }),

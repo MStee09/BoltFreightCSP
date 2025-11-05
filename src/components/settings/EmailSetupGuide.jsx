@@ -3,349 +3,216 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Mail, Server, Key, CheckCircle2, AlertCircle, ExternalLink, Copy } from 'lucide-react';
-import { useState } from 'react';
-import { useToast } from '@/components/ui/use-toast';
+import { Mail, CheckCircle2, AlertCircle, ExternalLink, Zap } from 'lucide-react';
 
 export default function EmailSetupGuide() {
-  const { toast } = useToast();
-  const [copiedSection, setCopiedSection] = useState(null);
-
-  const copyToClipboard = (text, section) => {
-    navigator.clipboard.writeText(text);
-    setCopiedSection(section);
-    toast({
-      title: "Copied to clipboard",
-      description: "The text has been copied to your clipboard.",
-    });
-    setTimeout(() => setCopiedSection(null), 2000);
-  };
-
   const gmailClientId = import.meta.env.VITE_GMAIL_CLIENT_ID;
   const hasGmailOAuth = gmailClientId && gmailClientId !== 'your-client-id-here.apps.googleusercontent.com';
 
   return (
     <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold mb-2">Email System Setup</h3>
-        <p className="text-sm text-slate-600">
-          This application uses two email systems. Both need to be configured for full functionality.
-        </p>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-2">
-        {/* SMTP Email System */}
-        <Card className="border-2">
-          <CardHeader>
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Server className="h-5 w-5 text-blue-600" />
-                </div>
-                <div>
-                  <CardTitle className="text-base">SMTP Email</CardTitle>
-                  <CardDescription className="text-xs">For system notifications</CardDescription>
-                </div>
-              </div>
-              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300">
-                Required
-              </Badge>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <h4 className="text-sm font-semibold text-slate-900">Used For:</h4>
-              <ul className="text-xs text-slate-600 space-y-1">
-                <li className="flex items-center gap-2">
-                  <div className="w-1 h-1 bg-slate-400 rounded-full" />
-                  Sending user invitations
-                </li>
-                <li className="flex items-center gap-2">
-                  <div className="w-1 h-1 bg-slate-400 rounded-full" />
-                  Feedback emails to support
-                </li>
-              </ul>
-            </div>
-
-            <Separator />
-
-            <div className="space-y-3">
-              <h4 className="text-sm font-semibold text-slate-900">Setup Steps:</h4>
-
-              <div className="space-y-2">
-                <div className="flex items-start gap-2">
-                  <Badge variant="secondary" className="mt-0.5 h-5 w-5 flex items-center justify-center p-0 text-xs">
-                    1
-                  </Badge>
-                  <div className="flex-1 text-xs">
-                    <p className="font-medium text-slate-900">Get Gmail App Password</p>
-                    <p className="text-slate-600 mt-0.5">
-                      Google Account → Security → 2-Step Verification → App passwords
-                    </p>
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className="h-auto p-0 text-xs mt-1"
-                      onClick={() => window.open('https://myaccount.google.com/apppasswords', '_blank')}
-                    >
-                      <ExternalLink className="h-3 w-3 mr-1" />
-                      Open Google App Passwords
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-2">
-                  <Badge variant="secondary" className="mt-0.5 h-5 w-5 flex items-center justify-center p-0 text-xs">
-                    2
-                  </Badge>
-                  <div className="flex-1 text-xs">
-                    <p className="font-medium text-slate-900">Add Secrets to Supabase</p>
-                    <p className="text-slate-600 mt-0.5">
-                      Project Settings → Edge Functions → Manage secrets
-                    </p>
-                    <div className="mt-2 space-y-1 font-mono text-xs bg-slate-50 p-2 rounded border">
-                      <div className="flex items-center justify-between">
-                        <code>EMAIL_USERNAME = your-email@gmail.com</code>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0"
-                          onClick={() => copyToClipboard('EMAIL_USERNAME', 'username')}
-                        >
-                          {copiedSection === 'username' ? (
-                            <CheckCircle2 className="h-3 w-3 text-green-600" />
-                          ) : (
-                            <Copy className="h-3 w-3" />
-                          )}
-                        </Button>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <code>EMAIL_PASSWORD = abcdefghijklmnop</code>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0"
-                          onClick={() => copyToClipboard('EMAIL_PASSWORD', 'password')}
-                        >
-                          {copiedSection === 'password' ? (
-                            <CheckCircle2 className="h-3 w-3 text-green-600" />
-                          ) : (
-                            <Copy className="h-3 w-3" />
-                          )}
-                        </Button>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <code>EMAIL_FROM = your-email@gmail.com</code>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0"
-                          onClick={() => copyToClipboard('EMAIL_FROM', 'from')}
-                        >
-                          {copiedSection === 'from' ? (
-                            <CheckCircle2 className="h-3 w-3 text-green-600" />
-                          ) : (
-                            <Copy className="h-3 w-3" />
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className="h-auto p-0 text-xs mt-1"
-                      onClick={() => window.open(`https://supabase.com/dashboard/project/${import.meta.env.VITE_SUPABASE_URL?.split('//')[1]?.split('.')[0]}/settings/functions`, '_blank')}
-                    >
-                      <ExternalLink className="h-3 w-3 mr-1" />
-                      Open Supabase Secrets
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-2">
-                  <Badge variant="secondary" className="mt-0.5 h-5 w-5 flex items-center justify-center p-0 text-xs">
-                    3
-                  </Badge>
-                  <div className="flex-1 text-xs">
-                    <p className="font-medium text-slate-900">Test It</p>
-                    <p className="text-slate-600 mt-0.5">
-                      Go to User Management → Invite User
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Gmail OAuth System */}
-        <Card className="border-2">
-          <CardHeader>
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-2">
-                <div className="p-2 bg-red-100 rounded-lg">
-                  <Mail className="h-5 w-5 text-red-600" />
-                </div>
-                <div>
-                  <CardTitle className="text-base">Gmail OAuth</CardTitle>
-                  <CardDescription className="text-xs">For personal email integration</CardDescription>
-                </div>
-              </div>
-              {hasGmailOAuth ? (
-                <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">
-                  <CheckCircle2 className="h-3 w-3 mr-1" />
-                  Configured
-                </Badge>
-              ) : (
-                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300">
-                  Required
-                </Badge>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <h4 className="text-sm font-semibold text-slate-900">Used For:</h4>
-              <ul className="text-xs text-slate-600 space-y-1">
-                <li className="flex items-center gap-2">
-                  <div className="w-1 h-1 bg-slate-400 rounded-full" />
-                  Sending emails from the app
-                </li>
-                <li className="flex items-center gap-2">
-                  <div className="w-1 h-1 bg-slate-400 rounded-full" />
-                  Email timeline tracking
-                </li>
-                <li className="flex items-center gap-2">
-                  <div className="w-1 h-1 bg-slate-400 rounded-full" />
-                  Direct carrier communication
-                </li>
-              </ul>
-            </div>
-
-            <Separator />
-
-            <div className="space-y-3">
-              <h4 className="text-sm font-semibold text-slate-900">Setup Steps:</h4>
-
-              <div className="space-y-2">
-                <div className="flex items-start gap-2">
-                  <Badge variant="secondary" className="mt-0.5 h-5 w-5 flex items-center justify-center p-0 text-xs">
-                    1
-                  </Badge>
-                  <div className="flex-1 text-xs">
-                    <p className="font-medium text-slate-900">Create Google Cloud Project</p>
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className="h-auto p-0 text-xs mt-1"
-                      onClick={() => window.open('https://console.cloud.google.com', '_blank')}
-                    >
-                      <ExternalLink className="h-3 w-3 mr-1" />
-                      Open Google Cloud Console
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-2">
-                  <Badge variant="secondary" className="mt-0.5 h-5 w-5 flex items-center justify-center p-0 text-xs">
-                    2
-                  </Badge>
-                  <div className="flex-1 text-xs">
-                    <p className="font-medium text-slate-900">Enable Gmail API</p>
-                    <p className="text-slate-600 mt-0.5">
-                      APIs & Services → Library → Search "Gmail API" → Enable
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-2">
-                  <Badge variant="secondary" className="mt-0.5 h-5 w-5 flex items-center justify-center p-0 text-xs">
-                    3
-                  </Badge>
-                  <div className="flex-1 text-xs">
-                    <p className="font-medium text-slate-900">Configure OAuth Consent Screen</p>
-                    <p className="text-slate-600 mt-0.5">
-                      Add required scopes and test users
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-2">
-                  <Badge variant="secondary" className="mt-0.5 h-5 w-5 flex items-center justify-center p-0 text-xs">
-                    4
-                  </Badge>
-                  <div className="flex-1 text-xs">
-                    <p className="font-medium text-slate-900">Create OAuth Client ID</p>
-                    <p className="text-slate-600 mt-0.5">
-                      Credentials → Create OAuth 2.0 Client ID
-                    </p>
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className="h-auto p-0 text-xs mt-1"
-                      onClick={() => window.open('https://console.cloud.google.com/apis/credentials', '_blank')}
-                    >
-                      <ExternalLink className="h-3 w-3 mr-1" />
-                      Open Credentials Page
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="flex items-start gap-2">
-                  <Badge variant="secondary" className="mt-0.5 h-5 w-5 flex items-center justify-center p-0 text-xs">
-                    5
-                  </Badge>
-                  <div className="flex-1 text-xs">
-                    <p className="font-medium text-slate-900">Add to .env file</p>
-                    <div className="mt-1 font-mono text-xs bg-slate-50 p-2 rounded border flex items-center justify-between">
-                      <code>VITE_GMAIL_CLIENT_ID=your-id.apps.googleusercontent.com</code>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0"
-                        onClick={() => copyToClipboard('VITE_GMAIL_CLIENT_ID', 'client-id')}
-                      >
-                        {copiedSection === 'client-id' ? (
-                          <CheckCircle2 className="h-3 w-3 text-green-600" />
-                        ) : (
-                          <Copy className="h-3 w-3" />
-                        )}
-                      </Button>
-                    </div>
-                    <p className="text-slate-500 mt-1">Then restart your dev server</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Alert>
-        <Key className="h-4 w-4" />
-        <AlertDescription className="text-xs">
-          <span className="font-semibold">Security Note:</span> Supabase secrets are only accessible to your edge functions and are never exposed to the client.
-          Your Gmail App Password is different from your regular password and has limited scope for additional security.
+      <Alert className="bg-blue-50 border-blue-200">
+        <Zap className="h-4 w-4 text-blue-600" />
+        <AlertDescription className="text-sm">
+          <span className="font-semibold text-blue-900">Simplified Email Setup:</span> Just connect your Gmail account once using Google Sign-In. No passwords or app-specific credentials needed!
         </AlertDescription>
       </Alert>
 
-      <Card className="bg-blue-50 border-blue-200">
+      <Card className="border-2 border-blue-200">
+        <CardHeader>
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg">
+                <Mail className="h-6 w-6 text-white" />
+              </div>
+              <div>
+                <CardTitle className="text-xl">Gmail Integration</CardTitle>
+                <CardDescription>One-click setup with Google OAuth</CardDescription>
+              </div>
+            </div>
+            {hasGmailOAuth ? (
+              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">
+                <CheckCircle2 className="h-3 w-3 mr-1" />
+                Ready
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-300">
+                Setup Required
+              </Badge>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="space-y-3">
+            <h4 className="text-sm font-semibold text-slate-900">What This Enables:</h4>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="flex items-start gap-2 text-sm">
+                <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                <span className="text-slate-700">Send emails directly from the app</span>
+              </div>
+              <div className="flex items-start gap-2 text-sm">
+                <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                <span className="text-slate-700">Send user invitations</span>
+              </div>
+              <div className="flex items-start gap-2 text-sm">
+                <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                <span className="text-slate-700">Track email conversations</span>
+              </div>
+              <div className="flex items-start gap-2 text-sm">
+                <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                <span className="text-slate-700">Communicate with carriers</span>
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          <div className="space-y-4">
+            <h4 className="text-sm font-semibold text-slate-900">Setup Steps:</h4>
+
+            <div className="space-y-3">
+              <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                <Badge variant="secondary" className="mt-0.5 h-6 w-6 flex items-center justify-center p-0 text-sm">
+                  1
+                </Badge>
+                <div className="flex-1">
+                  <p className="font-medium text-slate-900 text-sm">Create Google Cloud Project</p>
+                  <p className="text-xs text-slate-600 mt-1">
+                    Go to Google Cloud Console and create a new project
+                  </p>
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 text-xs mt-2"
+                    onClick={() => window.open('https://console.cloud.google.com/projectcreate', '_blank')}
+                  >
+                    <ExternalLink className="h-3 w-3 mr-1" />
+                    Open Google Cloud Console
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                <Badge variant="secondary" className="mt-0.5 h-6 w-6 flex items-center justify-center p-0 text-sm">
+                  2
+                </Badge>
+                <div className="flex-1">
+                  <p className="font-medium text-slate-900 text-sm">Enable Gmail API</p>
+                  <p className="text-xs text-slate-600 mt-1">
+                    Navigate to: APIs & Services → Library → Search "Gmail API" → Click Enable
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                <Badge variant="secondary" className="mt-0.5 h-6 w-6 flex items-center justify-center p-0 text-sm">
+                  3
+                </Badge>
+                <div className="flex-1">
+                  <p className="font-medium text-slate-900 text-sm">Configure OAuth Consent Screen</p>
+                  <p className="text-xs text-slate-600 mt-1">
+                    Go to: APIs & Services → OAuth consent screen → Choose "External"
+                  </p>
+                  <ul className="text-xs text-slate-600 mt-2 ml-4 space-y-1">
+                    <li>• Add app name and support email</li>
+                    <li>• Add required scopes (gmail.send, gmail.readonly)</li>
+                    <li>• Add test users (your email addresses)</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
+                <Badge variant="secondary" className="mt-0.5 h-6 w-6 flex items-center justify-center p-0 text-sm">
+                  4
+                </Badge>
+                <div className="flex-1">
+                  <p className="font-medium text-slate-900 text-sm">Create OAuth Client ID</p>
+                  <p className="text-xs text-slate-600 mt-1">
+                    Go to: APIs & Services → Credentials → Create Credentials → OAuth 2.0 Client ID
+                  </p>
+                  <ul className="text-xs text-slate-600 mt-2 ml-4 space-y-1">
+                    <li>• Application type: Web application</li>
+                    <li>• Authorized redirect URIs:</li>
+                    <li className="ml-4 font-mono text-blue-600">http://localhost:5173/gmail-callback</li>
+                    <li className="ml-4 text-slate-500">(Add production URL later)</li>
+                  </ul>
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 text-xs mt-2"
+                    onClick={() => window.open('https://console.cloud.google.com/apis/credentials', '_blank')}
+                  >
+                    <ExternalLink className="h-3 w-3 mr-1" />
+                    Open Credentials Page
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border-2 border-blue-200">
+                <Badge className="mt-0.5 h-6 w-6 flex items-center justify-center p-0 text-sm bg-blue-600">
+                  5
+                </Badge>
+                <div className="flex-1">
+                  <p className="font-medium text-slate-900 text-sm">Add Client ID to .env File</p>
+                  <p className="text-xs text-slate-600 mt-1">
+                    Copy your Client ID and add it to your <code className="bg-slate-200 px-1 rounded">.env</code> file:
+                  </p>
+                  <div className="mt-2 font-mono text-xs bg-slate-900 text-green-400 p-3 rounded border border-slate-700">
+                    VITE_GMAIL_CLIENT_ID=your-client-id.apps.googleusercontent.com
+                  </div>
+                  <p className="text-xs text-slate-500 mt-2 italic">Then restart your dev server</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                <Badge variant="secondary" className="mt-0.5 h-6 w-6 flex items-center justify-center p-0 text-sm bg-green-600 text-white">
+                  ✓
+                </Badge>
+                <div className="flex-1">
+                  <p className="font-medium text-slate-900 text-sm">Test Your Connection</p>
+                  <p className="text-xs text-slate-600 mt-1">
+                    Scroll down and click "Connect Gmail Account" → Sign in with Google
+                  </p>
+                  <p className="text-xs text-green-700 mt-2 font-medium">
+                    That's it! No passwords, no app-specific credentials needed.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Alert className="border-green-200 bg-green-50">
+        <CheckCircle2 className="h-4 w-4 text-green-600" />
+        <AlertDescription className="text-xs">
+          <span className="font-semibold text-green-900">Secure by Design:</span> Your Gmail credentials are never stored.
+          Google provides secure OAuth tokens that can be revoked anytime from your Google Account settings.
+        </AlertDescription>
+      </Alert>
+
+      <Card className="bg-slate-50 border-slate-200">
         <CardContent className="pt-6">
           <div className="flex items-start gap-3">
-            <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
+            <AlertCircle className="h-5 w-5 text-slate-600 mt-0.5 flex-shrink-0" />
             <div className="flex-1 space-y-2">
-              <h4 className="text-sm font-semibold text-slate-900">Need More Help?</h4>
+              <h4 className="text-sm font-semibold text-slate-900">Need Help?</h4>
               <p className="text-xs text-slate-600">
-                For detailed step-by-step instructions with screenshots, see the complete setup guide:
+                For detailed step-by-step instructions with screenshots, see the complete setup guide.
               </p>
               <Button
                 variant="outline"
                 size="sm"
                 className="h-8 text-xs"
-                onClick={() => window.open('/EMAIL_SETUP_COMPLETE_GUIDE.md', '_blank')}
+                onClick={() => {
+                  const link = document.createElement('a');
+                  link.href = '/EMAIL_SETUP_COMPLETE_GUIDE.md';
+                  link.download = 'EMAIL_SETUP_COMPLETE_GUIDE.md';
+                  link.click();
+                }}
               >
                 <ExternalLink className="h-3 w-3 mr-2" />
-                View Complete Setup Guide
+                Download Setup Guide
               </Button>
             </div>
           </div>
