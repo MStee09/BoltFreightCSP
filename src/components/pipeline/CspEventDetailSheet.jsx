@@ -19,6 +19,7 @@ import CustomerDetailSheet from '../customers/CustomerDetailSheet';
 import { useToast } from '../ui/use-toast';
 import { supabase } from '../../api/supabaseClient';
 import ScacCarrierMatch from '../documents/ScacCarrierMatch';
+import VolumeSpendTab from './VolumeSpendTab';
 
 const STAGES = [
     "discovery",
@@ -271,6 +272,7 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
                             <Tabs defaultValue="activity">
                                 <TabsList>
                                     <TabsTrigger value="activity">Activity</TabsTrigger>
+                                    <TabsTrigger value="volume-spend">Volume & Spend</TabsTrigger>
                                     <TabsTrigger value="strategy">Strategy</TabsTrigger>
                                     <TabsTrigger value="emails">Emails</TabsTrigger>
                                     <TabsTrigger value="carriers">Carriers</TabsTrigger>
@@ -372,6 +374,10 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
                                         )}
                                     </CardContent>
                                 </Card>
+                            </TabsContent>
+
+                            <TabsContent value="volume-spend" className="mt-4">
+                                <VolumeSpendTab cspEvent={event} cspEventId={eventId} />
                             </TabsContent>
 
                             <TabsContent value="strategy" className="mt-4">

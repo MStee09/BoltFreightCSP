@@ -12,11 +12,8 @@ import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { useToast } from '../ui/use-toast';
-import { Loader2, Calendar as CalendarIcon } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { Checkbox } from '../ui/checkbox';
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
-import { Calendar } from '../ui/calendar';
-import { cn } from '../../lib/utils';
 
 
 export default function EditCspEventDialog({ isOpen, onOpenChange, eventId }) {
@@ -30,16 +27,7 @@ export default function EditCspEventDialog({ isOpen, onOpenChange, eventId }) {
         description: '',
         assigned_to: '',
         go_live_date: '',
-        honeymoon_monitoring: false,
-        total_shipments: '',
-        data_timeframe_months: '',
-        data_start_date: null,
-        data_end_date: null,
-        projected_monthly_spend: '',
-        projected_annual_spend: '',
-        projected_monthly_revenue: '',
-        projected_annual_revenue: '',
-        minimum_annual_spend_threshold: ''
+        honeymoon_monitoring: false
     });
 
     const { data: event, isLoading: isLoadingEvent } = useQuery({
@@ -74,16 +62,7 @@ export default function EditCspEventDialog({ isOpen, onOpenChange, eventId }) {
                 description: event.notes || '',
                 assigned_to: event.assigned_to || '',
                 go_live_date: event.go_live_date || '',
-                honeymoon_monitoring: event.honeymoon_monitoring || false,
-                total_shipments: event.total_shipments || '',
-                data_timeframe_months: event.data_timeframe_months || '',
-                data_start_date: event.data_start_date || null,
-                data_end_date: event.data_end_date || null,
-                projected_monthly_spend: event.projected_monthly_spend || '',
-                projected_annual_spend: event.projected_annual_spend || '',
-                projected_monthly_revenue: event.projected_monthly_revenue || '',
-                projected_annual_revenue: event.projected_annual_revenue || '',
-                minimum_annual_spend_threshold: event.minimum_annual_spend_threshold || ''
+                honeymoon_monitoring: event.honeymoon_monitoring || false
             });
         }
     }, [event]);
@@ -280,147 +259,6 @@ export default function EditCspEventDialog({ isOpen, onOpenChange, eventId }) {
                                 placeholder="Add any relevant details..."
                                 rows={4}
                             />
-                        </div>
-
-                        <div className="space-y-3 p-4 bg-slate-50 rounded-lg border border-slate-200">
-                            <h3 className="text-sm font-semibold text-slate-900">Volume & Spend Projections</h3>
-                            <p className="text-xs text-slate-600">Used to determine if carriers will participate based on spend thresholds</p>
-
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="space-y-2">
-                                    <Label htmlFor="total_shipments" className="text-xs">Total Shipments</Label>
-                                    <Input
-                                        id="total_shipments"
-                                        type="number"
-                                        value={formData.total_shipments}
-                                        onChange={(e) => handleValueChange('total_shipments', e.target.value)}
-                                        placeholder="e.g., 5000"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="data_timeframe_months" className="text-xs">Timeframe (Months)</Label>
-                                    <Input
-                                        id="data_timeframe_months"
-                                        type="number"
-                                        value={formData.data_timeframe_months}
-                                        onChange={(e) => handleValueChange('data_timeframe_months', e.target.value)}
-                                        placeholder="e.g., 12"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="space-y-2">
-                                    <Label htmlFor="data_start_date" className="text-xs">Data Start Date</Label>
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <Button
-                                                id="data_start_date"
-                                                variant="outline"
-                                                size="sm"
-                                                className={cn(
-                                                    "w-full justify-start text-left font-normal",
-                                                    !formData.data_start_date && "text-muted-foreground"
-                                                )}
-                                            >
-                                                <CalendarIcon className="mr-2 h-3 w-3" />
-                                                {formData.data_start_date ? format(new Date(formData.data_start_date), "PP") : "Start"}
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0" align="start">
-                                            <Calendar
-                                                mode="single"
-                                                selected={formData.data_start_date ? new Date(formData.data_start_date) : undefined}
-                                                onSelect={(date) => handleValueChange('data_start_date', date ? format(date, 'yyyy-MM-dd') : null)}
-                                            />
-                                        </PopoverContent>
-                                    </Popover>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="data_end_date" className="text-xs">Data End Date</Label>
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <Button
-                                                id="data_end_date"
-                                                variant="outline"
-                                                size="sm"
-                                                className={cn(
-                                                    "w-full justify-start text-left font-normal",
-                                                    !formData.data_end_date && "text-muted-foreground"
-                                                )}
-                                            >
-                                                <CalendarIcon className="mr-2 h-3 w-3" />
-                                                {formData.data_end_date ? format(new Date(formData.data_end_date), "PP") : "End"}
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0" align="start">
-                                            <Calendar
-                                                mode="single"
-                                                selected={formData.data_end_date ? new Date(formData.data_end_date) : undefined}
-                                                onSelect={(date) => handleValueChange('data_end_date', date ? format(date, 'yyyy-MM-dd') : null)}
-                                            />
-                                        </PopoverContent>
-                                    </Popover>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="space-y-2">
-                                    <Label htmlFor="projected_monthly_spend" className="text-xs">Monthly Spend ($)</Label>
-                                    <Input
-                                        id="projected_monthly_spend"
-                                        type="number"
-                                        value={formData.projected_monthly_spend}
-                                        onChange={(e) => handleValueChange('projected_monthly_spend', e.target.value)}
-                                        placeholder="e.g., 50000"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="projected_annual_spend" className="text-xs">Annual Spend ($)</Label>
-                                    <Input
-                                        id="projected_annual_spend"
-                                        type="number"
-                                        value={formData.projected_annual_spend}
-                                        onChange={(e) => handleValueChange('projected_annual_spend', e.target.value)}
-                                        placeholder="e.g., 600000"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="space-y-2">
-                                    <Label htmlFor="projected_monthly_revenue" className="text-xs">Monthly Revenue ($)</Label>
-                                    <Input
-                                        id="projected_monthly_revenue"
-                                        type="number"
-                                        value={formData.projected_monthly_revenue}
-                                        onChange={(e) => handleValueChange('projected_monthly_revenue', e.target.value)}
-                                        placeholder="e.g., 55000"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="projected_annual_revenue" className="text-xs">Annual Revenue ($)</Label>
-                                    <Input
-                                        id="projected_annual_revenue"
-                                        type="number"
-                                        value={formData.projected_annual_revenue}
-                                        onChange={(e) => handleValueChange('projected_annual_revenue', e.target.value)}
-                                        placeholder="e.g., 660000"
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="minimum_annual_spend_threshold" className="text-xs">Carrier Min. Annual Spend Threshold ($)</Label>
-                                <Input
-                                    id="minimum_annual_spend_threshold"
-                                    type="number"
-                                    value={formData.minimum_annual_spend_threshold}
-                                    onChange={(e) => handleValueChange('minimum_annual_spend_threshold', e.target.value)}
-                                    placeholder="e.g., 500000"
-                                />
-                                <p className="text-xs text-slate-500">Minimum annual spend carriers require to participate</p>
-                            </div>
                         </div>
 
                         {formData.stage === 'live' && (
