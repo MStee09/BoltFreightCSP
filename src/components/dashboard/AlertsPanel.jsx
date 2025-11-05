@@ -74,17 +74,21 @@ export default function AlertsPanel({ alerts }) {
   const dismissAlertMutation = useMutation({
     mutationFn: async (alertId) => {
       const { data: { user } } = await supabase.auth.getUser();
+      const now = new Date();
+      const dismissedUntil = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+
       await Alert.update(alertId, {
         status: 'dismissed',
-        resolved_date: new Date().toISOString(),
-        resolved_by: user.id
+        dismissed_at: now.toISOString(),
+        dismissed_by: user.id,
+        dismissed_until: dismissedUntil.toISOString()
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries(['alerts']);
       toast({
         title: "Alert Dismissed",
-        description: "The alert has been dismissed.",
+        description: "This alert will resurface tomorrow if not resolved.",
       });
     },
   });

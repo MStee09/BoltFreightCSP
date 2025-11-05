@@ -109,7 +109,30 @@ export const Tariff = createEntity('tariffs');
 export const CSPEvent = createEntity('csp_events');
 export const Task = createEntity('tasks');
 export const Interaction = createEntity('interactions');
-export const Alert = createEntity('alerts');
+
+export const Alert = {
+  ...createEntity('alerts'),
+  async list(orderBy = '-created_date') {
+    await supabase.rpc('resurface_dismissed_alerts');
+
+    let query = supabase
+      .from('alerts')
+      .select('*')
+      .eq('user_id', MOCK_USER_ID)
+      .in('status', ['active', 'acknowledged']);
+
+    if (orderBy) {
+      const isDesc = orderBy.startsWith('-');
+      const field = isDesc ? orderBy.substring(1) : orderBy;
+      query = query.order(field, { ascending: !isDesc });
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
+  },
+};
+
 export const Shipment = createEntity('shipments');
 export const LostOpportunity = createEntity('lost_opportunities');
 export const ReportSnapshot = createEntity('report_snapshots');
