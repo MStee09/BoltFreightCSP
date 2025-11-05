@@ -9,6 +9,7 @@ import { Badge } from '../ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Calendar } from '../ui/calendar';
 import { useToast } from '../ui/use-toast';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
 import { Calculator, Save, TrendingUp, DollarSign, Package, Calendar as CalendarIcon, AlertCircle, Sparkles, CheckCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '../../lib/utils';
@@ -18,8 +19,11 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
     const { toast } = useToast();
     const queryClient = useQueryClient();
     const [isEditing, setIsEditing] = useState(false);
+    const [showOverridePrompt, setShowOverridePrompt] = useState(false);
+    const [calculatedData, setCalculatedData] = useState(null);
     const [formData, setFormData] = useState({
         total_shipments: cspEvent?.total_shipments || '',
+        monthly_shipments: cspEvent?.monthly_shipments || '',
         data_timeframe_months: cspEvent?.data_timeframe_months || '',
         data_start_date: cspEvent?.data_start_date || null,
         data_end_date: cspEvent?.data_end_date || null,
@@ -70,29 +74,46 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
             const strategyDoc = documents[0];
             const metadata = strategyDoc.metadata || {};
 
+            const totalShipments = metadata.total_records || metadata.shipment_count || 0;
+            const timeframeMonths = metadata.timeframe_months || 12;
+            const totalSpend = metadata.total_spend || 0;
+            const totalRevenue = metadata.total_revenue || 0;
+
+            const avgCostPerShipment = totalShipments > 0 ? totalSpend / totalShipments : 0;
+            const monthlyShipments = timeframeMonths > 0 ? Math.round(totalShipments / timeframeMonths) : 0;
+            const annualShipments = Math.round((totalShipments / timeframeMonths) * 12);
+            const annualSpend = Math.round(avgCostPerShipment * annualShipments);
+            const monthlySpend = Math.round(annualSpend / 12);
+
             const calculations = {
-                total_shipments: metadata.total_records || metadata.shipment_count || '',
-                data_timeframe_months: metadata.timeframe_months || '',
+                total_shipments: totalShipments,
+                monthly_shipments: monthlyShipments,
+                data_timeframe_months: timeframeMonths,
                 data_start_date: metadata.date_range?.start || null,
                 data_end_date: metadata.date_range?.end || null,
-                projected_monthly_spend: metadata.total_spend ? Math.round(metadata.total_spend / (metadata.timeframe_months || 12)) : '',
-                projected_annual_spend: metadata.total_spend || '',
-                projected_monthly_revenue: metadata.total_revenue ? Math.round(metadata.total_revenue / (metadata.timeframe_months || 12)) : '',
-                projected_annual_revenue: metadata.total_revenue || ''
+                projected_monthly_spend: monthlySpend,
+                projected_annual_spend: annualSpend,
+                projected_monthly_revenue: totalRevenue ? Math.round(totalRevenue / timeframeMonths) : '',
+                projected_annual_revenue: totalRevenue ? Math.round((totalRevenue / timeframeMonths) * 12) : ''
             };
 
             return calculations;
         },
         onSuccess: (calculations) => {
-            setFormData(prev => ({
-                ...prev,
-                ...calculations
-            }));
-            setIsEditing(true);
-            toast({
-                title: "Calculations Complete",
-                description: "Review the calculated values and adjust if needed.",
-            });
+            if (hasData) {
+                setCalculatedData(calculations);
+                setShowOverridePrompt(true);
+            } else {
+                setFormData(prev => ({
+                    ...prev,
+                    ...calculations
+                }));
+                setIsEditing(true);
+                toast({
+                    title: "Calculations Complete",
+                    description: "Review the calculated values and adjust if needed.",
+                });
+            }
         },
         onError: (error) => {
             toast({
@@ -103,12 +124,73 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
         }
     });
 
+    const handleOverrideAccept = () => {
+        setFormData(prev => ({
+            ...prev,
+            ...calculatedData
+        }));
+        setShowOverridePrompt(false);
+        setIsEditing(true);
+        toast({
+            title: "Data Updated",
+            description: "Volume and spend data has been recalculated from strategy report.",
+        });
+    };
+
+    const handleOverrideCancel = () => {
+        setShowOverridePrompt(false);
+        setCalculatedData(null);
+    };
+
     const handleSave = () => {
         updateProjectionsMutation.mutate(formData);
     };
 
     const handleValueChange = (field, value) => {
-        setFormData(prev => ({ ...prev, [field]: value }));
+        const updates = { [field]: value };
+
+        if (field === 'total_shipments' && formData.data_timeframe_months) {
+            const months = Number(formData.data_timeframe_months);
+            if (months > 0) {
+                updates.monthly_shipments = Math.round(Number(value) / months);
+            }
+        }
+
+        if (field === 'monthly_shipments' && formData.data_timeframe_months) {
+            const months = Number(formData.data_timeframe_months);
+            if (months > 0) {
+                updates.total_shipments = Math.round(Number(value) * months);
+            }
+        }
+
+        if (field === 'data_timeframe_months') {
+            const months = Number(value);
+            if (months > 0) {
+                if (formData.total_shipments) {
+                    updates.monthly_shipments = Math.round(Number(formData.total_shipments) / months);
+                } else if (formData.monthly_shipments) {
+                    updates.total_shipments = Math.round(Number(formData.monthly_shipments) * months);
+                }
+            }
+        }
+
+        if (field === 'projected_monthly_spend') {
+            updates.projected_annual_spend = Math.round(Number(value) * 12);
+        }
+
+        if (field === 'projected_annual_spend') {
+            updates.projected_monthly_spend = Math.round(Number(value) / 12);
+        }
+
+        if (field === 'projected_monthly_revenue') {
+            updates.projected_annual_revenue = Math.round(Number(value) * 12);
+        }
+
+        if (field === 'projected_annual_revenue') {
+            updates.projected_monthly_revenue = Math.round(Number(value) / 12);
+        }
+
+        setFormData(prev => ({ ...prev, ...updates }));
     };
 
     const meetsThreshold = () => {
@@ -191,7 +273,7 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                     </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="total_shipments">Total Shipments</Label>
                             {isEditing ? (
@@ -205,6 +287,22 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                             ) : (
                                 <p className="text-2xl font-bold text-slate-900">
                                     {formData.total_shipments ? Number(formData.total_shipments).toLocaleString() : '-'}
+                                </p>
+                            )}
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="monthly_shipments">Monthly Shipments</Label>
+                            {isEditing ? (
+                                <Input
+                                    id="monthly_shipments"
+                                    type="number"
+                                    value={formData.monthly_shipments}
+                                    onChange={(e) => handleValueChange('monthly_shipments', e.target.value)}
+                                    placeholder="e.g., 417"
+                                />
+                            ) : (
+                                <p className="text-2xl font-bold text-slate-900">
+                                    {formData.monthly_shipments ? Number(formData.monthly_shipments).toLocaleString() : '-'}
                                 </p>
                             )}
                         </div>
@@ -476,6 +574,7 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                         onClick={() => {
                             setFormData({
                                 total_shipments: cspEvent?.total_shipments || '',
+                                monthly_shipments: cspEvent?.monthly_shipments || '',
                                 data_timeframe_months: cspEvent?.data_timeframe_months || '',
                                 data_start_date: cspEvent?.data_start_date || null,
                                 data_end_date: cspEvent?.data_end_date || null,
@@ -500,6 +599,35 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                     </Button>
                 </div>
             )}
+
+            <AlertDialog open={showOverridePrompt} onOpenChange={setShowOverridePrompt}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Override Existing Data?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            You already have volume and spend data entered. Would you like to replace it with the newly calculated values from your strategy report?
+                            <div className="mt-4 p-4 bg-slate-50 rounded-lg space-y-2 text-sm">
+                                <div className="flex justify-between">
+                                    <span className="font-medium">New Total Shipments:</span>
+                                    <span>{calculatedData?.total_shipments?.toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="font-medium">New Monthly Shipments:</span>
+                                    <span>{calculatedData?.monthly_shipments?.toLocaleString()}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="font-medium">New Annual Spend:</span>
+                                    <span>${calculatedData?.projected_annual_spend?.toLocaleString()}</span>
+                                </div>
+                            </div>
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={handleOverrideCancel}>Keep Current Data</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleOverrideAccept}>Replace with New Data</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }
