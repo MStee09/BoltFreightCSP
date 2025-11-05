@@ -11,12 +11,23 @@ export default function EmailSetupGuide() {
 
   return (
     <div className="space-y-6">
-      <Alert className="bg-blue-50 border-blue-200">
-        <Zap className="h-4 w-4 text-blue-600" />
-        <AlertDescription className="text-sm">
-          <span className="font-semibold text-blue-900">Simplified Email Setup:</span> Just connect your Gmail account once using Google Sign-In. No passwords or app-specific credentials needed!
-        </AlertDescription>
-      </Alert>
+      {!hasGmailOAuth && (
+        <Alert className="bg-amber-50 border-amber-300">
+          <AlertCircle className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="text-sm">
+            <span className="font-semibold text-amber-900">Admin Setup Required:</span> Your Google Workspace administrator needs to configure Gmail integration for your organization. Once setup is complete, you'll be able to connect your Gmail account with a single click.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {hasGmailOAuth && (
+        <Alert className="bg-green-50 border-green-200">
+          <CheckCircle2 className="h-4 w-4 text-green-600" />
+          <AlertDescription className="text-sm">
+            <span className="font-semibold text-green-900">Ready to Connect:</span> Your administrator has configured Gmail integration. Just click "Connect Gmail Account" below to get started!
+          </AlertDescription>
+        </Alert>
+      )}
 
       <Card className="border-2 border-blue-200">
         <CardHeader>
@@ -68,7 +79,38 @@ export default function EmailSetupGuide() {
           <Separator />
 
           <div className="space-y-4">
-            <h4 className="text-sm font-semibold text-slate-900">Setup Steps:</h4>
+            {!hasGmailOAuth && (
+              <>
+                <h4 className="text-sm font-semibold text-slate-900">For Administrators:</h4>
+                <Alert className="bg-blue-50 border-blue-200">
+                  <AlertCircle className="h-4 w-4 text-blue-600" />
+                  <AlertDescription className="text-xs">
+                    If you're a Google Workspace administrator, follow the detailed setup guide to configure Gmail integration for your entire organization.
+                  </AlertDescription>
+                </Alert>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={() => {
+                    const link = document.createElement('a');
+                    link.href = '/GOOGLE_WORKSPACE_ADMIN_SETUP.md';
+                    link.download = 'GOOGLE_WORKSPACE_ADMIN_SETUP.md';
+                    link.click();
+                  }}
+                >
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  Download Admin Setup Guide
+                </Button>
+              </>
+            )}
+
+            {!hasGmailOAuth && (
+              <>
+                <Separator />
+                <h4 className="text-sm font-semibold text-slate-900">Quick Overview (Admin Only):</h4>
+              </>
+            )}
 
             <div className="space-y-3">
               <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
@@ -76,19 +118,10 @@ export default function EmailSetupGuide() {
                   1
                 </Badge>
                 <div className="flex-1">
-                  <p className="font-medium text-slate-900 text-sm">Create Google Cloud Project</p>
+                  <p className="font-medium text-slate-900 text-sm">Admin: Create Google Cloud Project</p>
                   <p className="text-xs text-slate-600 mt-1">
-                    Go to Google Cloud Console and create a new project
+                    Workspace admin creates project in Google Cloud Console
                   </p>
-                  <Button
-                    variant="link"
-                    size="sm"
-                    className="h-auto p-0 text-xs mt-2"
-                    onClick={() => window.open('https://console.cloud.google.com/projectcreate', '_blank')}
-                  >
-                    <ExternalLink className="h-3 w-3 mr-1" />
-                    Open Google Cloud Console
-                  </Button>
                 </div>
               </div>
 
@@ -97,9 +130,9 @@ export default function EmailSetupGuide() {
                   2
                 </Badge>
                 <div className="flex-1">
-                  <p className="font-medium text-slate-900 text-sm">Enable Gmail API</p>
+                  <p className="font-medium text-slate-900 text-sm">Admin: Enable Gmail API & Configure OAuth</p>
                   <p className="text-xs text-slate-600 mt-1">
-                    Navigate to: APIs & Services → Library → Search "Gmail API" → Click Enable
+                    Set OAuth consent to "Internal" (restricts to organization only)
                   </p>
                 </div>
               </div>
@@ -109,75 +142,29 @@ export default function EmailSetupGuide() {
                   3
                 </Badge>
                 <div className="flex-1">
-                  <p className="font-medium text-slate-900 text-sm">Configure OAuth Consent Screen</p>
+                  <p className="font-medium text-slate-900 text-sm">Admin: Add Client ID to Application</p>
                   <p className="text-xs text-slate-600 mt-1">
-                    Go to: APIs & Services → OAuth consent screen → Choose "External"
+                    Configure VITE_GMAIL_CLIENT_ID in environment variables
                   </p>
-                  <ul className="text-xs text-slate-600 mt-2 ml-4 space-y-1">
-                    <li>• Add app name and support email</li>
-                    <li>• Add required scopes (gmail.send, gmail.readonly)</li>
-                    <li>• Add test users (your email addresses)</li>
-                  </ul>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3 p-3 bg-slate-50 rounded-lg border border-slate-200">
-                <Badge variant="secondary" className="mt-0.5 h-6 w-6 flex items-center justify-center p-0 text-sm">
-                  4
-                </Badge>
-                <div className="flex-1">
-                  <p className="font-medium text-slate-900 text-sm">Create OAuth Client ID</p>
-                  <p className="text-xs text-slate-600 mt-1">
-                    Go to: APIs & Services → Credentials → Create Credentials → OAuth 2.0 Client ID
-                  </p>
-                  <ul className="text-xs text-slate-600 mt-2 ml-4 space-y-1">
-                    <li>• Application type: Web application</li>
-                    <li>• Authorized redirect URIs:</li>
-                    <li className="ml-4 font-mono text-blue-600">http://localhost:5173/gmail-callback</li>
-                    <li className="ml-4 text-slate-500">(Add production URL later)</li>
-                  </ul>
-                  <Button
-                    variant="link"
-                    size="sm"
-                    className="h-auto p-0 text-xs mt-2"
-                    onClick={() => window.open('https://console.cloud.google.com/apis/credentials', '_blank')}
-                  >
-                    <ExternalLink className="h-3 w-3 mr-1" />
-                    Open Credentials Page
-                  </Button>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3 p-3 bg-blue-50 rounded-lg border-2 border-blue-200">
-                <Badge className="mt-0.5 h-6 w-6 flex items-center justify-center p-0 text-sm bg-blue-600">
-                  5
-                </Badge>
-                <div className="flex-1">
-                  <p className="font-medium text-slate-900 text-sm">Add Client ID to .env File</p>
-                  <p className="text-xs text-slate-600 mt-1">
-                    Copy your Client ID and add it to your <code className="bg-slate-200 px-1 rounded">.env</code> file:
-                  </p>
-                  <div className="mt-2 font-mono text-xs bg-slate-900 text-green-400 p-3 rounded border border-slate-700">
-                    VITE_GMAIL_CLIENT_ID=your-client-id.apps.googleusercontent.com
+              {hasGmailOAuth && (
+                <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg border-2 border-green-200">
+                  <Badge className="mt-0.5 h-6 w-6 flex items-center justify-center p-0 text-sm bg-green-600 text-white">
+                    ✓
+                  </Badge>
+                  <div className="flex-1">
+                    <p className="font-medium text-slate-900 text-sm">You're Ready!</p>
+                    <p className="text-xs text-slate-600 mt-1">
+                      Click "Connect Gmail Account" below → Sign in with your company Google account → Done!
+                    </p>
+                    <p className="text-xs text-green-700 mt-2 font-medium">
+                      No configuration needed from you - just one click to connect!
+                    </p>
                   </div>
-                  <p className="text-xs text-slate-500 mt-2 italic">Then restart your dev server</p>
                 </div>
-              </div>
-
-              <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg border border-green-200">
-                <Badge variant="secondary" className="mt-0.5 h-6 w-6 flex items-center justify-center p-0 text-sm bg-green-600 text-white">
-                  ✓
-                </Badge>
-                <div className="flex-1">
-                  <p className="font-medium text-slate-900 text-sm">Test Your Connection</p>
-                  <p className="text-xs text-slate-600 mt-1">
-                    Scroll down and click "Connect Gmail Account" → Sign in with Google
-                  </p>
-                  <p className="text-xs text-green-700 mt-2 font-medium">
-                    That's it! No passwords, no app-specific credentials needed.
-                  </p>
-                </div>
-              </div>
+              )}
             </div>
           </div>
         </CardContent>
