@@ -15,6 +15,7 @@ import CspEventOverview from '../components/pipeline/CspEventOverview';
 import EditCspEventDialog from '../components/pipeline/EditCspEventDialog';
 import ManageCarriersDialog from '../components/pipeline/ManageCarriersDialog';
 import InteractionTimeline from '../components/customers/InteractionTimeline';
+import VolumeSpendTab from '../components/pipeline/VolumeSpendTab';
 
 export default function CspEventDetail() {
     const navigate = useNavigate();
@@ -118,6 +119,7 @@ export default function CspEventDetail() {
                     <TabsList className="bg-slate-100">
                         <TabsTrigger value="overview">Overview</TabsTrigger>
                         <TabsTrigger value="strategy">Strategy</TabsTrigger>
+                        <TabsTrigger value="volume-spend">Volume & Spend</TabsTrigger>
                         <TabsTrigger value="activity">Activity</TabsTrigger>
                         <TabsTrigger value="emails">Emails</TabsTrigger>
                         <TabsTrigger value="carriers">Carriers</TabsTrigger>
@@ -127,6 +129,9 @@ export default function CspEventDetail() {
                     </TabsContent>
                     <TabsContent value="strategy">
                         <CspStrategyTab customer={customer} cspEventId={eventId} cspEvent={event} />
+                    </TabsContent>
+                    <TabsContent value="volume-spend">
+                        <VolumeSpendTab cspEvent={event} cspEventId={eventId} />
                     </TabsContent>
                     <TabsContent value="activity">
                         <InteractionTimeline customerId={event.customer_id} entityType="customer" />
