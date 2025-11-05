@@ -10,7 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 import { Calendar } from '../ui/calendar';
 import { useToast } from '../ui/use-toast';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
-import { Calculator, Save, TrendingUp, DollarSign, Package, Calendar as CalendarIcon, AlertCircle, Sparkles, CheckCircle } from 'lucide-react';
+import { Calculator, Save, DollarSign, Package, Calendar as CalendarIcon, AlertCircle, Sparkles } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '../../lib/utils';
 import { supabase } from '../../api/supabaseClient';
@@ -28,10 +28,7 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
         data_start_date: cspEvent?.data_start_date || null,
         data_end_date: cspEvent?.data_end_date || null,
         projected_monthly_spend: cspEvent?.projected_monthly_spend || '',
-        projected_annual_spend: cspEvent?.projected_annual_spend || '',
-        projected_monthly_revenue: cspEvent?.projected_monthly_revenue || '',
-        projected_annual_revenue: cspEvent?.projected_annual_revenue || '',
-        minimum_annual_spend_threshold: cspEvent?.minimum_annual_spend_threshold || ''
+        projected_annual_spend: cspEvent?.projected_annual_spend || ''
     });
 
     const hasData = cspEvent?.total_shipments || cspEvent?.projected_annual_spend;
@@ -92,9 +89,7 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                 data_start_date: metadata.date_range?.start || null,
                 data_end_date: metadata.date_range?.end || null,
                 projected_monthly_spend: monthlySpend,
-                projected_annual_spend: annualSpend,
-                projected_monthly_revenue: totalRevenue ? Math.round(totalRevenue / timeframeMonths) : '',
-                projected_annual_revenue: totalRevenue ? Math.round((totalRevenue / timeframeMonths) * 12) : ''
+                projected_annual_spend: annualSpend
             };
 
             return calculations;
@@ -182,25 +177,8 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
             updates.projected_monthly_spend = Math.round(Number(value) / 12);
         }
 
-        if (field === 'projected_monthly_revenue') {
-            updates.projected_annual_revenue = Math.round(Number(value) * 12);
-        }
-
-        if (field === 'projected_annual_revenue') {
-            updates.projected_monthly_revenue = Math.round(Number(value) / 12);
-        }
-
         setFormData(prev => ({ ...prev, ...updates }));
     };
-
-    const meetsThreshold = () => {
-        if (!formData.projected_annual_spend || !formData.minimum_annual_spend_threshold) {
-            return null;
-        }
-        return Number(formData.projected_annual_spend) >= Number(formData.minimum_annual_spend_threshold);
-    };
-
-    const thresholdStatus = meetsThreshold();
 
     return (
         <div className="space-y-4">
@@ -443,129 +421,17 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                 </CardContent>
             </Card>
 
-            <Card>
-                <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                        <TrendingUp className="w-5 h-5 text-slate-600" />
-                        Revenue Projections
-                    </CardTitle>
-                    <CardDescription>Expected revenue including markup</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="projected_monthly_revenue">Monthly Revenue</Label>
-                            {isEditing ? (
-                                <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">$</span>
-                                    <Input
-                                        id="projected_monthly_revenue"
-                                        type="number"
-                                        value={formData.projected_monthly_revenue}
-                                        onChange={(e) => handleValueChange('projected_monthly_revenue', e.target.value)}
-                                        placeholder="55000"
-                                        className="pl-7"
-                                    />
-                                </div>
-                            ) : (
-                                <p className="text-2xl font-bold text-slate-900">
-                                    {formData.projected_monthly_revenue ? `$${Number(formData.projected_monthly_revenue).toLocaleString()}` : '-'}
-                                </p>
-                            )}
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="projected_annual_revenue">Annual Revenue</Label>
-                            {isEditing ? (
-                                <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">$</span>
-                                    <Input
-                                        id="projected_annual_revenue"
-                                        type="number"
-                                        value={formData.projected_annual_revenue}
-                                        onChange={(e) => handleValueChange('projected_annual_revenue', e.target.value)}
-                                        placeholder="660000"
-                                        className="pl-7"
-                                    />
-                                </div>
-                            ) : (
-                                <p className="text-2xl font-bold text-slate-900">
-                                    {formData.projected_annual_revenue ? `$${Number(formData.projected_annual_revenue).toLocaleString()}` : '-'}
-                                </p>
-                            )}
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
-
-            <Card className={cn(
-                "border-2",
-                thresholdStatus === true && "border-green-300 bg-green-50/30",
-                thresholdStatus === false && "border-amber-300 bg-amber-50/30"
-            )}>
-                <CardHeader>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                        <AlertCircle className={cn(
-                            "w-5 h-5",
-                            thresholdStatus === true && "text-green-600",
-                            thresholdStatus === false && "text-amber-600",
-                            thresholdStatus === null && "text-slate-600"
-                        )} />
-                        Carrier Participation Threshold
-                    </CardTitle>
-                    <CardDescription>Minimum annual spend carriers require to participate</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                        <Label htmlFor="minimum_annual_spend_threshold">Minimum Annual Spend</Label>
-                        {isEditing ? (
-                            <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">$</span>
-                                <Input
-                                    id="minimum_annual_spend_threshold"
-                                    type="number"
-                                    value={formData.minimum_annual_spend_threshold}
-                                    onChange={(e) => handleValueChange('minimum_annual_spend_threshold', e.target.value)}
-                                    placeholder="500000"
-                                    className="pl-7"
-                                />
-                            </div>
-                        ) : (
-                            <p className="text-2xl font-bold text-slate-900">
-                                {formData.minimum_annual_spend_threshold ? `$${Number(formData.minimum_annual_spend_threshold).toLocaleString()}` : '-'}
-                            </p>
-                        )}
-                    </div>
-
-                    {thresholdStatus !== null && (
-                        <div className={cn(
-                            "p-4 rounded-lg flex items-start gap-3",
-                            thresholdStatus ? "bg-green-100 border border-green-300" : "bg-amber-100 border border-amber-300"
-                        )}>
-                            {thresholdStatus ? (
-                                <CheckCircle className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
-                            ) : (
-                                <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5 flex-shrink-0" />
-                            )}
-                            <div>
-                                <p className={cn(
-                                    "font-semibold text-sm mb-1",
-                                    thresholdStatus ? "text-green-900" : "text-amber-900"
-                                )}>
-                                    {thresholdStatus ? "Meets Threshold" : "Below Threshold"}
-                                </p>
-                                <p className={cn(
-                                    "text-sm",
-                                    thresholdStatus ? "text-green-700" : "text-amber-700"
-                                )}>
-                                    {thresholdStatus
-                                        ? "This CSP meets carrier minimum spend requirements and should attract participation."
-                                        : "This CSP is below typical carrier thresholds. Consider bundling with other customers or lanes to increase participation."}
-                                </p>
-                            </div>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5 flex-shrink-0" />
+                <div>
+                    <p className="font-semibold text-sm text-blue-900 mb-1">
+                        Carrier Participation Note
+                    </p>
+                    <p className="text-sm text-blue-700">
+                        Typically, carriers don't want to pursue CSP events unless they are at least $40,000 spend per month. Consider this when planning your carrier outreach strategy.
+                    </p>
+                </div>
+            </div>
 
             {isEditing && (
                 <div className="flex justify-end gap-2">
@@ -579,10 +445,7 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                                 data_start_date: cspEvent?.data_start_date || null,
                                 data_end_date: cspEvent?.data_end_date || null,
                                 projected_monthly_spend: cspEvent?.projected_monthly_spend || '',
-                                projected_annual_spend: cspEvent?.projected_annual_spend || '',
-                                projected_monthly_revenue: cspEvent?.projected_monthly_revenue || '',
-                                projected_annual_revenue: cspEvent?.projected_annual_revenue || '',
-                                minimum_annual_spend_threshold: cspEvent?.minimum_annual_spend_threshold || ''
+                                projected_annual_spend: cspEvent?.projected_annual_spend || ''
                             });
                             setIsEditing(false);
                         }}
