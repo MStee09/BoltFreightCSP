@@ -201,12 +201,8 @@ export default function EditCspEventDialog({ isOpen, onOpenChange, eventId }) {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="LTL">LTL</SelectItem>
-                                    <SelectItem value="Truckload">Truckload</SelectItem>
+                                    <SelectItem value="Full Truckload">Full Truckload</SelectItem>
                                     <SelectItem value="Home Delivery">Home Delivery</SelectItem>
-                                    <SelectItem value="Parcel">Parcel</SelectItem>
-                                    <SelectItem value="Intermodal">Intermodal</SelectItem>
-                                    <SelectItem value="Ocean">Ocean</SelectItem>
-                                    <SelectItem value="Air">Air</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>

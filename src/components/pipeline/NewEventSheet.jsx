@@ -29,6 +29,7 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers: custome
     const [newEvent, setNewEvent] = useState({
         title: '',
         customer_id: '',
+        mode: '',
         stage: 'discovery',
         priority: 'medium',
         description: '',
@@ -202,6 +203,19 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers: custome
                             </SelectTrigger>
                             <SelectContent>
                                 {customers.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="mode">Mode</Label>
+                        <Select onValueChange={value => handleValueChange('mode', value)} value={newEvent.mode}>
+                            <SelectTrigger id="mode">
+                                <SelectValue placeholder="Select mode" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="LTL">LTL</SelectItem>
+                                <SelectItem value="Full Truckload">Full Truckload</SelectItem>
+                                <SelectItem value="Home Delivery">Home Delivery</SelectItem>
                             </SelectContent>
                         </Select>
                     </div>
