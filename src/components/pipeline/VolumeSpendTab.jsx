@@ -132,17 +132,26 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                             <div className="flex-1">
                                 <h3 className="font-semibold text-blue-900 mb-1">Auto-Calculate from Strategy Data</h3>
                                 <p className="text-sm text-blue-700 mb-3">
-                                    Upload shipment data in the Strategy tab, then click below to automatically calculate volume and spend projections.
+                                    Upload shipment data in the Strategy tab to automatically calculate projections, or manually enter data below.
                                 </p>
-                                <Button
-                                    onClick={() => calculateProjectionsMutation.mutate()}
-                                    disabled={calculateProjectionsMutation.isPending}
-                                    size="sm"
-                                    className="bg-blue-600 hover:bg-blue-700"
-                                >
-                                    <Calculator className="w-4 h-4 mr-2" />
-                                    {calculateProjectionsMutation.isPending ? 'Calculating...' : 'Calculate from Strategy Data'}
-                                </Button>
+                                <div className="flex gap-2">
+                                    <Button
+                                        onClick={() => calculateProjectionsMutation.mutate()}
+                                        disabled={calculateProjectionsMutation.isPending}
+                                        size="sm"
+                                        className="bg-blue-600 hover:bg-blue-700"
+                                    >
+                                        <Calculator className="w-4 h-4 mr-2" />
+                                        {calculateProjectionsMutation.isPending ? 'Calculating...' : 'Calculate from Strategy Data'}
+                                    </Button>
+                                    <Button
+                                        onClick={() => setIsEditing(true)}
+                                        size="sm"
+                                        variant="outline"
+                                    >
+                                        Enter Manually
+                                    </Button>
+                                </div>
                             </div>
                         </div>
                     </CardContent>
