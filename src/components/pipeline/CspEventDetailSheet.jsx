@@ -335,47 +335,6 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
                         </Card>
                                 </TabsContent>
 
-                            <TabsContent value="strategy" className="mt-4">
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle className="text-base">Timeline</CardTitle>
-                                        <CardDescription>Activity related to this event</CardDescription>
-                                    </CardHeader>
-                                    <CardContent>
-                                        {isLoadingInteractions ? (
-                                            <div className="space-y-3">
-                                                <Skeleton className="h-16 w-full" />
-                                                <Skeleton className="h-16 w-full" />
-                                            </div>
-                                        ) : eventInteractions.length > 0 ? (
-                                            <div className="space-y-4">
-                                                {eventInteractions.map((interaction) => (
-                                                    <div key={interaction.id} className="border-l-2 border-blue-500 pl-4 pb-3">
-                                                        <div className="flex items-start gap-2 mb-1">
-                                                            <MessageSquare className="w-4 h-4 text-slate-500 mt-0.5" />
-                                                            <div className="flex-1">
-                                                                <Badge variant="outline" className="capitalize text-xs mb-1">
-                                                                    {interaction.interaction_type?.replace(/_/g, ' ')}
-                                                                </Badge>
-                                                                <p className="font-medium text-sm text-slate-900">{interaction.summary}</p>
-                                                                {interaction.details && (
-                                                                    <p className="text-xs text-slate-600 mt-1">{interaction.details}</p>
-                                                                )}
-                                                                <p className="text-xs text-slate-500 mt-1">
-                                                                    {formatDistanceToNow(new Date(interaction.created_date), { addSuffix: true })}
-                                                                </p>
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <p className="text-sm text-slate-500 text-center py-8">No activity recorded yet</p>
-                                        )}
-                                    </CardContent>
-                                </Card>
-                            </TabsContent>
-
                             <TabsContent value="volume-spend" className="mt-4">
                                 <VolumeSpendTab cspEvent={event} cspEventId={eventId} />
                             </TabsContent>
