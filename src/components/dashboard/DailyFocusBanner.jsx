@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '../ui/card';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -7,6 +8,7 @@ import { format } from 'date-fns';
 import { supabase } from '../../api/supabaseClient';
 
 export default function DailyFocusBanner({ alerts, expiringTariffs, idleNegotiations, todayTasks, customers, cspEvents }) {
+  const navigate = useNavigate();
   const [aiSummary, setAiSummary] = useState('');
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
   const hasGeneratedToday = useRef(false);
@@ -30,6 +32,7 @@ export default function DailyFocusBanner({ alerts, expiringTariffs, idleNegotiat
       color: 'text-red-600',
       bgColor: 'bg-red-50',
       borderColor: 'border-red-200',
+      onClick: () => navigate('/dashboard'),
     });
   }
 
@@ -42,6 +45,7 @@ export default function DailyFocusBanner({ alerts, expiringTariffs, idleNegotiat
       color: 'text-orange-600',
       bgColor: 'bg-orange-50',
       borderColor: 'border-orange-200',
+      onClick: () => navigate('/calendar'),
     });
   }
 
@@ -54,6 +58,7 @@ export default function DailyFocusBanner({ alerts, expiringTariffs, idleNegotiat
       color: 'text-blue-600',
       bgColor: 'bg-blue-50',
       borderColor: 'border-blue-200',
+      onClick: () => navigate('/pipeline'),
     });
   }
 
@@ -66,6 +71,7 @@ export default function DailyFocusBanner({ alerts, expiringTariffs, idleNegotiat
       color: 'text-amber-600',
       bgColor: 'bg-amber-50',
       borderColor: 'border-amber-200',
+      onClick: () => navigate('/tariffs'),
     });
   }
 
@@ -200,9 +206,10 @@ export default function DailyFocusBanner({ alerts, expiringTariffs, idleNegotiat
               {priorities.map((priority, idx) => {
                 const Icon = priority.icon;
                 return (
-                  <div
+                  <button
                     key={idx}
-                    className={`p-4 rounded-lg border-l-4 ${priority.borderColor} bg-white/80 backdrop-blur hover:bg-white transition-all hover:shadow-md`}
+                    onClick={priority.onClick}
+                    className={`p-4 rounded-lg border-l-4 ${priority.borderColor} bg-white/80 backdrop-blur hover:bg-white transition-all hover:shadow-md cursor-pointer text-left w-full`}
                   >
                     <div className="flex items-start gap-3">
                       <div className={`p-2 rounded-lg ${priority.bgColor}`}>
@@ -222,7 +229,7 @@ export default function DailyFocusBanner({ alerts, expiringTariffs, idleNegotiat
                         </p>
                       </div>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
