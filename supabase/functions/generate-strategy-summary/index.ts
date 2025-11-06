@@ -101,10 +101,13 @@ Deno.serve(async (req: Request) => {
         try {
           let csvText = '';
 
+          console.log(`Processing document: ${doc.file_name}`);
+          console.log(`File path: ${doc.file_path}`);
+
           const pathMatch = doc.file_path.match(/\/documents\/(.+)$/);
           if (pathMatch) {
             const storagePath = decodeURIComponent(pathMatch[1]);
-            console.log(`Downloading from storage: ${storagePath}`);
+            console.log(`Extracted storage path: ${storagePath}`);
 
             const { data: fileData, error: downloadError } = await supabase.storage
               .from('documents')
@@ -112,15 +115,21 @@ Deno.serve(async (req: Request) => {
 
             if (downloadError) {
               console.error(`Error downloading ${doc.file_name}:`, downloadError);
+              console.error(`Error details:`, JSON.stringify(downloadError));
               continue;
             }
+
+            console.log(`Successfully downloaded file, size: ${fileData.size} bytes`);
             csvText = await fileData.text();
+            console.log(`CSV text length: ${csvText.length} characters`);
+            console.log(`First 200 chars:`, csvText.substring(0, 200));
           } else {
             console.error(`Could not parse file path: ${doc.file_path}`);
             continue;
           }
 
           const parsedData = parseCSV(csvText);
+          console.log(`Parsed ${parsedData.length} rows from ${doc.file_name}`);
 
           if (doc.document_type === 'transaction_detail') {
             txnData = [...txnData, ...parsedData];
