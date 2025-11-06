@@ -17,16 +17,39 @@ function parseCSV(csvText: string): any[] {
   const lines = csvText.split('\n').filter(line => line.trim());
   if (lines.length < 2) return [];
 
-  const headers = lines[0].split(',').map(h => h.trim().replace(/['\"]/g, ''));
+  const parseLine = (line: string): string[] => {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+
+      if (char === '"') {
+        inQuotes = !inQuotes;
+      } else if (char === ',' && !inQuotes) {
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    result.push(current.trim());
+    return result;
+  };
+
+  const headers = parseLine(lines[0]).map(h => h.replace(/['\"]/g, ''));
   const rows: any[] = [];
 
   for (let i = 1; i < lines.length; i++) {
-    const values = lines[i].split(',').map(v => v.trim().replace(/['\"]/g, ''));
-    const row: any = {};
-    headers.forEach((header, index) => {
-      row[header] = values[index] || '';
-    });
-    rows.push(row);
+    const values = parseLine(lines[i]).map(v => v.replace(/['\"]/g, ''));
+    if (values.length === headers.length) {
+      const row: any = {};
+      headers.forEach((header, index) => {
+        row[header] = values[index] || '';
+      });
+      rows.push(row);
+    }
   }
 
   return rows;
@@ -76,17 +99,27 @@ Deno.serve(async (req: Request) => {
 
       for (const doc of documents || []) {
         try {
-          const fileName = doc.file_path.split('/').pop();
-          const { data: fileData, error: downloadError } = await supabase.storage
-            .from('documents')
-            .download(`${doc.user_id}/${fileName}`);
+          let csvText = '';
 
-          if (downloadError) {
-            console.error(`Error downloading ${doc.file_name}:`, downloadError);
+          const pathMatch = doc.file_path.match(/\/documents\/(.+)$/);
+          if (pathMatch) {
+            const storagePath = decodeURIComponent(pathMatch[1]);
+            console.log(`Downloading from storage: ${storagePath}`);
+
+            const { data: fileData, error: downloadError } = await supabase.storage
+              .from('documents')
+              .download(storagePath);
+
+            if (downloadError) {
+              console.error(`Error downloading ${doc.file_name}:`, downloadError);
+              continue;
+            }
+            csvText = await fileData.text();
+          } else {
+            console.error(`Could not parse file path: ${doc.file_path}`);
             continue;
           }
 
-          const csvText = await fileData.text();
           const parsedData = parseCSV(csvText);
 
           if (doc.document_type === 'transaction_detail') {
@@ -408,7 +441,7 @@ Format the response in markdown with clear sections. Be specific with numbers an
         error: error.message || 'Failed to generate strategy summary' 
       }),
       {
-        status: 500,
+      status: 500,
         headers: {
           ...corsHeaders,
           "Content-Type": "application/json",
