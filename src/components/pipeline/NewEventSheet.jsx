@@ -33,16 +33,10 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers: custome
     const [showNewCustomerDialog, setShowNewCustomerDialog] = useState(false);
     const [newCustomer, setNewCustomer] = useState({
         name: '',
-        industry: '',
-        segment: '',
-        primary_contact_name: '',
-        primary_contact_email: '',
-        primary_contact_phone: '',
-        address: '',
-        city: '',
-        state: '',
-        zip_code: '',
-        country: 'USA'
+        account_owner: user?.email || '',
+        csp_strategy: '',
+        status: 'active',
+        notes: ''
     });
     const [newEvent, setNewEvent] = useState({
         title: '',
@@ -116,16 +110,10 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers: custome
             setShowNewCustomerDialog(false);
             setNewCustomer({
                 name: '',
-                industry: '',
-                segment: '',
-                primary_contact_name: '',
-                primary_contact_email: '',
-                primary_contact_phone: '',
-                address: '',
-                city: '',
-                state: '',
-                zip_code: '',
-                country: 'USA'
+                account_owner: user?.email || '',
+                csp_strategy: '',
+                status: 'active',
+                notes: ''
             });
             toast({
                 title: "Success!",
@@ -436,123 +424,51 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers: custome
             </SheetContent>
 
             <Dialog open={showNewCustomerDialog} onOpenChange={setShowNewCustomerDialog}>
-                <DialogContent className="sm:max-w-lg max-h-[90vh] flex flex-col">
+                <DialogContent className="sm:max-w-lg">
                     <DialogHeader>
                         <DialogTitle>Create New Customer</DialogTitle>
                         <DialogDescription>Add a new customer to your database.</DialogDescription>
                     </DialogHeader>
-                    <ScrollArea className="flex-1 -mx-6 px-6">
-                        <div className="space-y-4 py-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="customer_name">Customer Name *</Label>
-                                <Input
-                                    id="customer_name"
-                                    value={newCustomer.name}
-                                    onChange={e => setNewCustomer(prev => ({ ...prev, name: e.target.value }))}
-                                    placeholder="e.g., Acme Corporation"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="industry">Industry</Label>
-                                <Input
-                                    id="industry"
-                                    value={newCustomer.industry}
-                                    onChange={e => setNewCustomer(prev => ({ ...prev, industry: e.target.value }))}
-                                    placeholder="e.g., Manufacturing"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="segment">Segment</Label>
-                                <Select onValueChange={value => setNewCustomer(prev => ({ ...prev, segment: value }))} value={newCustomer.segment}>
-                                    <SelectTrigger id="segment">
-                                        <SelectValue placeholder="Select segment" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="enterprise">Enterprise</SelectItem>
-                                        <SelectItem value="mid_market">Mid-Market</SelectItem>
-                                        <SelectItem value="smb">Small Business</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="primary_contact_name">Primary Contact Name</Label>
-                                <Input
-                                    id="primary_contact_name"
-                                    value={newCustomer.primary_contact_name}
-                                    onChange={e => setNewCustomer(prev => ({ ...prev, primary_contact_name: e.target.value }))}
-                                    placeholder="John Smith"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="primary_contact_email">Primary Contact Email</Label>
-                                <Input
-                                    id="primary_contact_email"
-                                    type="email"
-                                    value={newCustomer.primary_contact_email}
-                                    onChange={e => setNewCustomer(prev => ({ ...prev, primary_contact_email: e.target.value }))}
-                                    placeholder="john@example.com"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="primary_contact_phone">Primary Contact Phone</Label>
-                                <Input
-                                    id="primary_contact_phone"
-                                    value={newCustomer.primary_contact_phone}
-                                    onChange={e => setNewCustomer(prev => ({ ...prev, primary_contact_phone: e.target.value }))}
-                                    placeholder="(555) 123-4567"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="address">Address</Label>
-                                <Input
-                                    id="address"
-                                    value={newCustomer.address}
-                                    onChange={e => setNewCustomer(prev => ({ ...prev, address: e.target.value }))}
-                                    placeholder="123 Main St"
-                                />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="city">City</Label>
-                                    <Input
-                                        id="city"
-                                        value={newCustomer.city}
-                                        onChange={e => setNewCustomer(prev => ({ ...prev, city: e.target.value }))}
-                                        placeholder="New York"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="state">State</Label>
-                                    <Input
-                                        id="state"
-                                        value={newCustomer.state}
-                                        onChange={e => setNewCustomer(prev => ({ ...prev, state: e.target.value }))}
-                                        placeholder="NY"
-                                    />
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="zip_code">ZIP Code</Label>
-                                    <Input
-                                        id="zip_code"
-                                        value={newCustomer.zip_code}
-                                        onChange={e => setNewCustomer(prev => ({ ...prev, zip_code: e.target.value }))}
-                                        placeholder="10001"
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="country">Country</Label>
-                                    <Input
-                                        id="country"
-                                        value={newCustomer.country}
-                                        onChange={e => setNewCustomer(prev => ({ ...prev, country: e.target.value }))}
-                                        placeholder="USA"
-                                    />
-                                </div>
-                            </div>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="customer_name">Customer Name *</Label>
+                            <Input
+                                id="customer_name"
+                                value={newCustomer.name}
+                                onChange={e => setNewCustomer(prev => ({ ...prev, name: e.target.value }))}
+                                placeholder="e.g., Acme Corporation"
+                            />
                         </div>
-                    </ScrollArea>
+                        <div className="space-y-2">
+                            <Label htmlFor="account_owner">Account Owner</Label>
+                            <Input
+                                id="account_owner"
+                                value={newCustomer.account_owner}
+                                onChange={e => setNewCustomer(prev => ({ ...prev, account_owner: e.target.value }))}
+                                placeholder="Account owner email"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="csp_strategy">CSP Strategy</Label>
+                            <Textarea
+                                id="csp_strategy"
+                                value={newCustomer.csp_strategy}
+                                onChange={e => setNewCustomer(prev => ({ ...prev, csp_strategy: e.target.value }))}
+                                placeholder="Customer savings project strategy..."
+                                rows={3}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="customer_notes">Notes</Label>
+                            <Textarea
+                                id="customer_notes"
+                                value={newCustomer.notes}
+                                onChange={e => setNewCustomer(prev => ({ ...prev, notes: e.target.value }))}
+                                placeholder="Additional notes about this customer..."
+                                rows={3}
+                            />
+                        </div>
+                    </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setShowNewCustomerDialog(false)}>Cancel</Button>
                         <Button onClick={handleCreateCustomer} disabled={createCustomerMutation.isPending || !newCustomer.name}>
