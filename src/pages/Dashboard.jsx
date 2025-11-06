@@ -208,7 +208,7 @@ export default function Dashboard() {
             previousValue={previousWeekActiveTariffs}
           />
           <MetricCard
-            title="Open CSP Events"
+            title="CSP Events In Progress"
             value={cspEvents.filter(e => e.status === 'in_progress').length}
             icon={Users}
             linkTo="Pipeline"

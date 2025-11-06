@@ -562,7 +562,7 @@ export default function PipelinePage() {
           <div className="flex items-center gap-3">
             <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 flex items-center gap-3 text-sm flex-shrink-0">
               <div className="flex items-center gap-1.5">
-                <span className="font-semibold text-slate-700">Active:</span>
+                <span className="font-semibold text-slate-700">Active (Pre-Live):</span>
                 <span className="text-slate-900 font-bold">{metrics.activeCount}</span>
               </div>
               <div className="w-px h-4 bg-slate-300"></div>
