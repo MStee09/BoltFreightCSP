@@ -20,6 +20,7 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
     const queryClient = useQueryClient();
     const [isEditing, setIsEditing] = useState(false);
     const [showOverridePrompt, setShowOverridePrompt] = useState(false);
+    const [overrideMode, setOverrideMode] = useState(null);
     const [calculatedData, setCalculatedData] = useState(null);
     const [isCalculatedFromDataset, setIsCalculatedFromDataset] = useState(false);
     const [formData, setFormData] = useState({
@@ -279,20 +280,18 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
 
             return calculations;
         },
-        onSuccess: (calculations) => {
+        onSuccess: async (calculations) => {
             if (hasData) {
                 setCalculatedData(calculations);
+                setOverrideMode('calculate');
                 setShowOverridePrompt(true);
             } else {
-                setFormData(prev => ({
-                    ...prev,
-                    ...calculations
-                }));
+                await CSPEvent.update(cspEventId, calculations);
+                queryClient.invalidateQueries(['csp_event', cspEventId]);
                 setIsCalculatedFromDataset(true);
-                setIsEditing(false);
                 toast({
-                    title: "Calculations Complete",
-                    description: "Values calculated from dataset. Fields are now read-only.",
+                    title: "Success",
+                    description: "Volume and spend data calculated and saved from dataset.",
                 });
             }
         },
@@ -305,27 +304,45 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
         }
     });
 
-    const handleOverrideAccept = () => {
-        setFormData(prev => ({
-            ...prev,
-            ...calculatedData
-        }));
-        setShowOverridePrompt(false);
-        setIsCalculatedFromDataset(true);
-        setIsEditing(false);
-        toast({
-            title: "Data Updated",
-            description: "Volume and spend data has been recalculated from strategy report. Fields are now read-only.",
-        });
+    const handleOverrideAccept = async () => {
+        if (overrideMode === 'calculate') {
+            await CSPEvent.update(cspEventId, calculatedData);
+            queryClient.invalidateQueries(['csp_event', cspEventId]);
+            setIsCalculatedFromDataset(true);
+            setShowOverridePrompt(false);
+            setCalculatedData(null);
+            setOverrideMode(null);
+            toast({
+                title: "Success",
+                description: "Volume and spend data recalculated and saved from dataset.",
+            });
+        } else if (overrideMode === 'manual') {
+            setShowOverridePrompt(false);
+            setCalculatedData(null);
+            setOverrideMode(null);
+            setIsCalculatedFromDataset(false);
+            setIsEditing(true);
+        }
     };
 
     const handleOverrideCancel = () => {
         setShowOverridePrompt(false);
         setCalculatedData(null);
+        setOverrideMode(null);
     };
 
-    const handleSave = () => {
-        updateProjectionsMutation.mutate(formData);
+    const handleSave = async () => {
+        await updateProjectionsMutation.mutateAsync(formData);
+        setIsEditing(false);
+    };
+
+    const handleEnterManually = () => {
+        if (hasData) {
+            setOverrideMode('manual');
+            setShowOverridePrompt(true);
+        } else {
+            setIsEditing(true);
+        }
     };
 
     const handleValueChange = (field, value) => {
@@ -414,7 +431,7 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                                         {calculateProjectionsMutation.isPending ? 'Calculating...' : 'Calculate from Strategy Data'}
                                     </Button>
                                     <Button
-                                        onClick={() => setIsEditing(true)}
+                                        onClick={handleEnterManually}
                                         size="sm"
                                         variant="outline"
                                     >
@@ -452,7 +469,7 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        onClick={() => setIsEditing(true)}
+                                        onClick={handleEnterManually}
                                     >
                                         Edit
                                     </Button>
@@ -727,7 +744,11 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                     <AlertDialogHeader>
                         <AlertDialogTitle>Override Existing Data?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            You already have volume and spend data entered. Would you like to replace it with the newly calculated values from your strategy report?
+                            {overrideMode === 'calculate'
+                                ? 'You already have volume and spend data. Would you like to replace it with the newly calculated values from your dataset?'
+                                : 'You already have volume and spend data. Would you like to replace it with manually entered values?'
+                            }
+                            {overrideMode === 'calculate' && calculatedData && (
                             <div className="mt-4 p-4 bg-slate-50 rounded-lg space-y-2 text-sm">
                                 <div className="flex justify-between">
                                     <span className="font-medium">New Total Shipments:</span>
@@ -746,6 +767,7 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                                     <span>${calculatedData?.avg_cost_per_shipment?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                 </div>
                             </div>
+                            )}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
