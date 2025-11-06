@@ -97,19 +97,19 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
             console.log('Total Headers:', headers.length);
             console.log('All Headers:', headers);
 
-            const totalCostIndex = headers.findIndex(h => {
+            const totalBillIndex = headers.findIndex(h => {
                 const lower = h.toLowerCase().replace(/[_\s]/g, '');
-                return lower === 'totalcost';
+                return lower === 'totalbill';
             });
 
-            if (totalCostIndex === -1) {
+            if (totalBillIndex === -1) {
                 throw new Error(
-                    'DATA FORMAT ERROR: Cannot find "TotalCost" column.\n\n' +
+                    'DATA FORMAT ERROR: Cannot find "TotalBill" column (Column Q).\n\n' +
                     'This column is required for spend calculations.\n\n' +
                     'Found columns:\n' + headers.join(', ') + '\n\n' +
                     'Please verify:\n' +
                     '1. You uploaded the correct Transaction Detail report\n' +
-                    '2. The file contains a column named "TotalCost", "Total Cost", or "Total_Cost"'
+                    '2. The file contains a column named "TotalBill", "Total Bill", or "Total_Bill"'
                 );
             }
 
@@ -122,7 +122,7 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                 console.warn('WARNING: Cannot find date column (Ship Date, Pickup_Date, etc.) for date range calculation');
             }
 
-            console.log('TotalCost Column: Index', totalCostIndex, `(Column ${String.fromCharCode(65 + totalCostIndex)})`, `"${headers[totalCostIndex]}"`);
+            console.log('TotalBill Column (Q): Index', totalBillIndex, `(Column ${String.fromCharCode(65 + totalBillIndex)})`, `"${headers[totalBillIndex]}"`);
             console.log('Date Column: Index', shipDateIndex, shipDateIndex >= 0 ? `"${headers[shipDateIndex]}"` : 'NOT FOUND');
             console.log('Total Rows:', totalShipments);
 
@@ -134,14 +134,14 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
             dataRows.forEach((row, idx) => {
                 const cols = row.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
 
-                if (totalCostIndex >= 0 && cols[totalCostIndex]) {
-                    const originalValue = cols[totalCostIndex];
+                if (totalBillIndex >= 0 && cols[totalBillIndex]) {
+                    const originalValue = cols[totalBillIndex];
                     const cost = parseFloat(originalValue.replace(/[$,]/g, ''));
                     if (!isNaN(cost) && cost > 0) {
                         totalSpend += cost;
                         validCostCount++;
                         if (idx < 3) {
-                            console.log(`Row ${idx + 1}: Total Cost = "${originalValue}" → $${cost.toFixed(2)}`);
+                            console.log(`Row ${idx + 1}: TotalBill (Column Q) = "${originalValue}" → $${cost.toFixed(2)}`);
                         }
                     } else if (originalValue) {
                         invalidRows.push({ row: idx + 1, value: originalValue });
@@ -161,12 +161,12 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
 
             if (validCostCount === 0) {
                 throw new Error(
-                    'DATA FORMAT ERROR: No valid cost data found in Total Cost column.\n\n' +
-                    'Please verify the Transaction Detail report has cost values in the Total Cost column.'
+                    'DATA FORMAT ERROR: No valid cost data found in TotalBill column (Column Q).\n\n' +
+                    'Please verify the Transaction Detail report has cost values in the TotalBill column.'
                 );
             }
 
-            console.log('Total Spend (Sum of Total Cost column):', totalSpend.toLocaleString('en-US', { style: 'currency', currency: 'USD' }));
+            console.log('Total Spend (Sum of TotalBill Column Q):', totalSpend.toLocaleString('en-US', { style: 'currency', currency: 'USD' }));
             console.log('Valid Shipments with Cost:', validCostCount);
             console.log('Total Rows:', totalShipments);
 

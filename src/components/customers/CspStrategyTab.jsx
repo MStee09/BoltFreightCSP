@@ -22,23 +22,23 @@ import _ from 'lodash';
 import StrategyScacMatch from '../strategy/StrategyScacMatch';
 
 const validateTransactionDetailFormat = (headers) => {
-    const totalCostIndex = headers.findIndex(h => {
+    const totalBillIndex = headers.findIndex(h => {
         const lower = h.toLowerCase().replace(/[_\s]/g, '');
-        return lower === 'totalcost';
+        return lower === 'totalbill';
     });
 
-    if (totalCostIndex === -1) {
+    if (totalBillIndex === -1) {
         throw new Error(
-            'DATA FORMAT ERROR: Transaction Detail report missing "TotalCost" column.\n\n' +
+            'DATA FORMAT ERROR: Transaction Detail report missing "TotalBill" column (Column Q).\n\n' +
             'This column is required for spend calculations.\n\n' +
             'Found columns: ' + headers.join(', ') + '\n\n' +
             'Please verify:\n' +
             '1. You uploaded the correct Transaction Detail report\n' +
-            '2. The file contains a column named "TotalCost", "Total Cost", or "Total_Cost"'
+            '2. The file contains a column named "TotalBill", "Total Bill", or "Total_Bill"'
         );
     }
 
-    console.log(`Transaction Detail validated: Found cost column "${headers[totalCostIndex]}" at index ${totalCostIndex}`);
+    console.log(`Transaction Detail validated: Found TotalBill column "${headers[totalBillIndex]}" at index ${totalBillIndex} (Column ${String.fromCharCode(65 + totalBillIndex)})`);
 
     return true;
 };
