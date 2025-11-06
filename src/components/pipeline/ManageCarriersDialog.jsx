@@ -123,8 +123,8 @@ export default function ManageCarriersDialog({ isOpen, onOpenChange, cspEventId 
                     </DialogDescription>
                 </DialogHeader>
 
-                <div className="grid grid-cols-2 gap-6 flex-1 overflow-hidden">
-                    <div className="flex flex-col space-y-4">
+                <div className="grid grid-cols-2 gap-6 flex-1 min-h-0">
+                    <div className="flex flex-col space-y-4 min-h-0">
                         <div>
                             <Label className="text-sm font-semibold">Available Carriers</Label>
                             <p className="text-xs text-slate-500 mb-3">Select carriers to add to this event</p>
@@ -140,48 +140,52 @@ export default function ManageCarriersDialog({ isOpen, onOpenChange, cspEventId 
                             />
                         </div>
 
-                        <ScrollArea className="flex-1 border rounded-lg p-3 h-[400px]">
-                            {availableCarriers.length === 0 ? (
-                                <p className="text-sm text-slate-500 text-center py-8">
-                                    {searchQuery ? 'No carriers found' : 'All carriers have been added'}
-                                </p>
-                            ) : (
-                                <div className="space-y-2">
-                                    {availableCarriers.map((carrier) => (
-                                        <div
-                                            key={carrier.id}
-                                            className="flex items-start gap-3 p-3 border rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
-                                            onClick={() => handleToggleCarrier(carrier.id)}
-                                        >
-                                            <Checkbox
-                                                checked={selectedCarriers.has(carrier.id)}
-                                                onCheckedChange={() => handleToggleCarrier(carrier.id)}
-                                                className="mt-1"
-                                            />
-                                            <div className="flex-1 min-w-0">
-                                                <div className="flex items-center gap-2 mb-1">
-                                                    <p className="font-medium text-sm">{carrier.name}</p>
-                                                    {carrier.scac_code && (
-                                                        <Badge variant="outline" className="text-xs">
-                                                            {carrier.scac_code}
-                                                        </Badge>
-                                                    )}
-                                                </div>
-                                                {carrier.service_type && (
-                                                    <p className="text-xs text-slate-500 capitalize">{carrier.service_type}</p>
-                                                )}
-                                                {carrier.contact_email && (
-                                                    <div className="flex items-center gap-1 mt-1">
-                                                        <Mail className="w-3 h-3 text-slate-400" />
-                                                        <p className="text-xs text-slate-600">{carrier.contact_email}</p>
+                        <div className="flex-1 min-h-0 border rounded-lg">
+                            <ScrollArea className="h-full">
+                                <div className="p-3">
+                                    {availableCarriers.length === 0 ? (
+                                        <p className="text-sm text-slate-500 text-center py-8">
+                                            {searchQuery ? 'No carriers found' : 'All carriers have been added'}
+                                        </p>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            {availableCarriers.map((carrier) => (
+                                                <div
+                                                    key={carrier.id}
+                                                    className="flex items-start gap-3 p-3 border rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
+                                                    onClick={() => handleToggleCarrier(carrier.id)}
+                                                >
+                                                    <Checkbox
+                                                        checked={selectedCarriers.has(carrier.id)}
+                                                        onCheckedChange={() => handleToggleCarrier(carrier.id)}
+                                                        className="mt-1"
+                                                    />
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-2 mb-1">
+                                                            <p className="font-medium text-sm">{carrier.name}</p>
+                                                            {carrier.scac_code && (
+                                                                <Badge variant="outline" className="text-xs">
+                                                                    {carrier.scac_code}
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+                                                        {carrier.service_type && (
+                                                            <p className="text-xs text-slate-500 capitalize">{carrier.service_type}</p>
+                                                        )}
+                                                        {carrier.contact_email && (
+                                                            <div className="flex items-center gap-1 mt-1">
+                                                                <Mail className="w-3 h-3 text-slate-400" />
+                                                                <p className="text-xs text-slate-600">{carrier.contact_email}</p>
+                                                            </div>
+                                                        )}
                                                     </div>
-                                                )}
-                                            </div>
+                                                </div>
+                                            ))}
                                         </div>
-                                    ))}
+                                    )}
                                 </div>
-                            )}
-                        </ScrollArea>
+                            </ScrollArea>
+                        </div>
 
                         <Button
                             onClick={handleAddSelected}
@@ -193,70 +197,74 @@ export default function ManageCarriersDialog({ isOpen, onOpenChange, cspEventId 
                         </Button>
                     </div>
 
-                    <div className="flex flex-col space-y-4">
+                    <div className="flex flex-col space-y-4 min-h-0">
                         <div>
                             <Label className="text-sm font-semibold">Assigned Carriers ({assignedCarriers.length})</Label>
                             <p className="text-xs text-slate-500 mb-3">Carriers participating in this event</p>
                         </div>
 
-                        <ScrollArea className="flex-1 border rounded-lg p-3 h-[500px]">
-                            {assignedCarriers.length === 0 ? (
-                                <p className="text-sm text-slate-500 text-center py-8">
-                                    No carriers assigned yet
-                                </p>
-                            ) : (
-                                <div className="space-y-3">
-                                    {assignedCarriers.map((assignment) => (
-                                        <div key={assignment.id} className="border rounded-lg p-3 space-y-2">
-                                            <div className="flex items-start justify-between">
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center gap-2 mb-1">
-                                                        <p className="font-medium text-sm">{assignment.carrier.name}</p>
-                                                        {assignment.carrier.scac_code && (
-                                                            <Badge variant="outline" className="text-xs">
-                                                                {assignment.carrier.scac_code}
+                        <div className="flex-1 min-h-0 border rounded-lg">
+                            <ScrollArea className="h-full">
+                                <div className="p-3">
+                                    {assignedCarriers.length === 0 ? (
+                                        <p className="text-sm text-slate-500 text-center py-8">
+                                            No carriers assigned yet
+                                        </p>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {assignedCarriers.map((assignment) => (
+                                                <div key={assignment.id} className="border rounded-lg p-3 space-y-2">
+                                                    <div className="flex items-start justify-between">
+                                                        <div className="flex-1 min-w-0">
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <p className="font-medium text-sm">{assignment.carrier.name}</p>
+                                                                {assignment.carrier.scac_code && (
+                                                                    <Badge variant="outline" className="text-xs">
+                                                                        {assignment.carrier.scac_code}
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
+                                                            <Badge
+                                                                variant={assignment.status === 'awarded' ? 'default' : 'outline'}
+                                                                className="text-xs capitalize"
+                                                            >
+                                                                {assignment.status}
                                                             </Badge>
-                                                        )}
+                                                        </div>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => handleRemoveCarrier(assignment.id)}
+                                                            disabled={removeCarrierMutation.isPending}
+                                                        >
+                                                            <X className="w-4 h-4" />
+                                                        </Button>
                                                     </div>
-                                                    <Badge
-                                                        variant={assignment.status === 'awarded' ? 'default' : 'outline'}
-                                                        className="text-xs capitalize"
-                                                    >
-                                                        {assignment.status}
-                                                    </Badge>
-                                                </div>
-                                                <Button
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => handleRemoveCarrier(assignment.id)}
-                                                    disabled={removeCarrierMutation.isPending}
-                                                >
-                                                    <X className="w-4 h-4" />
-                                                </Button>
-                                            </div>
 
-                                            {assignment.carrier.contact_email && (
-                                                <div className="flex items-center gap-2 text-xs text-slate-600">
-                                                    <Mail className="w-3 h-3" />
-                                                    <span>{assignment.carrier.contact_email}</span>
-                                                </div>
-                                            )}
+                                                    {assignment.carrier.contact_email && (
+                                                        <div className="flex items-center gap-2 text-xs text-slate-600">
+                                                            <Mail className="w-3 h-3" />
+                                                            <span>{assignment.carrier.contact_email}</span>
+                                                        </div>
+                                                    )}
 
-                                            {assignment.carrier.contact_phone && (
-                                                <div className="flex items-center gap-2 text-xs text-slate-600">
-                                                    <Phone className="w-3 h-3" />
-                                                    <span>{assignment.carrier.contact_phone}</span>
-                                                </div>
-                                            )}
+                                                    {assignment.carrier.contact_phone && (
+                                                        <div className="flex items-center gap-2 text-xs text-slate-600">
+                                                            <Phone className="w-3 h-3" />
+                                                            <span>{assignment.carrier.contact_phone}</span>
+                                                        </div>
+                                                    )}
 
-                                            {assignment.notes && (
-                                                <p className="text-xs text-slate-500 mt-2">{assignment.notes}</p>
-                                            )}
+                                                    {assignment.notes && (
+                                                        <p className="text-xs text-slate-500 mt-2">{assignment.notes}</p>
+                                                    )}
+                                                </div>
+                                            ))}
                                         </div>
-                                    ))}
+                                    )}
                                 </div>
-                            )}
-                        </ScrollArea>
+                            </ScrollArea>
+                        </div>
                     </div>
                 </div>
 
