@@ -81,6 +81,33 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
 
             if (downloadError) throw new Error(`Failed to download file: ${downloadError.message}`);
 
+            const parseCSVRow = (line) => {
+                const result = [];
+                let current = '';
+                let inQuotes = false;
+
+                for (let i = 0; i < line.length; i++) {
+                    const char = line[i];
+                    const nextChar = line[i + 1];
+
+                    if (char === '"') {
+                        if (inQuotes && nextChar === '"') {
+                            current += '"';
+                            i++;
+                        } else {
+                            inQuotes = !inQuotes;
+                        }
+                    } else if (char === ',' && !inQuotes) {
+                        result.push(current);
+                        current = '';
+                    } else {
+                        current += char;
+                    }
+                }
+                result.push(current);
+                return result.map(v => v.trim().replace(/^"|"$/g, ''));
+            };
+
             const fileText = await fileData.text();
             const lines = fileText.trim().split('\n');
 
@@ -88,14 +115,15 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                 throw new Error('Transaction Detail file appears to be empty or invalid');
             }
 
-            const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+            const headers = parseCSVRow(lines[0]);
             const dataRows = lines.slice(1).filter(row => row.trim());
 
             const totalShipments = dataRows.length;
 
             console.log('=== TRANSACTION DETAIL VALIDATION ===');
             console.log('Total Headers:', headers.length);
-            console.log('All Headers:', headers);
+            console.log('First 5 Headers:', headers.slice(0, 5));
+            console.log('Last 5 Headers:', headers.slice(-5));
 
             const totalBillIndex = headers.findIndex(h => {
                 const lower = h.toLowerCase().replace(/[_\s]/g, '');
@@ -123,35 +151,14 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
             }
 
             console.log('TotalBill Column (Q): Index', totalBillIndex, `(Column ${String.fromCharCode(65 + totalBillIndex)})`, `"${headers[totalBillIndex]}"`);
+            if (totalBillIndex > 0) {
+                console.log('Column before TotalBill:', `"${headers[totalBillIndex - 1]}"`);
+            }
+            if (totalBillIndex < headers.length - 1) {
+                console.log('Column after TotalBill:', `"${headers[totalBillIndex + 1]}"`);
+            }
             console.log('Date Column: Index', shipDateIndex, shipDateIndex >= 0 ? `"${headers[shipDateIndex]}"` : 'NOT FOUND');
             console.log('Total Rows:', totalShipments);
-
-            const parseCSVRow = (line) => {
-                const result = [];
-                let current = '';
-                let inQuotes = false;
-
-                for (let i = 0; i < line.length; i++) {
-                    const char = line[i];
-                    const nextChar = line[i + 1];
-
-                    if (char === '"') {
-                        if (inQuotes && nextChar === '"') {
-                            current += '"';
-                            i++;
-                        } else {
-                            inQuotes = !inQuotes;
-                        }
-                    } else if (char === ',' && !inQuotes) {
-                        result.push(current);
-                        current = '';
-                    } else {
-                        current += char;
-                    }
-                }
-                result.push(current);
-                return result.map(v => v.trim().replace(/^"|"$/g, ''));
-            };
 
             let totalSpend = 0;
             let dates = [];
@@ -193,9 +200,11 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                 );
             }
 
+            console.log('=== SPEND CALCULATION RESULTS ===');
             console.log('Total Spend (Sum of TotalBill Column Q):', totalSpend.toLocaleString('en-US', { style: 'currency', currency: 'USD' }));
             console.log('Valid Shipments with Cost:', validCostCount);
             console.log('Total Rows:', totalShipments);
+            console.log('Average per row:', (totalSpend / totalShipments).toFixed(2));
 
             dates.sort((a, b) => a - b);
             const startDate = dates.length > 0 ? dates[0] : null;
