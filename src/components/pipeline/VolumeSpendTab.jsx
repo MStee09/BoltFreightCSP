@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { CSPEvent, Document } from '../../api/entities';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
@@ -21,6 +21,7 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
     const [isEditing, setIsEditing] = useState(false);
     const [showOverridePrompt, setShowOverridePrompt] = useState(false);
     const [calculatedData, setCalculatedData] = useState(null);
+    const [isCalculatedFromDataset, setIsCalculatedFromDataset] = useState(false);
     const [formData, setFormData] = useState({
         total_shipments: cspEvent?.total_shipments || '',
         monthly_shipments: cspEvent?.monthly_shipments || '',
@@ -33,6 +34,24 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
     });
 
     const hasData = cspEvent?.total_shipments || cspEvent?.projected_annual_spend;
+
+    useEffect(() => {
+        const checkIfCalculatedFromDataset = async () => {
+            if (hasData) {
+                const { data: documents } = await supabase
+                    .from('documents')
+                    .select('id')
+                    .eq('csp_event_id', cspEventId)
+                    .eq('document_type', 'transaction_detail')
+                    .limit(1);
+
+                if (documents && documents.length > 0) {
+                    setIsCalculatedFromDataset(true);
+                }
+            }
+        };
+        checkIfCalculatedFromDataset();
+    }, [cspEventId, hasData]);
 
     const updateProjectionsMutation = useMutation({
         mutationFn: async (data) => {
@@ -269,10 +288,11 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                     ...prev,
                     ...calculations
                 }));
-                setIsEditing(true);
+                setIsCalculatedFromDataset(true);
+                setIsEditing(false);
                 toast({
                     title: "Calculations Complete",
-                    description: "Review the calculated values and adjust if needed.",
+                    description: "Values calculated from dataset. Fields are now read-only.",
                 });
             }
         },
@@ -291,10 +311,11 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
             ...calculatedData
         }));
         setShowOverridePrompt(false);
-        setIsEditing(true);
+        setIsCalculatedFromDataset(true);
+        setIsEditing(false);
         toast({
             title: "Data Updated",
-            description: "Volume and spend data has been recalculated from strategy report.",
+            description: "Volume and spend data has been recalculated from strategy report. Fields are now read-only.",
         });
     };
 
@@ -427,13 +448,15 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                                     <Calculator className="w-4 h-4 mr-2" />
                                     Recalculate
                                 </Button>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setIsEditing(true)}
-                                >
-                                    Edit
-                                </Button>
+                                {!isCalculatedFromDataset && (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setIsEditing(true)}
+                                    >
+                                        Edit
+                                    </Button>
+                                )}
                             </div>
                         )}
                     </div>
@@ -451,9 +474,12 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                                     placeholder="e.g., 5000"
                                 />
                             ) : (
-                                <p className="text-2xl font-bold text-slate-900">
+                                <div className={cn(
+                                    "px-3 py-2 rounded-md border text-2xl font-bold",
+                                    isCalculatedFromDataset ? "bg-slate-100 text-slate-500" : "text-slate-900"
+                                )}>
                                     {formData.total_shipments ? Number(formData.total_shipments).toLocaleString() : '-'}
-                                </p>
+                                </div>
                             )}
                         </div>
                         <div className="space-y-2">
@@ -467,9 +493,12 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                                     placeholder="e.g., 417"
                                 />
                             ) : (
-                                <p className="text-2xl font-bold text-slate-900">
+                                <div className={cn(
+                                    "px-3 py-2 rounded-md border text-2xl font-bold",
+                                    isCalculatedFromDataset ? "bg-slate-100 text-slate-500" : "text-slate-900"
+                                )}>
                                     {formData.monthly_shipments ? Number(formData.monthly_shipments).toLocaleString() : '-'}
-                                </p>
+                                </div>
                             )}
                         </div>
                         <div className="space-y-2">
@@ -483,9 +512,12 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                                     placeholder="e.g., 12"
                                 />
                             ) : (
-                                <p className="text-2xl font-bold text-slate-900">
+                                <div className={cn(
+                                    "px-3 py-2 rounded-md border text-2xl font-bold",
+                                    isCalculatedFromDataset ? "bg-slate-100 text-slate-500" : "text-slate-900"
+                                )}>
                                     {formData.data_timeframe_months || '-'}
-                                </p>
+                                </div>
                             )}
                         </div>
                     </div>
@@ -516,9 +548,13 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                                     </PopoverContent>
                                 </Popover>
                             ) : (
-                                <p className="text-base font-medium text-slate-900">
+                                <div className={cn(
+                                    "px-3 py-2 rounded-md border flex items-center gap-2 text-base font-medium",
+                                    isCalculatedFromDataset ? "bg-slate-100 text-slate-500" : "text-slate-900"
+                                )}>
+                                    <CalendarIcon className="h-4 w-4" />
                                     {formData.data_start_date ? format(new Date(formData.data_start_date), "MMM d, yyyy") : '-'}
-                                </p>
+                                </div>
                             )}
                         </div>
                         <div className="space-y-2">
@@ -546,9 +582,13 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                                     </PopoverContent>
                                 </Popover>
                             ) : (
-                                <p className="text-base font-medium text-slate-900">
+                                <div className={cn(
+                                    "px-3 py-2 rounded-md border flex items-center gap-2 text-base font-medium",
+                                    isCalculatedFromDataset ? "bg-slate-100 text-slate-500" : "text-slate-900"
+                                )}>
+                                    <CalendarIcon className="h-4 w-4" />
                                     {formData.data_end_date ? format(new Date(formData.data_end_date), "MMM d, yyyy") : '-'}
-                                </p>
+                                </div>
                             )}
                         </div>
                     </div>
@@ -581,9 +621,12 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                                     />
                                 </div>
                             ) : (
-                                <p className="text-2xl font-bold text-slate-900">
+                                <div className={cn(
+                                    "px-3 py-2 rounded-md border text-2xl font-bold",
+                                    isCalculatedFromDataset ? "bg-slate-100 text-slate-500" : "text-slate-900"
+                                )}>
                                     {formData.avg_cost_per_shipment ? `$${Number(formData.avg_cost_per_shipment).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
-                                </p>
+                                </div>
                             )}
                         </div>
                         <div className="space-y-2">
@@ -601,9 +644,12 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                                     />
                                 </div>
                             ) : (
-                                <p className="text-2xl font-bold text-slate-900">
+                                <div className={cn(
+                                    "px-3 py-2 rounded-md border text-2xl font-bold",
+                                    isCalculatedFromDataset ? "bg-slate-100 text-slate-500" : "text-slate-900"
+                                )}>
                                     {formData.projected_monthly_spend ? `$${Number(formData.projected_monthly_spend).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
-                                </p>
+                                </div>
                             )}
                         </div>
                         <div className="space-y-2">
@@ -621,9 +667,12 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                                     />
                                 </div>
                             ) : (
-                                <p className="text-2xl font-bold text-slate-900">
+                                <div className={cn(
+                                    "px-3 py-2 rounded-md border text-2xl font-bold",
+                                    isCalculatedFromDataset ? "bg-slate-100 text-slate-500" : "text-slate-900"
+                                )}>
                                     {formData.projected_annual_spend ? `$${Number(formData.projected_annual_spend).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
-                                </p>
+                                </div>
                             )}
                         </div>
                     </div>
