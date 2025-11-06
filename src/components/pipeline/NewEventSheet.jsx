@@ -9,7 +9,8 @@ import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
-import { Upload, X, FileText, Calendar as CalendarIcon } from 'lucide-react';
+import { Upload, X, FileText, Calendar as CalendarIcon, Plus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '../ui/card';
 import { useToast } from '../ui/use-toast';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
@@ -25,6 +26,7 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers: custome
     const { toast } = useToast();
     const { user } = useAuth();
     const queryClient = useQueryClient();
+    const navigate = useNavigate();
     const fileInputRef = useRef(null);
     const [newEvent, setNewEvent] = useState({
         title: '',
@@ -72,6 +74,19 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers: custome
                 ...prev,
                 assigned_to: user.email
             }));
+        }
+
+        if (isOpen) {
+            const savedFormData = sessionStorage.getItem('newEventFormData');
+            const returnFromCustomer = sessionStorage.getItem('returnToNewEvent');
+
+            if (savedFormData && returnFromCustomer === 'true') {
+                const parsedData = JSON.parse(savedFormData);
+                setNewEvent(parsedData.event);
+                setAttachedFiles(parsedData.files || []);
+                sessionStorage.removeItem('newEventFormData');
+                sessionStorage.removeItem('returnToNewEvent');
+            }
         }
     }, [isOpen, user]);
 
@@ -163,6 +178,16 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers: custome
     };
 
     const handleValueChange = (field, value) => {
+        if (field === 'customer_id' && value === 'CREATE_NEW') {
+            sessionStorage.setItem('newEventFormData', JSON.stringify({
+                event: newEvent,
+                files: attachedFiles
+            }));
+            sessionStorage.setItem('returnToNewEvent', 'true');
+            onOpenChange(false);
+            navigate('/customers');
+            return;
+        }
         setNewEvent(prev => ({ ...prev, [field]: value }));
     };
 
@@ -202,6 +227,12 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers: custome
                                 <SelectValue placeholder="Select a customer" />
                             </SelectTrigger>
                             <SelectContent>
+                                <SelectItem value="CREATE_NEW" className="text-blue-600 font-medium">
+                                    <div className="flex items-center gap-2">
+                                        <Plus className="w-4 h-4" />
+                                        <span>Create New Customer</span>
+                                    </div>
+                                </SelectItem>
                                 {customers.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                             </SelectContent>
                         </Select>

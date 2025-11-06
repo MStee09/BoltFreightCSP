@@ -185,6 +185,13 @@ export default function PipelinePage() {
   const queryClient = useQueryClient();
   const location = useLocation();
   const [isNewEventSheetOpen, setIsNewEventSheetOpen] = useState(false);
+
+  useEffect(() => {
+    const returnToNewEvent = sessionStorage.getItem('returnToNewEvent');
+    if (returnToNewEvent === 'true') {
+      setIsNewEventSheetOpen(true);
+    }
+  }, []);
   const [filterAssignee, setFilterAssignee] = useState(null);
   const [filterCustomer, setFilterCustomer] = useState(null);
   const [filterMode, setFilterMode] = useState(null);

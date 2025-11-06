@@ -8,12 +8,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Customer } from '../../api/entities';
 import { useToast } from '../ui/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { createCspReviewEvent, calculateNextReviewDate } from '../../utils/calendarHelpers';
+import { createPageUrl } from '../../utils';
 
 export default function EditCustomerDialog({ customer, isOpen, onOpenChange }) {
     const { toast } = useToast();
     const queryClient = useQueryClient();
+    const navigate = useNavigate();
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const isCreating = !customer;
     const [formData, setFormData] = useState({
         name: '',
         account_owner: '',
@@ -60,33 +64,68 @@ export default function EditCustomerDialog({ customer, isOpen, onOpenChange }) {
                 annual_revenue: formData.annual_revenue ? parseFloat(formData.annual_revenue) : null,
             };
 
-            const frequencyChanged = customer.csp_review_frequency !== formData.csp_review_frequency;
+            let resultCustomer;
 
-            if (formData.csp_review_frequency && frequencyChanged) {
-                const nextReviewDate = calculateNextReviewDate(formData.csp_review_frequency);
-                updateData.next_csp_review_date = nextReviewDate;
-                updateData.last_csp_review_date = new Date().toISOString().split('T')[0];
+            if (isCreating) {
+                if (formData.csp_review_frequency) {
+                    const nextReviewDate = calculateNextReviewDate(formData.csp_review_frequency);
+                    updateData.next_csp_review_date = nextReviewDate;
+                }
+                resultCustomer = await Customer.create(updateData);
+
+                if (formData.csp_review_frequency) {
+                    await createCspReviewEvent(resultCustomer);
+                }
+
+                toast({
+                    title: "Success!",
+                    description: "Customer created successfully.",
+                });
+
+                queryClient.invalidateQueries(['customers']);
+                queryClient.invalidateQueries(['calendar_events']);
+
+                const returnToNewEvent = sessionStorage.getItem('returnToNewEvent');
+                if (returnToNewEvent === 'true') {
+                    const savedFormData = sessionStorage.getItem('newEventFormData');
+                    if (savedFormData) {
+                        const parsedData = JSON.parse(savedFormData);
+                        parsedData.event.customer_id = resultCustomer.id;
+                        sessionStorage.setItem('newEventFormData', JSON.stringify(parsedData));
+                    }
+                    navigate(createPageUrl('Pipeline'));
+                } else {
+                    navigate(createPageUrl(`CustomerDetail?id=${resultCustomer.id}`));
+                }
+            } else {
+                const frequencyChanged = customer.csp_review_frequency !== formData.csp_review_frequency;
+
+                if (formData.csp_review_frequency && frequencyChanged) {
+                    const nextReviewDate = calculateNextReviewDate(formData.csp_review_frequency);
+                    updateData.next_csp_review_date = nextReviewDate;
+                    updateData.last_csp_review_date = new Date().toISOString().split('T')[0];
+                }
+
+                resultCustomer = await Customer.update(customer.id, updateData);
+
+                if (formData.csp_review_frequency && frequencyChanged) {
+                    await createCspReviewEvent(resultCustomer);
+                }
+
+                toast({
+                    title: "Success!",
+                    description: "Customer updated successfully.",
+                });
+
+                queryClient.invalidateQueries(['customer', customer.id]);
+                queryClient.invalidateQueries(['customers']);
+                queryClient.invalidateQueries(['calendar_events']);
+                onOpenChange(false);
             }
-
-            const updatedCustomer = await Customer.update(customer.id, updateData);
-
-            if (formData.csp_review_frequency && frequencyChanged) {
-                await createCspReviewEvent(updatedCustomer);
-            }
-
-            toast({
-                title: "Success!",
-                description: "Customer updated successfully.",
-            });
-
-            queryClient.invalidateQueries(['customer', customer.id]);
-            queryClient.invalidateQueries(['customers']);
-            queryClient.invalidateQueries(['calendar_events']);
-            onOpenChange(false);
         } catch (error) {
             toast({
                 title: "Error",
-                description: error.message || "Failed to update customer.",
+                description: error.message || `Failed to ${isCreating ? 'create' : 'update'} customer.`,
                 variant: "destructive",
             });
         } finally {
@@ -94,15 +133,13 @@ export default function EditCustomerDialog({ customer, isOpen, onOpenChange }) {
         }
     };
 
-    if (!customer) return null;
-
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                    <DialogTitle>Edit Customer</DialogTitle>
+                    <DialogTitle>{isCreating ? 'Create New Customer' : 'Edit Customer'}</DialogTitle>
                     <DialogDescription>
-                        Update customer information and contact details.
+                        {isCreating ? 'Add a new customer to your database.' : 'Update customer information and contact details.'}
                     </DialogDescription>
                 </DialogHeader>
                 <form onSubmit={handleSubmit}>
