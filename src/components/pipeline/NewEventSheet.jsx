@@ -135,7 +135,14 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers: custome
             const createData = {
                 ...rest,
                 notes: description,
-                due_date: rest.due_date || null
+                due_date: rest.due_date || null,
+                total_shipments: rest.total_shipments ? parseInt(rest.total_shipments) : null,
+                data_timeframe_months: rest.data_timeframe_months ? parseInt(rest.data_timeframe_months) : null,
+                projected_monthly_spend: rest.projected_monthly_spend ? parseFloat(rest.projected_monthly_spend) : null,
+                projected_annual_spend: rest.projected_annual_spend ? parseFloat(rest.projected_annual_spend) : null,
+                projected_monthly_revenue: rest.projected_monthly_revenue ? parseFloat(rest.projected_monthly_revenue) : null,
+                projected_annual_revenue: rest.projected_annual_revenue ? parseFloat(rest.projected_annual_revenue) : null,
+                minimum_annual_spend_threshold: rest.minimum_annual_spend_threshold ? parseFloat(rest.minimum_annual_spend_threshold) : null
             };
             const createdEvent = await CSPEvent.create(createData);
 
