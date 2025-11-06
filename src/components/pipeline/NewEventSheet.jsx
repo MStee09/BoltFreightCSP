@@ -19,6 +19,7 @@ import { format } from 'date-fns';
 import { cn } from '../../lib/utils';
 import { useAuth } from '../../contexts/AuthContext';
 import { CSP_STAGES, formatCspStage } from '../../utils';
+import { ScrollArea } from '../ui/scroll-area';
 
 const MOCK_USER_ID = '00000000-0000-0000-0000-000000000000';
 
@@ -210,11 +211,12 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers: custome
 
     return (
         <Sheet open={isOpen} onOpenChange={onOpenChange}>
-            <SheetContent className="sm:max-w-lg">
+            <SheetContent className="sm:max-w-lg flex flex-col">
                 <SheetHeader>
                     <SheetTitle>Create New CSP Event</SheetTitle>
                     <SheetDescription>Start a new customer savings project in your pipeline.</SheetDescription>
                 </SheetHeader>
+                <ScrollArea className="flex-1 -mx-6 px-6">
                 <div className="py-6 space-y-4">
                     <div className="space-y-2">
                         <Label htmlFor="title">Event Title</Label>
@@ -368,7 +370,8 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers: custome
                         </div>
                     </div>
                 </div>
-                <SheetFooter>
+                </ScrollArea>
+                <SheetFooter className="mt-4">
                     <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
                     <Button onClick={handleSubmit} disabled={isLoading || !newEvent.title || !newEvent.customer_id}>
                         {isLoading ? 'Creating...' : 'Create Event'}
