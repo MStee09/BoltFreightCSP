@@ -1295,7 +1295,7 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                                 </TableHeader>
                                 <TableBody>
                                     {strategySummary.carrier_breakdown?.map((item, idx) => {
-                                        const carrierType = getCarrierType(item.carrier);
+                                        const ownership = item.ownership || 'customer_direct';
                                         return (
                                             <TableRow key={idx}>
                                                 <TableCell>
@@ -1303,9 +1303,9 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                                                         <span className="font-medium">{getCarrierName(item.carrier)}</span>
                                                         <Badge
                                                             variant="outline"
-                                                            className={`text-xs ${carrierType === 'brokerage' ? 'bg-purple-100 text-purple-700 border-purple-300' : 'bg-slate-100 text-slate-700 border-slate-300'}`}
+                                                            className={`text-xs ${ownership === 'brokerage' ? 'bg-purple-100 text-purple-700 border-purple-300' : 'bg-slate-100 text-slate-700 border-slate-300'}`}
                                                         >
-                                                            {carrierType === 'brokerage' ? 'Brokerage' : 'Customer Direct'}
+                                                            {ownership === 'brokerage' ? 'Brokerage' : 'Customer Direct'}
                                                         </Badge>
                                                     </div>
                                                 </TableCell>
@@ -1492,7 +1492,7 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                             <div className="space-y-2">
                                 {strategySummary.carrier_breakdown?.slice(0, 10).map((item, idx) => {
                                     const isHighConcentration = item.percentage > 15;
-                                    const carrierType = getCarrierType(item.carrier);
+                                    const ownership = item.ownership || 'customer_direct';
                                     return (
                                         <div key={idx} className="space-y-1">
                                             <div className="flex items-center justify-between text-sm gap-2">
@@ -1500,9 +1500,9 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                                                     <span className="font-medium text-slate-700 truncate">{getCarrierName(item.carrier)}</span>
                                                     <Badge
                                                         variant="outline"
-                                                        className={`text-xs shrink-0 ${carrierType === 'brokerage' ? 'bg-purple-100 text-purple-700 border-purple-300' : 'bg-slate-100 text-slate-700 border-slate-300'}`}
+                                                        className={`text-xs shrink-0 ${ownership === 'brokerage' ? 'bg-purple-100 text-purple-700 border-purple-300' : 'bg-slate-100 text-slate-700 border-slate-300'}`}
                                                     >
-                                                        {carrierType === 'brokerage' ? 'Brokerage' : 'Customer Direct'}
+                                                        {ownership === 'brokerage' ? 'Brokerage' : 'Customer Direct'}
                                                     </Badge>
                                                 </div>
                                                 <span className="text-slate-600 shrink-0">{item.percentage}% ({item.shipments})</span>
