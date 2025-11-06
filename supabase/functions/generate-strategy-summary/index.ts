@@ -160,7 +160,7 @@ Deno.serve(async (req: Request) => {
     console.log(`Sample first 3 txn rows:`, txnData?.slice(0, 3));
 
     const validTxnData = Array.isArray(txnData)
-      ? txnData.filter(txn => txn && (txn.carrier || txn.Carrier) && (txn.cost || txn.Bill || txn.bill))
+      ? txnData.filter(txn => txn && (txn.carrier || txn.Carrier || txn['Carrier Name'] || txn.Carrier_Name || txn.CarrierName) && (txn.cost || txn.Bill || txn.bill || txn.TotalBill || txn['Total Bill'] || txn.Total_Bill || txn.TotalCost || txn['Total Cost'] || txn.Cost))
       : [];
 
     const totalShipments = validTxnData.length;
@@ -201,13 +201,13 @@ Deno.serve(async (req: Request) => {
 
     if (Array.isArray(validTxnData)) {
       validTxnData.forEach((txn: any, idx: number) => {
-        const carrier = txn.carrier || txn.Carrier || 'Unknown';
-        const costRaw = txn.cost || txn.Bill || txn.bill || 0;
+        const carrier = txn.carrier || txn.Carrier || txn['Carrier Name'] || txn.Carrier_Name || txn.CarrierName || 'Unknown';
+        const costRaw = txn.cost || txn.Bill || txn.bill || txn.TotalBill || txn['Total Bill'] || txn.Total_Bill || txn.TotalCost || txn['Total Cost'] || txn.Cost || 0;
         const cost = parseFloat(String(costRaw).replace(/[$,]/g, ''));
-        const ownership = txn.ownership || txn.Pricing_Ownership || txn['Pricing Ownership'] || '';
+        const ownership = txn.ownership || txn.Pricing_Ownership || txn['Pricing Ownership'] || txn.PricingOwnership || '';
         const ownershipType = classifyOwnership(ownership);
-        const originCity = txn.origin_city || txn['Origin City'] || txn.OriginCity || '';
-        const destCity = txn.dest_city || txn['Dest City'] || txn.DestCity || '';
+        const originCity = txn.origin_city || txn['Origin City'] || txn.OriginCity || txn.Origin_City || txn.Origin || '';
+        const destCity = txn.dest_city || txn['Dest City'] || txn.DestCity || txn.Dest_City || txn.Destination || txn['Destination City'] || txn.DestinationCity || '';
         const lane = originCity && destCity ? `${originCity} → ${destCity}` : 'Unknown';
 
         const shipDateRaw = txn.ship_date || txn['Ship Date'] || txn.ShipDate || txn.date || txn.Date || '';
