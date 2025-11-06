@@ -1294,9 +1294,9 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                             </ResponsiveContainer>
                         </div>
                         <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                            <p className="text-sm font-medium sticky top-0 bg-white py-2">Carrier Distribution</p>
+                            <p className="text-sm font-medium sticky top-0 bg-white py-2 z-10">All Carriers ({strategySummary.carrier_breakdown?.length || 0})</p>
                             <div className="space-y-1">
-                                {strategySummary.carrier_breakdown?.slice(0, 10).map((item, idx) => {
+                                {strategySummary.carrier_breakdown?.map((item, idx) => {
                                     const ownershipType = classifyOwnership(item.ownership);
                                     return (
                                         <div key={idx} className="flex items-center justify-between text-sm gap-2">
@@ -1309,7 +1309,7 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                                                     {ownershipType === 'brokerage' ? 'Brokerage' : 'Customer Direct'}
                                                 </Badge>
                                             </div>
-                                            <span className="font-medium shrink-0">{item.percentage}% ({item.shipments})</span>
+                                            <span className="font-medium shrink-0">{item.percentage.toFixed(1)}% ({item.shipments})</span>
                                         </div>
                                     );
                                 })}
@@ -1339,13 +1339,13 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="sticky top-0 bg-white">Carrier</TableHead>
-                                        <TableHead className="text-right sticky top-0 bg-white">Shipments</TableHead>
-                                        <TableHead className="text-right sticky top-0 bg-white">Total Spend</TableHead>
+                                        <TableHead className="sticky top-0 bg-white z-10">Carrier</TableHead>
+                                        <TableHead className="text-right sticky top-0 bg-white z-10">Shipments</TableHead>
+                                        <TableHead className="text-right sticky top-0 bg-white z-10">Total Spend</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {strategySummary.carrier_breakdown?.slice(0, 10).map((item, idx) => {
+                                    {strategySummary.carrier_breakdown?.map((item, idx) => {
                                         const ownershipType = classifyOwnership(item.ownership);
                                         return (
                                             <TableRow key={idx}>
