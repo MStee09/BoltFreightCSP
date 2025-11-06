@@ -29,6 +29,8 @@ export default function ReportsPage() {
 
     useEffect(() => {
         const checkAndCreateSnapshot = async () => {
+            if (isLoadingSnapshots) return;
+
             const now = new Date();
             const lastSnapshot = snapshots[0];
 
@@ -46,11 +48,7 @@ export default function ReportsPage() {
         };
 
         checkAndCreateSnapshot();
-
-        const interval = setInterval(checkAndCreateSnapshot, 24 * 60 * 60 * 1000);
-
-        return () => clearInterval(interval);
-    }, [snapshots]);
+    }, []);
 
     const callSnapshotFunction = async () => {
         try {
