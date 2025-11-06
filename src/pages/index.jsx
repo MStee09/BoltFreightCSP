@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { NavigationProvider } from '../contexts/NavigationContext';
 import Layout from "./Layout.jsx";
 import Dashboard from "./Dashboard";
 import Customers from "./Customers";
@@ -207,7 +208,9 @@ function PagesContent() {
 export default function Pages() {
     return (
         <Router>
-            <PagesContent />
+            <NavigationProvider>
+                <PagesContent />
+            </NavigationProvider>
         </Router>
     );
 }
