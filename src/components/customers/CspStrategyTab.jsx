@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { UploadCloud, File, X, Loader2, BrainCircuit, BarChart, FileUp, Info, FileText, Calendar, User, Download, Trash2, Sparkles, MessageCircle, Send, Package, DollarSign, TrendingDown, AlertCircle, TrendingUp, CheckCircle2, RefreshCw } from 'lucide-react';
+import { UploadCloud, File, X, Loader2, BrainCircuit, BarChart, BarChart3, FileUp, Info, FileText, Calendar, User, Download, Trash2, Sparkles, MessageCircle, Send, Package, DollarSign, TrendingDown, AlertCircle, TrendingUp, CheckCircle2, RefreshCw } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../ui/alert-dialog";
 import { Badge } from '../ui/badge';
