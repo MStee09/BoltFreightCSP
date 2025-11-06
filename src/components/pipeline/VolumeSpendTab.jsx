@@ -60,21 +60,71 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                 .from('documents')
                 .select('*')
                 .eq('csp_event_id', cspEventId)
-                .eq('document_type', 'strategy');
+                .eq('document_type', 'transaction_detail');
 
             if (error) throw error;
 
             if (!documents || documents.length === 0) {
-                throw new Error('No strategy documents found. Please upload shipment data first.');
+                throw new Error('No Transaction Detail document found. Please upload shipment data in the Strategy tab first.');
             }
 
-            const strategyDoc = documents[0];
-            const metadata = strategyDoc.metadata || {};
+            const txnDoc = documents[0];
 
-            const totalShipments = metadata.total_records || metadata.shipment_count || 0;
-            const timeframeMonths = metadata.timeframe_months || 12;
-            const totalSpend = metadata.total_spend || 0;
-            const totalRevenue = metadata.total_revenue || 0;
+            const response = await fetch(txnDoc.file_path);
+            if (!response.ok) throw new Error('Failed to fetch document file');
+
+            const fileText = await response.text();
+            const lines = fileText.trim().split('\n');
+
+            if (lines.length < 2) {
+                throw new Error('Transaction Detail file appears to be empty or invalid');
+            }
+
+            const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+            const dataRows = lines.slice(1);
+
+            const totalShipments = dataRows.length;
+
+            const costIndex = headers.findIndex(h =>
+                h.toLowerCase().includes('cost') ||
+                h.toLowerCase().includes('charge') ||
+                h.toLowerCase().includes('amount') ||
+                h.toLowerCase().includes('total')
+            );
+
+            const dateIndex = headers.findIndex(h =>
+                h.toLowerCase().includes('date') ||
+                h.toLowerCase().includes('ship')
+            );
+
+            let totalSpend = 0;
+            let dates = [];
+
+            dataRows.forEach(row => {
+                const cols = row.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+
+                if (costIndex >= 0 && cols[costIndex]) {
+                    const cost = parseFloat(cols[costIndex].replace(/[$,]/g, ''));
+                    if (!isNaN(cost)) totalSpend += cost;
+                }
+
+                if (dateIndex >= 0 && cols[dateIndex]) {
+                    const dateStr = cols[dateIndex];
+                    const date = new Date(dateStr);
+                    if (!isNaN(date.getTime())) dates.push(date);
+                }
+            });
+
+            dates.sort((a, b) => a - b);
+            const startDate = dates.length > 0 ? dates[0] : null;
+            const endDate = dates.length > 0 ? dates[dates.length - 1] : null;
+
+            let timeframeMonths = 12;
+            if (startDate && endDate) {
+                const diffTime = Math.abs(endDate - startDate);
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+                timeframeMonths = Math.max(1, Math.round(diffDays / 30));
+            }
 
             const avgCostPerShipment = totalShipments > 0 ? totalSpend / totalShipments : 0;
             const monthlyShipments = timeframeMonths > 0 ? Math.round(totalShipments / timeframeMonths) : 0;
@@ -86,8 +136,8 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                 total_shipments: totalShipments,
                 monthly_shipments: monthlyShipments,
                 data_timeframe_months: timeframeMonths,
-                data_start_date: metadata.date_range?.start || null,
-                data_end_date: metadata.date_range?.end || null,
+                data_start_date: startDate ? format(startDate, 'yyyy-MM-dd') : null,
+                data_end_date: endDate ? format(endDate, 'yyyy-MM-dd') : null,
                 projected_monthly_spend: monthlySpend,
                 projected_annual_spend: annualSpend
             };
