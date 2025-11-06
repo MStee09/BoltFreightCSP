@@ -20,6 +20,8 @@ import { supabase } from '../../api/supabaseClient';
 import { useAuth } from '../../contexts/AuthContext';
 import _ from 'lodash';
 import StrategyScacMatch from '../strategy/StrategyScacMatch';
+import { createStrategySnapshot } from '../../utils/snapshotUtils';
+import BrokerageTrendChart from './BrokerageTrendChart';
 
 const validateTransactionDetailFormat = (headers) => {
     const totalBillIndex = headers.findIndex(h => {
@@ -73,7 +75,7 @@ const validateLowCostOpportunityFormat = (headers) => {
     return true;
 };
 
-const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
+const UploadPanel = ({ cspEventId, customerId, onAnalysisComplete }) => {
     const [txnFile, setTxnFile] = useState(null);
     const [loFile, setLoFile] = useState(null);
     const [txnDocType, setTxnDocType] = useState('transaction_detail');
@@ -89,6 +91,12 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
     const { toast } = useToast();
     const { user } = useAuth();
     const queryClient = useQueryClient();
+
+    const { data: carriers = [] } = useQuery({
+        queryKey: ['carriers'],
+        queryFn: () => Carrier.list(),
+        initialData: []
+    });
 
     const loadSavedMappings = async (docType) => {
         if (!user?.id) {
@@ -441,6 +449,21 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
             return { txnData, loData };
         },
         onSuccess: async ({ txnData, loData }) => {
+            try {
+                await createStrategySnapshot({
+                    txnData,
+                    customerId,
+                    cspEventId,
+                    userId: user?.id,
+                    carriers,
+                    notes: cspEventId ? `Uploaded for CSP Event ${cspEventId}` : 'Manual upload'
+                });
+
+                queryClient.invalidateQueries({ queryKey: ['strategy_snapshots'] });
+            } catch (err) {
+                console.error('Failed to create strategy snapshot:', err);
+            }
+
             if (cspEventId) {
                 queryClient.invalidateQueries({ queryKey: ['documents', cspEventId] });
 
@@ -1843,7 +1866,9 @@ export default function CspStrategyTab({ customer, cspEventId = null, cspEvent =
 
             {cspEvent && <DataVisualizationPanel cspEvent={cspEvent} />}
 
-            <UploadPanel cspEventId={cspEventId} onAnalysisComplete={runAnalysis} />
+            <BrokerageTrendChart customerId={customer?.id} cspEventId={cspEventId} />
+
+            <UploadPanel cspEventId={cspEventId} customerId={customer?.id} onAnalysisComplete={runAnalysis} />
 
             {cspEventId && <DocumentsPanel cspEventId={cspEventId} />}
 
