@@ -1049,6 +1049,7 @@ const AiSummaryPanel = ({ cspEvent }) => {
 
 const DataVisualizationPanel = ({ cspEvent }) => {
     const strategySummary = cspEvent?.strategy_summary;
+    const { toast } = useToast();
 
     const { data: carriers = [] } = useQuery({
         queryKey: ['carriers'],
@@ -1066,15 +1067,44 @@ const DataVisualizationPanel = ({ cspEvent }) => {
         return carrier ? carrier.name : carrierIdentifier;
     };
 
+    // Check for missing carriers and alert user
+    React.useEffect(() => {
+        if (!strategySummary?.carrier_breakdown || carriers.length === 0) return;
+
+        const missingSCACs = [];
+        strategySummary.carrier_breakdown.forEach(item => {
+            if (item.carrier && item.carrier !== 'Unknown') {
+                const identifier = item.carrier.toUpperCase();
+                const carrier = carriers.find(c =>
+                    c.scac_code?.toUpperCase() === identifier ||
+                    c.name?.toUpperCase() === identifier
+                );
+                if (!carrier && !missingSCACs.includes(item.carrier)) {
+                    missingSCACs.push(item.carrier);
+                }
+            }
+        });
+
+        if (missingSCACs.length > 0) {
+            toast({
+                title: "Missing Carrier(s) Detected",
+                description: `The following SCAC codes are not in your carriers database: ${missingSCACs.join(', ')}. Please add these carriers to display their proper names.`,
+                variant: "destructive",
+                duration: 10000,
+            });
+        }
+    }, [strategySummary, carriers, toast]);
+
     if (!strategySummary || !strategySummary.carrier_breakdown) {
         return null;
     }
 
-    const classifyOwnership = (ownership) => {
-        const ownershipUpper = ownership?.toUpperCase() || '';
-        return (ownershipUpper.includes('ROCKET') || ownershipUpper.includes('PRIORITY 1') || ownershipUpper.includes('PRIORITY1'))
-            ? 'brokerage'
-            : 'customer_direct';
+    const getOwnershipDisplay = (ownershipType) => {
+        if (!ownershipType) return 'Not Specified';
+        const type = ownershipType.toLowerCase();
+        if (type === 'brokerage') return 'Brokerage';
+        if (type === 'customer_direct') return 'Customer Direct';
+        return 'Not Specified';
     };
 
     let brokerageSpend = strategySummary.brokerage_spend || 0;
@@ -1297,16 +1327,24 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                             <p className="text-sm font-medium sticky top-0 bg-white py-2 z-10">All Carriers ({strategySummary.carrier_breakdown?.length || 0})</p>
                             <div className="space-y-1">
                                 {strategySummary.carrier_breakdown?.map((item, idx) => {
-                                    const ownershipType = classifyOwnership(item.ownership);
+                                    const ownershipDisplay = getOwnershipDisplay(item.ownership_type);
+                                    const isBrokerage = item.ownership_type?.toLowerCase() === 'brokerage';
+                                    const isNotSpecified = !item.ownership_type;
                                     return (
                                         <div key={idx} className="flex items-center justify-between text-sm gap-2">
                                             <div className="flex items-center gap-2 min-w-0 flex-1">
                                                 <span className="text-slate-600 truncate">{getCarrierName(item.carrier)}</span>
                                                 <Badge
                                                     variant="outline"
-                                                    className={`text-xs shrink-0 ${ownershipType === 'brokerage' ? 'bg-purple-100 text-purple-700 border-purple-300' : 'bg-slate-100 text-slate-700 border-slate-300'}`}
+                                                    className={`text-xs shrink-0 ${
+                                                        isNotSpecified
+                                                            ? 'bg-amber-50 text-amber-700 border-amber-300'
+                                                            : isBrokerage
+                                                                ? 'bg-purple-100 text-purple-700 border-purple-300'
+                                                                : 'bg-slate-100 text-slate-700 border-slate-300'
+                                                    }`}
                                                 >
-                                                    {ownershipType === 'brokerage' ? 'Brokerage' : 'Customer Direct'}
+                                                    {ownershipDisplay}
                                                 </Badge>
                                             </div>
                                             <span className="font-medium shrink-0">{item.percentage.toFixed(1)}% ({item.shipments})</span>
@@ -1346,7 +1384,9 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                                 </TableHeader>
                                 <TableBody>
                                     {strategySummary.carrier_breakdown?.map((item, idx) => {
-                                        const ownershipType = classifyOwnership(item.ownership);
+                                        const ownershipDisplay = getOwnershipDisplay(item.ownership_type);
+                                        const isBrokerage = item.ownership_type?.toLowerCase() === 'brokerage';
+                                        const isNotSpecified = !item.ownership_type;
                                         return (
                                             <TableRow key={idx}>
                                                 <TableCell>
@@ -1354,9 +1394,15 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                                                         <span className="font-medium">{getCarrierName(item.carrier)}</span>
                                                         <Badge
                                                             variant="outline"
-                                                            className={`text-xs ${ownershipType === 'brokerage' ? 'bg-purple-100 text-purple-700 border-purple-300' : 'bg-slate-100 text-slate-700 border-slate-300'}`}
+                                                            className={`text-xs ${
+                                                                isNotSpecified
+                                                                    ? 'bg-amber-50 text-amber-700 border-amber-300'
+                                                                    : isBrokerage
+                                                                        ? 'bg-purple-100 text-purple-700 border-purple-300'
+                                                                        : 'bg-slate-100 text-slate-700 border-slate-300'
+                                                            }`}
                                                         >
-                                                            {ownershipType === 'brokerage' ? 'Brokerage' : 'Customer Direct'}
+                                                            {ownershipDisplay}
                                                         </Badge>
                                                     </div>
                                                 </TableCell>
