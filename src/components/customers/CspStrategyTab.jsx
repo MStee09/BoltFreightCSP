@@ -917,9 +917,33 @@ const DataVisualizationPanel = ({ cspEvent }) => {
         return carrier ? carrier.name : scac;
     };
 
+    const getCarrierType = (scac) => {
+        const carrier = carriers.find(c => c.scac_code?.toUpperCase() === scac?.toUpperCase());
+        return carrier?.carrier_type || 'customer_direct';
+    };
+
     if (!strategySummary || !strategySummary.carrier_breakdown) {
         return null;
     }
+
+    const brokerageSpend = strategySummary.carrier_breakdown?.reduce((sum, item) => {
+        const carrierType = getCarrierType(item.carrier);
+        return carrierType === 'brokerage' ? sum + (item.spend || 0) : sum;
+    }, 0) || 0;
+
+    const customerDirectSpend = strategySummary.carrier_breakdown?.reduce((sum, item) => {
+        const carrierType = getCarrierType(item.carrier);
+        return carrierType === 'customer_direct' ? sum + (item.spend || 0) : sum;
+    }, 0) || 0;
+
+    const totalSpend = brokerageSpend + customerDirectSpend;
+    const brokeragePercentage = totalSpend > 0 ? (brokerageSpend / totalSpend) * 100 : 0;
+    const customerDirectPercentage = totalSpend > 0 ? (customerDirectSpend / totalSpend) * 100 : 0;
+
+    const ownershipTypeData = [
+        { name: 'Brokerage', value: brokeragePercentage, spend: brokerageSpend },
+        { name: 'Customer Direct', value: customerDirectPercentage, spend: customerDirectSpend }
+    ];
 
     const COLORS = ['#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#84cc16'];
 
@@ -999,6 +1023,78 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                     </Card>
                 </div>
 
+                <Card className="mb-6 border-2 border-purple-200 bg-gradient-to-br from-purple-50 to-white">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-lg">
+                            <TrendingUp className="w-5 h-5 text-purple-600" />
+                            Brokerage vs Customer Direct Spend
+                        </CardTitle>
+                        <CardDescription>Track brokerage growth to optimize cost savings and coverage</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div className="bg-purple-100 border-2 border-purple-300 rounded-lg p-4">
+                                        <p className="text-sm text-purple-700 mb-1 font-medium">Brokerage Spend</p>
+                                        <p className="text-3xl font-bold text-purple-900">{brokeragePercentage.toFixed(1)}%</p>
+                                        <p className="text-xs text-purple-600 mt-1">${Math.round(brokerageSpend).toLocaleString()}</p>
+                                    </div>
+                                    <div className="bg-slate-100 border-2 border-slate-300 rounded-lg p-4">
+                                        <p className="text-sm text-slate-700 mb-1 font-medium">Customer Direct</p>
+                                        <p className="text-3xl font-bold text-slate-900">{customerDirectPercentage.toFixed(1)}%</p>
+                                        <p className="text-xs text-slate-600 mt-1">${Math.round(customerDirectSpend).toLocaleString()}</p>
+                                    </div>
+                                </div>
+                                <div className="bg-white border rounded-lg p-4">
+                                    <div className="flex items-start gap-3">
+                                        <TrendingUp className="w-5 h-5 text-purple-600 mt-0.5 shrink-0" />
+                                        <div>
+                                            <p className="font-semibold text-slate-900 text-sm">Growth Strategy</p>
+                                            <p className="text-xs text-slate-600 mt-1">
+                                                {brokeragePercentage < 10 ? (
+                                                    'Opportunity to significantly increase brokerage utilization for better rates and coverage.'
+                                                ) : brokeragePercentage < 25 ? (
+                                                    'Growing brokerage presence. Continue shifting volume to optimize savings.'
+                                                ) : brokeragePercentage < 50 ? (
+                                                    'Strong brokerage adoption. Focus on maintaining growth trajectory.'
+                                                ) : (
+                                                    'Excellent brokerage utilization. Monitor for optimal balance with direct carriers.'
+                                                )}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="h-[250px]">
+                                <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                        <Pie
+                                            data={ownershipTypeData}
+                                            cx="50%"
+                                            cy="50%"
+                                            labelLine={false}
+                                            label={({ name, value }) => `${name}: ${value.toFixed(1)}%`}
+                                            outerRadius={80}
+                                            fill="#8884d8"
+                                            dataKey="value"
+                                        >
+                                            <Cell fill="#9333ea" />
+                                            <Cell fill="#94a3b8" />
+                                        </Pie>
+                                        <Tooltip
+                                            formatter={(value, name, props) => [
+                                                `${value.toFixed(1)}% ($${Math.round(props.payload.spend).toLocaleString()})`,
+                                                name
+                                            ]}
+                                        />
+                                    </PieChart>
+                                </ResponsiveContainer>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
                 <Tabs defaultValue="carriers" className="w-full">
                     <TabsList className="grid w-full grid-cols-5">
                         <TabsTrigger value="carriers">Carrier Mix</TabsTrigger>
@@ -1043,19 +1139,23 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                         <div className="space-y-2 max-h-[400px] overflow-y-auto">
                             <p className="text-sm font-medium sticky top-0 bg-white py-2">Carrier Distribution</p>
                             <div className="space-y-1">
-                                {strategySummary.carrier_breakdown?.slice(0, 10).map((item, idx) => (
-                                    <div key={idx} className="flex items-center justify-between text-sm gap-2">
-                                        <div className="flex items-center gap-2 min-w-0 flex-1">
-                                            <span className="text-slate-600 truncate">{getCarrierName(item.carrier)}</span>
-                                            {item.ownership && item.ownership !== 'Unknown' && (
-                                                <Badge variant="outline" className="text-xs shrink-0">
-                                                    {item.ownership}
+                                {strategySummary.carrier_breakdown?.slice(0, 10).map((item, idx) => {
+                                    const carrierType = getCarrierType(item.carrier);
+                                    return (
+                                        <div key={idx} className="flex items-center justify-between text-sm gap-2">
+                                            <div className="flex items-center gap-2 min-w-0 flex-1">
+                                                <span className="text-slate-600 truncate">{getCarrierName(item.carrier)}</span>
+                                                <Badge
+                                                    variant="outline"
+                                                    className={`text-xs shrink-0 ${carrierType === 'brokerage' ? 'bg-purple-100 text-purple-700 border-purple-300' : 'bg-slate-100 text-slate-700 border-slate-300'}`}
+                                                >
+                                                    {carrierType === 'brokerage' ? 'Brokerage' : 'Customer Direct'}
                                                 </Badge>
-                                            )}
+                                            </div>
+                                            <span className="font-medium shrink-0">{item.percentage}% ({item.shipments})</span>
                                         </div>
-                                        <span className="font-medium shrink-0">{item.percentage}% ({item.shipments})</span>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                     </TabsContent>
@@ -1088,22 +1188,26 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {strategySummary.carrier_breakdown?.map((item, idx) => (
-                                        <TableRow key={idx}>
-                                            <TableCell>
-                                                <div className="flex items-center gap-2">
-                                                    <span className="font-medium">{getCarrierName(item.carrier)}</span>
-                                                    {item.ownership && item.ownership !== 'Unknown' && (
-                                                        <Badge variant="outline" className="text-xs">
-                                                            {item.ownership}
+                                    {strategySummary.carrier_breakdown?.map((item, idx) => {
+                                        const carrierType = getCarrierType(item.carrier);
+                                        return (
+                                            <TableRow key={idx}>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="font-medium">{getCarrierName(item.carrier)}</span>
+                                                        <Badge
+                                                            variant="outline"
+                                                            className={`text-xs ${carrierType === 'brokerage' ? 'bg-purple-100 text-purple-700 border-purple-300' : 'bg-slate-100 text-slate-700 border-slate-300'}`}
+                                                        >
+                                                            {carrierType === 'brokerage' ? 'Brokerage' : 'Customer Direct'}
                                                         </Badge>
-                                                    )}
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="text-right">{item.shipments.toLocaleString()}</TableCell>
-                                            <TableCell className="text-right">${Math.round(item.spend).toLocaleString()}</TableCell>
-                                        </TableRow>
-                                    ))}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="text-right">{item.shipments.toLocaleString()}</TableCell>
+                                                <TableCell className="text-right">${Math.round(item.spend).toLocaleString()}</TableCell>
+                                            </TableRow>
+                                        );
+                                    })}
                                 </TableBody>
                             </Table>
                         </div>
@@ -1282,16 +1386,18 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                             <div className="space-y-2">
                                 {strategySummary.carrier_breakdown?.slice(0, 10).map((item, idx) => {
                                     const isHighConcentration = item.percentage > 15;
+                                    const carrierType = getCarrierType(item.carrier);
                                     return (
                                         <div key={idx} className="space-y-1">
                                             <div className="flex items-center justify-between text-sm gap-2">
                                                 <div className="flex items-center gap-2 min-w-0">
                                                     <span className="font-medium text-slate-700 truncate">{getCarrierName(item.carrier)}</span>
-                                                    {item.ownership && item.ownership !== 'Unknown' && (
-                                                        <Badge variant="outline" className="text-xs shrink-0">
-                                                            {item.ownership}
-                                                        </Badge>
-                                                    )}
+                                                    <Badge
+                                                        variant="outline"
+                                                        className={`text-xs shrink-0 ${carrierType === 'brokerage' ? 'bg-purple-100 text-purple-700 border-purple-300' : 'bg-slate-100 text-slate-700 border-slate-300'}`}
+                                                    >
+                                                        {carrierType === 'brokerage' ? 'Brokerage' : 'Customer Direct'}
+                                                    </Badge>
                                                 </div>
                                                 <span className="text-slate-600 shrink-0">{item.percentage}% ({item.shipments})</span>
                                             </div>
