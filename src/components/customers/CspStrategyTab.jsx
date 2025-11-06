@@ -1756,6 +1756,7 @@ const DocumentsPanel = ({ cspEventId }) => {
                             <TableRow>
                                 <TableHead>File</TableHead>
                                 <TableHead>Type</TableHead>
+                                <TableHead>Data Range</TableHead>
                                 <TableHead>Uploaded</TableHead>
                                 <TableHead>Size</TableHead>
                                 <TableHead></TableHead>
@@ -1774,6 +1775,17 @@ const DocumentsPanel = ({ cspEventId }) => {
                                         <Badge variant={getDocTypeBadge(doc.document_type)}>
                                             {getDocTypeLabel(doc.document_type)}
                                         </Badge>
+                                    </TableCell>
+                                    <TableCell className="text-sm text-slate-600">
+                                        {doc.data_range_start && doc.data_range_end ? (
+                                            <div className="flex flex-col gap-0.5">
+                                                <span className="font-medium">
+                                                    {format(new Date(doc.data_range_start), 'MMM d, yyyy')} - {format(new Date(doc.data_range_end), 'MMM d, yyyy')}
+                                                </span>
+                                            </div>
+                                        ) : (
+                                            <span className="text-slate-400">No date data</span>
+                                        )}
                                     </TableCell>
                                     <TableCell className="text-sm text-slate-600">
                                         {format(new Date(doc.created_date), 'MMM dd, yyyy')}
