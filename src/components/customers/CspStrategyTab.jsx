@@ -1564,6 +1564,21 @@ const DocumentsPanel = ({ cspEventId }) => {
     const { toast } = useToast();
     const queryClient = useQueryClient();
 
+    const { data: cspEvent } = useQuery({
+        queryKey: ['cspEvent', cspEventId],
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from('csp_events')
+                .select('*')
+                .eq('id', cspEventId)
+                .single();
+
+            if (error) throw error;
+            return data;
+        },
+        enabled: !!cspEventId,
+    });
+
     const { data: documents = [], isLoading } = useQuery({
         queryKey: ['documents', cspEventId],
         queryFn: async () => {
