@@ -130,27 +130,20 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                 return lower === 'totalbill';
             });
 
-            const totalCostIndex = headers.findIndex(h => {
-                const lower = h.toLowerCase().replace(/[_\s]/g, '');
-                return lower === 'totalcost';
-            });
-
-            console.log('=== COST COLUMNS DETECTED ===');
-            if (totalBillIndex >= 0) console.log('Found TotalBill at index:', totalBillIndex);
-            if (totalCostIndex >= 0) console.log('Found TotalCost at index:', totalCostIndex);
-
-            if (totalBillIndex === -1 && totalCostIndex === -1) {
+            if (totalBillIndex === -1) {
                 throw new Error(
-                    'DATA FORMAT ERROR: Cannot find "TotalBill" or "TotalCost" column.\n\n' +
-                    'One of these columns is required for spend calculations.\n\n' +
+                    'DATA FORMAT ERROR: Cannot find "TotalBill" column.\n\n' +
+                    'This column is required for spend calculations.\n\n' +
                     'Found columns:\n' + headers.join(', ') + '\n\n' +
-                    'Please verify you uploaded the correct Transaction Detail report'
+                    'Please verify:\n' +
+                    '1. You uploaded the correct Transaction Detail report\n' +
+                    '2. The file contains a column named "TotalBill"'
                 );
             }
 
-            const costIndex = totalCostIndex >= 0 ? totalCostIndex : totalBillIndex;
-            const costColumnName = headers[costIndex];
-            console.log('Using cost column:', costColumnName, 'at index:', costIndex);
+            const costIndex = totalBillIndex;
+            const costColumnName = 'TotalBill';
+            console.log('Using cost column: TotalBill at index:', costIndex);
 
             const shipDateIndex = headers.findIndex(h => {
                 const lower = h.toLowerCase().replace(/[_\s]/g, '');
