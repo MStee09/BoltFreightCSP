@@ -1282,177 +1282,312 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                 </Card>
 
                 <Tabs defaultValue="carriers" className="w-full">
-                    <TabsList className="grid w-full grid-cols-5">
-                        <TabsTrigger value="carriers">Carrier Mix</TabsTrigger>
-                        <TabsTrigger value="spend">Spend Analysis</TabsTrigger>
-                        <TabsTrigger value="lanes">Top Lanes</TabsTrigger>
-                        <TabsTrigger value="savings">Savings Potential</TabsTrigger>
-                        <TabsTrigger value="concentration">Concentration</TabsTrigger>
+                    <TabsList className="grid w-full grid-cols-5 bg-slate-50">
+                        <TabsTrigger value="carriers" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">Carrier Mix</TabsTrigger>
+                        <TabsTrigger value="spend" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">Spend Analysis</TabsTrigger>
+                        <TabsTrigger value="lanes" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">Top Lanes</TabsTrigger>
+                        <TabsTrigger value="savings" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">Savings Potential</TabsTrigger>
+                        <TabsTrigger value="concentration" className="data-[state=active]:bg-white data-[state=active]:shadow-sm">Concentration</TabsTrigger>
                     </TabsList>
 
-                    <TabsContent value="carriers" className="space-y-4">
-                        <div className="h-[450px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <PieChart>
-                                    <Pie
-                                        data={carrierPieData}
-                                        cx="50%"
-                                        cy="45%"
-                                        labelLine={false}
-                                        label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
-                                        outerRadius={100}
-                                        fill="#8884d8"
-                                        dataKey="value"
-                                    >
-                                        {carrierPieData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip
-                                        formatter={(value, name, props) => [
-                                            `${value}% (${props.payload.shipments} shipments)`,
-                                            'Share'
-                                        ]}
-                                    />
-                                    <Legend
-                                        verticalAlign="bottom"
-                                        height={80}
-                                        formatter={(value, entry) => `${value}: ${entry.payload.value}%`}
-                                    />
-                                </PieChart>
-                            </ResponsiveContainer>
-                        </div>
-                        <div className="space-y-2 max-h-[400px] overflow-y-auto">
-                            <p className="text-sm font-medium sticky top-0 bg-white py-2 z-10">All Carriers ({strategySummary.carrier_breakdown?.length || 0})</p>
-                            <div className="space-y-1">
-                                {strategySummary.carrier_breakdown?.map((item, idx) => {
-                                    const ownershipDisplay = getOwnershipDisplay(item.ownership_type);
-                                    const isBrokerage = item.ownership_type?.toLowerCase() === 'brokerage';
-                                    const isNotSpecified = !item.ownership_type;
-                                    return (
-                                        <div key={idx} className="flex items-center justify-between text-sm gap-2">
-                                            <div className="flex items-center gap-2 min-w-0 flex-1">
-                                                <span className="text-slate-600 truncate">{getCarrierName(item.carrier)}</span>
-                                                <Badge
-                                                    variant="outline"
-                                                    className={`text-xs shrink-0 ${
-                                                        isNotSpecified
-                                                            ? 'bg-amber-50 text-amber-700 border-amber-300'
-                                                            : isBrokerage
-                                                                ? 'bg-purple-100 text-purple-700 border-purple-300'
-                                                                : 'bg-slate-100 text-slate-700 border-slate-300'
-                                                    }`}
+                    <TabsContent value="carriers" className="space-y-6 mt-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <Card className="border-slate-200 shadow-sm">
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-base">Carrier Distribution</CardTitle>
+                                    <CardDescription>Volume share across top carriers</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="h-[380px]">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie
+                                                    data={carrierPieData}
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    labelLine={true}
+                                                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                                                    outerRadius={120}
+                                                    fill="#8884d8"
+                                                    dataKey="value"
+                                                    animationDuration={800}
                                                 >
-                                                    {ownershipDisplay}
-                                                </Badge>
-                                            </div>
-                                            <span className="font-medium shrink-0">{item.percentage.toFixed(1)}% ({item.shipments})</span>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
-                    </TabsContent>
+                                                    {carrierPieData.map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip
+                                                    formatter={(value, name, props) => [
+                                                        `${value}% (${props.payload.shipments.toLocaleString()} shipments)`,
+                                                        'Share'
+                                                    ]}
+                                                    contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                                                />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </CardContent>
+                            </Card>
 
-                    <TabsContent value="spend" className="space-y-4">
-                        <div className="h-[350px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <RechartsBarChart data={carrierBarData}>
-                                    <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis dataKey="carrier" angle={-45} textAnchor="end" height={100} />
-                                    <YAxis />
-                                    <Tooltip
-                                        formatter={(value, name) => [
-                                            name === 'spend' ? `$${value.toLocaleString()}` : value,
-                                            name === 'spend' ? 'Total Spend' : 'Shipments'
-                                        ]}
-                                    />
-                                    <Legend />
-                                    <Bar dataKey="spend" fill="#3b82f6" name="Total Spend ($)" />
-                                </RechartsBarChart>
-                            </ResponsiveContainer>
-                        </div>
-                        <div className="max-h-[300px] overflow-y-auto">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="sticky top-0 bg-white z-10">Carrier</TableHead>
-                                        <TableHead className="text-right sticky top-0 bg-white z-10">Shipments</TableHead>
-                                        <TableHead className="text-right sticky top-0 bg-white z-10">Total Spend</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {strategySummary.carrier_breakdown?.map((item, idx) => {
-                                        const ownershipDisplay = getOwnershipDisplay(item.ownership_type);
-                                        const isBrokerage = item.ownership_type?.toLowerCase() === 'brokerage';
-                                        const isNotSpecified = !item.ownership_type;
-                                        return (
-                                            <TableRow key={idx}>
-                                                <TableCell>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="font-medium">{getCarrierName(item.carrier)}</span>
-                                                        <Badge
-                                                            variant="outline"
-                                                            className={`text-xs ${
-                                                                isNotSpecified
-                                                                    ? 'bg-amber-50 text-amber-700 border-amber-300'
-                                                                    : isBrokerage
-                                                                        ? 'bg-purple-100 text-purple-700 border-purple-300'
-                                                                        : 'bg-slate-100 text-slate-700 border-slate-300'
-                                                            }`}
-                                                        >
-                                                            {ownershipDisplay}
-                                                        </Badge>
+                            <Card className="border-slate-200 shadow-sm">
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-base">All Carriers</CardTitle>
+                                    <CardDescription>Complete breakdown ({strategySummary.carrier_breakdown?.length || 0} carriers)</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="space-y-3 max-h-[380px] overflow-y-auto pr-2">
+                                        {strategySummary.carrier_breakdown?.map((item, idx) => {
+                                            const ownershipDisplay = getOwnershipDisplay(item.ownership_type);
+                                            const isBrokerage = item.ownership_type?.toLowerCase() === 'brokerage';
+                                            const isNotSpecified = !item.ownership_type;
+                                            return (
+                                                <div key={idx} className="flex items-center justify-between p-3 rounded-lg bg-slate-50 hover:bg-slate-100 transition-colors">
+                                                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                                                        <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="font-medium text-slate-900 truncate">{getCarrierName(item.carrier)}</p>
+                                                            <div className="flex items-center gap-2 mt-1">
+                                                                <Badge
+                                                                    variant="outline"
+                                                                    className={`text-xs h-5 ${
+                                                                        isNotSpecified
+                                                                            ? 'bg-amber-50 text-amber-700 border-amber-300'
+                                                                            : isBrokerage
+                                                                                ? 'bg-purple-50 text-purple-700 border-purple-300'
+                                                                                : 'bg-slate-50 text-slate-700 border-slate-300'
+                                                                    }`}
+                                                                >
+                                                                    {ownershipDisplay}
+                                                                </Badge>
+                                                                <span className="text-xs text-slate-500">{item.shipments.toLocaleString()} shipments</span>
+                                                            </div>
+                                                        </div>
                                                     </div>
-                                                </TableCell>
-                                                <TableCell className="text-right">{item.shipments.toLocaleString()}</TableCell>
-                                                <TableCell className="text-right">${Math.round(item.spend).toLocaleString()}</TableCell>
-                                            </TableRow>
-                                        );
-                                    })}
-                                </TableBody>
-                            </Table>
+                                                    <span className="text-lg font-bold text-slate-900 shrink-0 ml-4">{item.percentage.toFixed(1)}%</span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </CardContent>
+                            </Card>
                         </div>
                     </TabsContent>
 
-                    <TabsContent value="lanes" className="space-y-4">
-                        <div className="h-[350px]">
-                            <ResponsiveContainer width="100%" height="100%">
-                                <RechartsBarChart data={laneData} layout="vertical">
-                                    <CartesianGrid strokeDasharray="3 3" />
-                                    <XAxis type="number" />
-                                    <YAxis dataKey="lane" type="category" width={150} />
-                                    <Tooltip
-                                        formatter={(value, name) => [
-                                            name === 'spend' ? `$${value.toLocaleString()}` : value,
-                                            name === 'spend' ? 'Total Spend' : 'Shipments'
-                                        ]}
-                                    />
-                                    <Legend />
-                                    <Bar dataKey="shipments" fill="#10b981" name="Shipments" />
-                                </RechartsBarChart>
-                            </ResponsiveContainer>
-                        </div>
-                        <div className="max-h-[300px] overflow-y-auto">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="sticky top-0 bg-white">Lane</TableHead>
-                                        <TableHead className="text-right sticky top-0 bg-white">Shipments</TableHead>
-                                        <TableHead className="text-right sticky top-0 bg-white">Total Spend</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {strategySummary.top_lanes?.map((item, idx) => (
-                                        <TableRow key={idx}>
-                                            <TableCell className="font-medium">{item.lane}</TableCell>
-                                            <TableCell className="text-right">{item.shipments.toLocaleString()}</TableCell>
-                                            <TableCell className="text-right">${Math.round(item.spend).toLocaleString()}</TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </div>
+                    <TabsContent value="spend" className="space-y-6 mt-6">
+                        <Card className="border-slate-200 shadow-sm">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-base">Top Carriers by Spend</CardTitle>
+                                <CardDescription>Highest spending carriers</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="h-[400px]">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <RechartsBarChart
+                                            data={carrierBarData}
+                                            margin={{ top: 20, right: 30, left: 20, bottom: 80 }}
+                                        >
+                                            <defs>
+                                                <linearGradient id="spendGradient" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="0%" stopColor="#3b82f6" stopOpacity={0.9}/>
+                                                    <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.6}/>
+                                                </linearGradient>
+                                            </defs>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                                            <XAxis
+                                                dataKey="carrier"
+                                                angle={-45}
+                                                textAnchor="end"
+                                                height={100}
+                                                tick={{ fontSize: 12 }}
+                                            />
+                                            <YAxis
+                                                tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                                                tick={{ fontSize: 12 }}
+                                            />
+                                            <Tooltip
+                                                formatter={(value, name) => [
+                                                    `$${value.toLocaleString()}`,
+                                                    'Total Spend'
+                                                ]}
+                                                contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                                            />
+                                            <Bar
+                                                dataKey="spend"
+                                                fill="url(#spendGradient)"
+                                                radius={[8, 8, 0, 0]}
+                                                animationDuration={800}
+                                            />
+                                        </RechartsBarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="border-slate-200 shadow-sm">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-base">Complete Spend Breakdown</CardTitle>
+                                <CardDescription>All carriers ranked by total spend</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="max-h-[400px] overflow-y-auto">
+                                    <div className="space-y-2">
+                                        {strategySummary.carrier_breakdown?.map((item, idx) => {
+                                            const ownershipDisplay = getOwnershipDisplay(item.ownership_type);
+                                            const isBrokerage = item.ownership_type?.toLowerCase() === 'brokerage';
+                                            const isNotSpecified = !item.ownership_type;
+                                            const spendPercentage = (item.spend / totalSpend) * 100;
+                                            return (
+                                                <div key={idx} className="p-4 rounded-lg border border-slate-200 hover:border-blue-300 hover:shadow-sm transition-all">
+                                                    <div className="flex items-start justify-between mb-2">
+                                                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                                                            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-100 text-blue-700 font-bold text-sm shrink-0">
+                                                                #{idx + 1}
+                                                            </div>
+                                                            <div className="min-w-0 flex-1">
+                                                                <p className="font-semibold text-slate-900">{getCarrierName(item.carrier)}</p>
+                                                                <Badge
+                                                                    variant="outline"
+                                                                    className={`text-xs mt-1 ${
+                                                                        isNotSpecified
+                                                                            ? 'bg-amber-50 text-amber-700 border-amber-300'
+                                                                            : isBrokerage
+                                                                                ? 'bg-purple-50 text-purple-700 border-purple-300'
+                                                                                : 'bg-slate-50 text-slate-700 border-slate-300'
+                                                                    }`}
+                                                                >
+                                                                    {ownershipDisplay}
+                                                                </Badge>
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-right shrink-0 ml-4">
+                                                            <p className="text-xl font-bold text-blue-600">${Math.round(item.spend).toLocaleString()}</p>
+                                                            <p className="text-xs text-slate-500 mt-1">{spendPercentage.toFixed(1)}% of total</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-4 text-sm text-slate-600">
+                                                        <div className="flex items-center gap-1">
+                                                            <Package className="w-4 h-4" />
+                                                            <span>{item.shipments.toLocaleString()} shipments</span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1">
+                                                            <DollarSign className="w-4 h-4" />
+                                                            <span>${(item.spend / item.shipments).toFixed(2)} avg</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="mt-3 bg-slate-100 rounded-full h-2 overflow-hidden">
+                                                        <div
+                                                            className="h-full bg-blue-500 transition-all duration-500"
+                                                            style={{ width: `${Math.min(spendPercentage, 100)}%` }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    <TabsContent value="lanes" className="space-y-6 mt-6">
+                        <Card className="border-slate-200 shadow-sm">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-base">Top Lanes by Volume</CardTitle>
+                                <CardDescription>Highest volume shipping lanes</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="h-[400px]">
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <RechartsBarChart
+                                            data={laneData}
+                                            layout="vertical"
+                                            margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
+                                        >
+                                            <defs>
+                                                <linearGradient id="laneGradient" x1="0" y1="0" x2="1" y2="0">
+                                                    <stop offset="0%" stopColor="#10b981" stopOpacity={0.9}/>
+                                                    <stop offset="100%" stopColor="#10b981" stopOpacity={0.6}/>
+                                                </linearGradient>
+                                            </defs>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                                            <XAxis type="number" tick={{ fontSize: 12 }} />
+                                            <YAxis
+                                                dataKey="lane"
+                                                type="category"
+                                                width={180}
+                                                tick={{ fontSize: 11 }}
+                                            />
+                                            <Tooltip
+                                                formatter={(value, name) => [
+                                                    name === 'spend' ? `$${value.toLocaleString()}` : `${value} shipments`,
+                                                    name === 'spend' ? 'Total Spend' : 'Volume'
+                                                ]}
+                                                contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                                            />
+                                            <Bar
+                                                dataKey="shipments"
+                                                fill="url(#laneGradient)"
+                                                radius={[0, 8, 8, 0]}
+                                                animationDuration={800}
+                                            />
+                                        </RechartsBarChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="border-slate-200 shadow-sm">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-base">Lane Performance Details</CardTitle>
+                                <CardDescription>Complete breakdown of top shipping lanes</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="max-h-[400px] overflow-y-auto">
+                                    <div className="space-y-2">
+                                        {strategySummary.top_lanes?.map((item, idx) => {
+                                            const avgCost = item.shipments > 0 ? item.spend / item.shipments : 0;
+                                            const totalShipments = strategySummary.shipment_count || 1;
+                                            const lanePercentage = (item.shipments / totalShipments) * 100;
+                                            return (
+                                                <div key={idx} className="p-4 rounded-lg border border-slate-200 hover:border-green-300 hover:shadow-sm transition-all">
+                                                    <div className="flex items-start justify-between mb-3">
+                                                        <div className="flex items-start gap-3 min-w-0 flex-1">
+                                                            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-green-100 text-green-700 font-bold text-sm shrink-0">
+                                                                #{idx + 1}
+                                                            </div>
+                                                            <div className="min-w-0 flex-1">
+                                                                <p className="font-semibold text-slate-900 text-base mb-1">{item.lane}</p>
+                                                                <p className="text-xs text-slate-500">{lanePercentage.toFixed(1)}% of total volume</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="grid grid-cols-3 gap-4 mb-3">
+                                                        <div className="bg-green-50 rounded-lg p-3 border border-green-200">
+                                                            <p className="text-xs text-green-700 mb-1 font-medium">Volume</p>
+                                                            <p className="text-lg font-bold text-green-900">{item.shipments.toLocaleString()}</p>
+                                                        </div>
+                                                        <div className="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                                                            <p className="text-xs text-blue-700 mb-1 font-medium">Total Spend</p>
+                                                            <p className="text-lg font-bold text-blue-900">${Math.round(item.spend).toLocaleString()}</p>
+                                                        </div>
+                                                        <div className="bg-slate-50 rounded-lg p-3 border border-slate-200">
+                                                            <p className="text-xs text-slate-700 mb-1 font-medium">Avg Cost</p>
+                                                            <p className="text-lg font-bold text-slate-900">${avgCost.toFixed(2)}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="bg-slate-100 rounded-full h-2 overflow-hidden">
+                                                        <div
+                                                            className="h-full bg-green-500 transition-all duration-500"
+                                                            style={{ width: `${Math.min(lanePercentage * 10, 100)}%` }}
+                                                        />
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
                     </TabsContent>
 
                     <TabsContent value="savings" className="space-y-4">
