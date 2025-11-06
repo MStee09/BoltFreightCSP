@@ -108,12 +108,16 @@ export default function Dashboard() {
   ).length;
   const previousWeekActiveTariffs = tariffs.filter(t => t.status === 'active').length - activeTariffsAddedLastWeek;
 
-  const openEventsAddedLastWeek = cspEvents.filter(e =>
+  const activeEventsLastWeek = cspEvents.filter(e =>
     e.status === 'in_progress' &&
-    e.created_date &&
-    new Date(e.created_date) >= sevenDaysAgo
+    e.updated_date &&
+    new Date(e.updated_date) >= sevenDaysAgo
   ).length;
-  const previousWeekOpenEvents = cspEvents.filter(e => e.status === 'in_progress').length - openEventsAddedLastWeek;
+  const previousWeekActiveEvents = cspEvents.filter(e => {
+    if (e.status !== 'in_progress') return false;
+    if (!e.updated_date) return true;
+    return new Date(e.updated_date) < sevenDaysAgo;
+  }).length;
 
   const handleClearMockData = async () => {
     setIsLoadingMockData(true);
@@ -208,13 +212,14 @@ export default function Dashboard() {
             previousValue={previousWeekActiveTariffs}
           />
           <MetricCard
-            title="CSP Events In Progress"
-            value={cspEvents.filter(e => e.status === 'in_progress').length}
+            title="CSP Events With Recent Activity"
+            value={activeEventsLastWeek}
             icon={Users}
             linkTo="Pipeline"
             iconColor="bg-blue-500"
             filterParam="in_progress"
-            previousValue={previousWeekOpenEvents}
+            previousValue={previousWeekActiveEvents}
+            description="Events with stage changes or updates in the last 7 days"
           />
         </div>
 
