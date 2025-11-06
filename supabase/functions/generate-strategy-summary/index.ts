@@ -200,7 +200,6 @@ Deno.serve(async (req: Request) => {
 
     const carrierBreakdown = Object.entries(carrierCounts)
       .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
       .map(([carrier, count]) => {
         const ownershipData = carrierOwnership[carrier] || { rocket: 0, priority1: 0, customer_direct: 0 };
 

@@ -1072,20 +1072,22 @@ const DataVisualizationPanel = ({ cspEvent }) => {
 
     const COLORS = ['#3b82f6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#84cc16'];
 
-    const carrierPieData = strategySummary.carrier_breakdown?.slice(0, 6).map((item, idx) => ({
+    const top10Carriers = strategySummary.carrier_breakdown?.slice(0, 10) || [];
+
+    const carrierPieData = top10Carriers.slice(0, 6).map((item, idx) => ({
         name: getCarrierName(item.carrier),
         value: item.percentage,
         shipments: item.shipments,
-    })) || [];
+    }));
 
-    const carrierBarData = strategySummary.carrier_breakdown?.slice(0, 5).map(item => {
+    const carrierBarData = top10Carriers.slice(0, 5).map(item => {
         const carrierName = getCarrierName(item.carrier);
         return {
             carrier: carrierName.length > 15 ? carrierName.substring(0, 15) + '...' : carrierName,
             spend: Math.round(item.spend),
             shipments: item.shipments,
         };
-    }) || [];
+    });
 
     const laneData = strategySummary.top_lanes?.map(item => ({
         lane: item.lane.length > 20 ? item.lane.substring(0, 20) + '...' : item.lane,
@@ -1313,7 +1315,7 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {strategySummary.carrier_breakdown?.map((item, idx) => {
+                                    {strategySummary.carrier_breakdown?.slice(0, 10).map((item, idx) => {
                                         const ownershipType = classifyOwnership(item.ownership);
                                         return (
                                             <TableRow key={idx}>
