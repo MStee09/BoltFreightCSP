@@ -130,16 +130,27 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                 return lower === 'totalbill';
             });
 
-            if (totalBillIndex === -1) {
+            const totalCostIndex = headers.findIndex(h => {
+                const lower = h.toLowerCase().replace(/[_\s]/g, '');
+                return lower === 'totalcost';
+            });
+
+            console.log('=== COST COLUMNS DETECTED ===');
+            if (totalBillIndex >= 0) console.log('Found TotalBill at index:', totalBillIndex);
+            if (totalCostIndex >= 0) console.log('Found TotalCost at index:', totalCostIndex);
+
+            if (totalBillIndex === -1 && totalCostIndex === -1) {
                 throw new Error(
-                    'DATA FORMAT ERROR: Cannot find "TotalBill" column (Column Q).\n\n' +
-                    'This column is required for spend calculations.\n\n' +
+                    'DATA FORMAT ERROR: Cannot find "TotalBill" or "TotalCost" column.\n\n' +
+                    'One of these columns is required for spend calculations.\n\n' +
                     'Found columns:\n' + headers.join(', ') + '\n\n' +
-                    'Please verify:\n' +
-                    '1. You uploaded the correct Transaction Detail report\n' +
-                    '2. The file contains a column named "TotalBill", "Total Bill", or "Total_Bill"'
+                    'Please verify you uploaded the correct Transaction Detail report'
                 );
             }
+
+            const costIndex = totalCostIndex >= 0 ? totalCostIndex : totalBillIndex;
+            const costColumnName = headers[costIndex];
+            console.log('Using cost column:', costColumnName, 'at index:', costIndex);
 
             const shipDateIndex = headers.findIndex(h => {
                 const lower = h.toLowerCase().replace(/[_\s]/g, '');
@@ -150,12 +161,12 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                 console.warn('WARNING: Cannot find date column (Ship Date, Pickup_Date, etc.) for date range calculation');
             }
 
-            console.log('TotalBill Column (Q): Index', totalBillIndex, `(Column ${String.fromCharCode(65 + totalBillIndex)})`, `"${headers[totalBillIndex]}"`);
-            if (totalBillIndex > 0) {
-                console.log('Column before TotalBill:', `"${headers[totalBillIndex - 1]}"`);
+            console.log('Cost Column: Index', costIndex, `(Column ${String.fromCharCode(65 + costIndex)})`, `"${costColumnName}"`);
+            if (costIndex > 0) {
+                console.log('Column before:', `"${headers[costIndex - 1]}"`);
             }
-            if (totalBillIndex < headers.length - 1) {
-                console.log('Column after TotalBill:', `"${headers[totalBillIndex + 1]}"`);
+            if (costIndex < headers.length - 1) {
+                console.log('Column after:', `"${headers[costIndex + 1]}"`);
             }
             console.log('Date Column: Index', shipDateIndex, shipDateIndex >= 0 ? `"${headers[shipDateIndex]}"` : 'NOT FOUND');
             console.log('Total Rows:', totalShipments);
@@ -168,14 +179,14 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
             dataRows.forEach((row, idx) => {
                 const cols = parseCSVRow(row);
 
-                if (totalBillIndex >= 0 && cols[totalBillIndex]) {
-                    const originalValue = cols[totalBillIndex];
+                if (costIndex >= 0 && cols[costIndex]) {
+                    const originalValue = cols[costIndex];
                     const cost = parseFloat(originalValue.replace(/[$,]/g, ''));
                     if (!isNaN(cost) && cost > 0) {
                         totalSpend += cost;
                         validCostCount++;
                         if (idx < 3) {
-                            console.log(`Row ${idx + 1}: TotalBill (Column Q) = "${originalValue}" → $${cost.toFixed(2)}`);
+                            console.log(`Row ${idx + 1}: ${costColumnName} = "${originalValue}" → $${cost.toFixed(2)}`);
                         }
                     } else if (originalValue) {
                         invalidRows.push({ row: idx + 1, value: originalValue });
@@ -195,13 +206,13 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
 
             if (validCostCount === 0) {
                 throw new Error(
-                    'DATA FORMAT ERROR: No valid cost data found in TotalBill column (Column Q).\n\n' +
-                    'Please verify the Transaction Detail report has cost values in the TotalBill column.'
+                    `DATA FORMAT ERROR: No valid cost data found in ${costColumnName} column.\n\n` +
+                    'Please verify the Transaction Detail report has cost values.'
                 );
             }
 
             console.log('=== SPEND CALCULATION RESULTS ===');
-            console.log('Total Spend (Sum of TotalBill Column Q):', totalSpend.toLocaleString('en-US', { style: 'currency', currency: 'USD' }));
+            console.log(`Total Spend (Sum of ${costColumnName}):`, totalSpend.toLocaleString('en-US', { style: 'currency', currency: 'USD' }));
             console.log('Valid Shipments with Cost:', validCostCount);
             console.log('Total Rows:', totalShipments);
             console.log('Average per row:', (totalSpend / totalShipments).toFixed(2));
