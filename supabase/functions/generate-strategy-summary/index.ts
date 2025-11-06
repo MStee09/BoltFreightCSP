@@ -38,11 +38,11 @@ function parseCSV(csvText: string): any[] {
     return result;
   };
 
-  const headers = parseLine(lines[0]).map(h => h.replace(/['\"]/g, ''));
+  const headers = parseLine(lines[0]).map(h => h.replace(/['\"]]/g, ''));
   const rows: any[] = [];
 
   for (let i = 1; i < lines.length; i++) {
-    const values = parseLine(lines[i]).map(v => v.replace(/['\"]/g, ''));
+    const values = parseLine(lines[i]).map(v => v.replace(/['\"]]/g, ''));
     if (values.length === headers.length) {
       const row: any = {};
       headers.forEach((header, index) => {
@@ -168,7 +168,7 @@ Deno.serve(async (req: Request) => {
 
     const carrierCounts: Record<string, number> = {};
     const carrierSpend: Record<string, number> = {};
-    const carrierOwnership: Record<string, { rocket: number; priority1: number; customer_direct: number }> = {};
+    const carrierOwnership: Record<string, { brokerage: number; customer_direct: number; not_specified: number }> = {};
     const laneCounts: Record<string, number> = {};
     const laneSpend: Record<string, number> = {};
 
@@ -177,12 +177,21 @@ Deno.serve(async (req: Request) => {
     let customerDirectSpend = 0;
     let customerDirectShipments = 0;
 
-    const classifyOwnership = (ownership: string): 'brokerage' | 'customer_direct' => {
-      const ownershipUpper = ownership?.toUpperCase() || '';
+    const classifyOwnership = (ownership: string): 'brokerage' | 'customer_direct' | null => {
+      if (!ownership || ownership.trim() === '') {
+        return null;
+      }
+      const ownershipUpper = ownership.toUpperCase().trim();
+      if (ownershipUpper === 'NOT SPECIFIED' || ownershipUpper === 'NOTSPECIFIED') {
+        return null;
+      }
       if (ownershipUpper.includes('ROCKET') || ownershipUpper.includes('PRIORITY 1') || ownershipUpper.includes('PRIORITY1')) {
         return 'brokerage';
       }
-      return 'customer_direct';
+      if (ownershipUpper.includes('CUSTOMER') || ownershipUpper.includes('DIRECT')) {
+        return 'customer_direct';
+      }
+      return null;
     };
 
     if (Array.isArray(validTxnData)) {
@@ -190,7 +199,7 @@ Deno.serve(async (req: Request) => {
         const carrier = txn.carrier || txn.Carrier || 'Unknown';
         const costRaw = txn.cost || txn.Bill || txn.bill || 0;
         const cost = parseFloat(String(costRaw).replace(/[$,]/g, ''));
-        const ownership = txn.ownership || txn.Pricing_Ownership || txn['Pricing Ownership'] || 'Customer Direct';
+        const ownership = txn.ownership || txn.Pricing_Ownership || txn['Pricing Ownership'] || '';
         const ownershipType = classifyOwnership(ownership);
         const originCity = txn.origin_city || txn['Origin City'] || txn.OriginCity || '';
         const destCity = txn.dest_city || txn['Dest City'] || txn.DestCity || '';
@@ -204,21 +213,20 @@ Deno.serve(async (req: Request) => {
         carrierSpend[carrier] = (carrierSpend[carrier] || 0) + cost;
 
         if (!carrierOwnership[carrier]) {
-          carrierOwnership[carrier] = { rocket: 0, priority1: 0, customer_direct: 0 };
+          carrierOwnership[carrier] = { brokerage: 0, customer_direct: 0, not_specified: 0 };
         }
-        const ownershipUpper = ownership?.toUpperCase() || '';
-        if (ownershipUpper.includes('ROCKET')) {
-          carrierOwnership[carrier].rocket++;
-        } else if (ownershipUpper.includes('PRIORITY 1') || ownershipUpper.includes('PRIORITY1')) {
-          carrierOwnership[carrier].priority1++;
-        } else {
+        if (ownershipType === 'brokerage') {
+          carrierOwnership[carrier].brokerage++;
+        } else if (ownershipType === 'customer_direct') {
           carrierOwnership[carrier].customer_direct++;
+        } else {
+          carrierOwnership[carrier].not_specified++;
         }
 
         if (ownershipType === 'brokerage') {
           brokerageSpend += cost;
           brokerageShipments++;
-        } else {
+        } else if (ownershipType === 'customer_direct') {
           customerDirectSpend += cost;
           customerDirectShipments++;
         }
@@ -243,13 +251,19 @@ Deno.serve(async (req: Request) => {
     const carrierBreakdown = Object.entries(carrierCounts)
       .sort((a, b) => b[1] - a[1])
       .map(([carrier, count]) => {
-        const ownershipData = carrierOwnership[carrier] || { rocket: 0, priority1: 0, customer_direct: 0 };
+        const ownershipData = carrierOwnership[carrier] || { brokerage: 0, customer_direct: 0, not_specified: 0 };
 
-        let mostCommonOwnership = 'Customer Direct';
-        if (ownershipData.rocket > ownershipData.priority1 && ownershipData.rocket > ownershipData.customer_direct) {
-          mostCommonOwnership = 'Rocket';
-        } else if (ownershipData.priority1 > ownershipData.rocket && ownershipData.priority1 > ownershipData.customer_direct) {
-          mostCommonOwnership = 'Priority 1';
+        let ownershipType: string | null = null;
+        const maxCount = Math.max(ownershipData.brokerage, ownershipData.customer_direct, ownershipData.not_specified);
+
+        if (maxCount === 0) {
+          ownershipType = null;
+        } else if (ownershipData.brokerage === maxCount) {
+          ownershipType = 'brokerage';
+        } else if (ownershipData.customer_direct === maxCount) {
+          ownershipType = 'customer_direct';
+        } else {
+          ownershipType = null;
         }
 
         return {
@@ -257,7 +271,7 @@ Deno.serve(async (req: Request) => {
           shipments: count,
           spend: carrierSpend[carrier] || 0,
           percentage: totalShipments > 0 ? parseFloat(((count / totalShipments) * 100).toFixed(1)) : 0,
-          ownership: mostCommonOwnership,
+          ownership_type: ownershipType,
           ownership_breakdown: ownershipData,
         };
       });
