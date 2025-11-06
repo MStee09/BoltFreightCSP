@@ -40,6 +40,10 @@ Deno.serve(async (req: Request) => {
     const totalShipments = Array.isArray(txnData) ? txnData.length : 0;
     const lostOpportunities = Array.isArray(loData) ? loData.length : 0;
 
+    console.log(`=== STRATEGY SUMMARY GENERATION ===`);
+    console.log(`Total rows received: ${totalShipments}`);
+    console.log(`Sample first row:`, txnData[0]);
+
     const carrierCounts: Record<string, number> = {};
     const carrierSpend: Record<string, number> = {};
     const carrierOwnership: Record<string, string> = {};
@@ -47,13 +51,18 @@ Deno.serve(async (req: Request) => {
     const laneSpend: Record<string, number> = {};
 
     if (Array.isArray(txnData)) {
-      txnData.forEach((txn: any) => {
+      txnData.forEach((txn: any, idx: number) => {
         const carrier = txn.carrier || txn.Carrier || 'Unknown';
-        const cost = parseFloat(txn.cost || txn.Bill || txn.bill || 0);
+        const costRaw = txn.cost || txn.Bill || txn.bill || 0;
+        const cost = parseFloat(String(costRaw).replace(/[$,]/g, ''));
         const ownership = txn.ownership || txn.Pricing_Ownership || txn['Pricing Ownership'] || 'Unknown';
         const originCity = txn.origin_city || txn['Origin City'] || txn.OriginCity || '';
         const destCity = txn.dest_city || txn['Dest City'] || txn.DestCity || '';
         const lane = originCity && destCity ? `${originCity} → ${destCity}` : 'Unknown';
+
+        if (idx < 3) {
+          console.log(`Row ${idx + 1}: carrier=${carrier}, costRaw=${costRaw}, cost=${cost}`);
+        }
 
         carrierCounts[carrier] = (carrierCounts[carrier] || 0) + 1;
         carrierSpend[carrier] = (carrierSpend[carrier] || 0) + cost;
@@ -64,6 +73,9 @@ Deno.serve(async (req: Request) => {
     }
 
     const totalSpend = Object.values(carrierSpend).reduce((sum, val) => sum + val, 0);
+    console.log(`Total Spend Calculated: $${totalSpend.toLocaleString()}`);
+    console.log(`Total Shipments: ${totalShipments}`);
+
     const topCarriers = Object.entries(carrierCounts)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 3)

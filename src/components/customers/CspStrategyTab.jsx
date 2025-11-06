@@ -237,7 +237,7 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
                 const defaultMappings = {
                     'load_id': ['Load', 'LoadID', 'Load ID', 'Load_ID'],
                     'carrier': ['Carrier', 'Carrier Name', 'Carrier_Name', 'CarrierName'],
-                    'cost': ['TotalCost', 'Total Cost', 'Cost', 'Bill Amount', 'Amount'],
+                    'cost': ['TotalBill', 'Total Bill', 'Total_Bill', 'Bill', 'TotalCost', 'Total Cost', 'Cost', 'Bill Amount', 'Amount'],
                     'origin_city': ['Origin_City', 'Origin City', 'OriginCity', 'Origin'],
                     'dest_city': ['Dest_City', 'Destination City', 'DestinationCity', 'Destination', 'Dest'],
                     'ownership': ['Pricing_Ownership', 'Pricing Ownership', 'Ownership'],
