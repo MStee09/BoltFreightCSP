@@ -104,7 +104,10 @@ Deno.serve(async (req: Request) => {
           console.log(`Processing document: ${doc.file_name}`);
           console.log(`File path: ${doc.file_path}`);
 
-          const pathMatch = doc.file_path.match(/\/documents\/(.+)$/);
+          let pathMatch = doc.file_path.match(/\/documents\/(.+)$/);
+          if (!pathMatch) {
+            pathMatch = doc.file_path.match(/\/object\/public\/documents\/(.+)$/);
+          }
           if (pathMatch) {
             const storagePath = decodeURIComponent(pathMatch[1]);
             console.log(`Extracted storage path: ${storagePath}`);
