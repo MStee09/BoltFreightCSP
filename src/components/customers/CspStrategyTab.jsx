@@ -558,44 +558,41 @@ const UploadPanel = ({ cspEventId, customerId, onAnalysisComplete }) => {
         }
     });
 
-    const FileDropzone = ({ file, setFile, title, docType, setDocType, type }) => (
-        <div className="w-full space-y-2">
-            <div className="flex items-center justify-between">
-                <Label className="text-sm font-medium text-slate-700">{title}</Label>
-                <Select value={docType} onValueChange={setDocType}>
-                    <SelectTrigger className="w-[180px] h-8">
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        <SelectItem value="transaction_detail">Transaction Detail</SelectItem>
-                        <SelectItem value="low_cost_opportunity">Low Cost Opportunity</SelectItem>
-                        <SelectItem value="general">General</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
-            {file ? (
-                <div className="p-2 border rounded-lg flex items-center justify-between bg-slate-50">
-                    <div className="flex items-center gap-2 text-sm">
-                        <File className="w-4 h-4 text-blue-500" />
-                        <span className="font-medium">{file.name}</span>
-                        <span className="text-slate-500">({(file.size / 1024).toFixed(1)} KB)</span>
+    const FileDropzone = ({ file, setFile, title, docType, setDocType, type }) => {
+        const docTypeLabel = type === 'txn' ? 'Transaction Detail' : 'Low Cost Opportunity';
+
+        return (
+            <div className="w-full space-y-2">
+                <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium text-slate-700">{title}</Label>
+                    <span className="text-sm font-medium text-slate-600 px-3 py-1 bg-slate-100 rounded-md">
+                        {docTypeLabel}
+                    </span>
+                </div>
+                {file ? (
+                    <div className="p-2 border rounded-lg flex items-center justify-between bg-slate-50">
+                        <div className="flex items-center gap-2 text-sm">
+                            <File className="w-4 h-4 text-blue-500" />
+                            <span className="font-medium">{file.name}</span>
+                            <span className="text-slate-500">({(file.size / 1024).toFixed(1)} KB)</span>
+                        </div>
+                        <Button variant="ghost" size="icon" onClick={() => setFile(null)}><X className="w-4 h-4" /></Button>
                     </div>
-                    <Button variant="ghost" size="icon" onClick={() => setFile(null)}><X className="w-4 h-4" /></Button>
-                </div>
-            ) : (
-                <div className="relative p-6 border-2 border-dashed rounded-lg text-center cursor-pointer hover:border-blue-500 transition-colors">
-                    <UploadCloud className="w-6 h-6 mx-auto text-slate-400 mb-1" />
-                    <p className="text-sm text-slate-500">Drag & drop or click</p>
-                    <Input
-                        type="file"
-                        accept=".csv"
-                        className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
-                        onChange={(e) => e.target.files[0] && handleFileSelect(e.target.files[0], type)}
-                    />
-                </div>
-            )}
-        </div>
-    );
+                ) : (
+                    <div className="relative p-6 border-2 border-dashed rounded-lg text-center cursor-pointer hover:border-blue-500 transition-colors">
+                        <UploadCloud className="w-6 h-6 mx-auto text-slate-400 mb-1" />
+                        <p className="text-sm text-slate-500">Drag & drop or click</p>
+                        <Input
+                            type="file"
+                            accept=".csv"
+                            className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
+                            onChange={(e) => e.target.files[0] && handleFileSelect(e.target.files[0], type)}
+                        />
+                    </div>
+                )}
+            </div>
+        );
+    };
 
     const ColumnMapper = ({ fields, headers, mapping, setMapping, title, additionalFields, setAdditionalFields, type }) => {
         const addAdditionalField = () => {
