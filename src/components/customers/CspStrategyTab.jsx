@@ -1590,173 +1590,248 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                         </Card>
                     </TabsContent>
 
-                    <TabsContent value="savings" className="space-y-4">
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                            <div className="h-[350px]">
-                                <p className="text-sm font-medium mb-2">Savings by Carrier</p>
-                                <ResponsiveContainer width="100%" height="90%">
-                                    <RechartsBarChart data={savingsData}>
-                                        <CartesianGrid strokeDasharray="3 3" />
-                                        <XAxis dataKey="carrier" angle={-45} textAnchor="end" height={100} />
-                                        <YAxis />
-                                        <Tooltip
-                                            formatter={(value, name) => [
-                                                name === 'savings' ? `$${value.toLocaleString()}` : value,
-                                                name === 'savings' ? 'Missed Savings' : 'Opportunities'
-                                            ]}
-                                        />
-                                        <Legend />
-                                        <Bar dataKey="savings" fill="#ef4444" name="Missed Savings ($)" />
-                                    </RechartsBarChart>
-                                </ResponsiveContainer>
-                            </div>
-                            <div className="h-[350px]">
-                                <p className="text-sm font-medium mb-2">Opportunity Distribution</p>
-                                <ResponsiveContainer width="100%" height="90%">
-                                    <PieChart>
-                                        <Pie
-                                            data={savingsData}
-                                            cx="50%"
-                                            cy="40%"
-                                            labelLine={false}
-                                            label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
-                                            outerRadius={80}
-                                            fill="#8884d8"
-                                            dataKey="savings"
-                                        >
-                                            {savingsData.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={['#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16'][index % 5]} />
-                                            ))}
-                                        </Pie>
-                                        <Tooltip
-                                            formatter={(value, name, props) => [
-                                                `$${value.toLocaleString()}`,
-                                                props.payload.carrier
-                                            ]}
-                                        />
-                                        <Legend
-                                            verticalAlign="bottom"
-                                            height={60}
-                                            formatter={(value, entry) => `${entry.payload.carrier}`}
-                                        />
-                                    </PieChart>
-                                </ResponsiveContainer>
-                            </div>
+                    <TabsContent value="savings" className="space-y-6 mt-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <Card className="border-slate-200 shadow-sm">
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-base">Savings Distribution</CardTitle>
+                                    <CardDescription>Potential savings by carrier</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="h-[380px]">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <PieChart>
+                                                <Pie
+                                                    data={savingsData}
+                                                    cx="50%"
+                                                    cy="50%"
+                                                    labelLine={true}
+                                                    label={({ carrier, savings, percent }) => `${carrier}: $${Math.round(savings / 1000)}K`}
+                                                    outerRadius={120}
+                                                    fill="#8884d8"
+                                                    dataKey="savings"
+                                                    animationDuration={800}
+                                                >
+                                                    {savingsData.map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={['#ef4444', '#f97316', '#f59e0b', '#eab308', '#84cc16'][index % 5]} />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip
+                                                    contentStyle={{
+                                                        backgroundColor: 'white',
+                                                        border: '1px solid #e2e8f0',
+                                                        borderRadius: '8px',
+                                                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                                                    }}
+                                                    formatter={(value, name, props) => [
+                                                        `$${value.toLocaleString()}`,
+                                                        props.payload.carrier
+                                                    ]}
+                                                />
+                                                <Legend
+                                                    verticalAlign="bottom"
+                                                    height={60}
+                                                    formatter={(value, entry) => `${entry.payload.carrier}`}
+                                                />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </CardContent>
+                            </Card>
+
+                            <Card className="border-slate-200 shadow-sm">
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-base">Opportunities by Carrier</CardTitle>
+                                    <CardDescription>Number of identified savings opportunities</CardDescription>
+                                </CardHeader>
+                                <CardContent>
+                                    <div className="h-[380px]">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <RechartsBarChart
+                                                data={savingsData}
+                                                layout="horizontal"
+                                                margin={{ top: 5, right: 20, left: 20, bottom: 5 }}
+                                            >
+                                                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                                                <XAxis type="number" stroke="#94a3b8" />
+                                                <YAxis
+                                                    type="category"
+                                                    dataKey="carrier"
+                                                    stroke="#94a3b8"
+                                                    width={100}
+                                                />
+                                                <Tooltip
+                                                    contentStyle={{
+                                                        backgroundColor: 'white',
+                                                        border: '1px solid #e2e8f0',
+                                                        borderRadius: '8px',
+                                                        boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+                                                    }}
+                                                    formatter={(value) => [`${value} opportunities`]}
+                                                />
+                                                <Bar
+                                                    dataKey="opportunities"
+                                                    fill="#f59e0b"
+                                                    radius={[0, 8, 8, 0]}
+                                                    animationDuration={800}
+                                                />
+                                            </RechartsBarChart>
+                                        </ResponsiveContainer>
+                                    </div>
+                                </CardContent>
+                            </Card>
                         </div>
-                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                            <div className="flex items-start gap-3">
-                                <AlertCircle className="w-5 h-5 text-amber-600 mt-0.5" />
-                                <div>
-                                    <p className="font-semibold text-amber-900">Savings Opportunity Summary</p>
-                                    <p className="text-sm text-amber-800 mt-1">
-                                        Total potential savings of <span className="font-bold">${Math.round(strategySummary.lost_opportunity_total || 0).toLocaleString()}</span> identified across {strategySummary.lost_opportunity_count} loads.
-                                        Focus renegotiations on {strategySummary.missed_savings_by_carrier?.[0]?.carrier} for maximum impact.
-                                    </p>
+
+                        <Card className="bg-gradient-to-br from-amber-50 to-orange-50 border-2 border-amber-200 shadow-sm">
+                            <CardContent className="pt-6">
+                                <div className="flex items-start gap-4">
+                                    <div className="p-3 bg-amber-100 rounded-lg">
+                                        <TrendingDown className="w-6 h-6 text-amber-600" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <h3 className="font-semibold text-amber-900 text-lg mb-2">Savings Opportunity Summary</h3>
+                                        <p className="text-slate-700 leading-relaxed">
+                                            Total potential savings of <span className="font-bold text-amber-900">${Math.round(strategySummary.lost_opportunity_total || 0).toLocaleString()}</span> identified across <span className="font-semibold">{strategySummary.lost_opportunity_count} loads</span>.
+                                            Focus renegotiations on <span className="font-semibold text-amber-900">{strategySummary.missed_savings_by_carrier?.[0]?.carrier}</span> for maximum impact.
+                                        </p>
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
-                        <div className="max-h-[400px] overflow-y-auto">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead className="sticky top-0 bg-white">Carrier</TableHead>
-                                        <TableHead className="text-right sticky top-0 bg-white">Opportunities</TableHead>
-                                        <TableHead className="text-right sticky top-0 bg-white">Potential Savings</TableHead>
-                                        <TableHead className="text-right sticky top-0 bg-white">Avg Per Load</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {strategySummary.missed_savings_by_carrier?.map((item, idx) => (
-                                        <TableRow key={idx}>
-                                            <TableCell className="font-medium">{item.carrier}</TableCell>
-                                            <TableCell className="text-right">{item.opportunities.toLocaleString()}</TableCell>
-                                            <TableCell className="text-right text-red-600 font-semibold">
-                                                ${Math.round(item.savings).toLocaleString()}
-                                            </TableCell>
-                                            <TableCell className="text-right text-slate-600">
-                                                ${Math.round(item.savings / item.opportunities).toLocaleString()}
-                                            </TableCell>
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="border-slate-200 shadow-sm">
+                            <CardHeader>
+                                <CardTitle className="text-base">Detailed Savings Analysis</CardTitle>
+                                <CardDescription>Average savings per load by carrier</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="max-h-[400px] overflow-y-auto">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead className="sticky top-0 bg-white z-10">Carrier</TableHead>
+                                                <TableHead className="text-right sticky top-0 bg-white z-10">Opportunities</TableHead>
+                                                <TableHead className="text-right sticky top-0 bg-white z-10">Potential Savings</TableHead>
+                                                <TableHead className="text-right sticky top-0 bg-white z-10">Avg Per Load</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {strategySummary.missed_savings_by_carrier?.map((item, idx) => (
+                                                <TableRow key={idx} className="hover:bg-slate-50 transition-colors">
+                                                    <TableCell className="font-medium text-slate-900">{item.carrier}</TableCell>
+                                                    <TableCell className="text-right text-slate-700">{item.opportunities.toLocaleString()}</TableCell>
+                                                    <TableCell className="text-right text-amber-600 font-semibold">
+                                                        ${Math.round(item.savings).toLocaleString()}
+                                                    </TableCell>
+                                                    <TableCell className="text-right text-slate-600">
+                                                        ${Math.round(item.savings / item.opportunities).toLocaleString()}
+                                                    </TableCell>
+                                                </TableRow>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </CardContent>
+                        </Card>
                     </TabsContent>
 
-                    <TabsContent value="concentration" className="space-y-4">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <Card className="bg-slate-50">
+                    <TabsContent value="concentration" className="space-y-6 mt-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <Card className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-200 shadow-sm">
                                 <CardContent className="pt-6">
-                                    <p className="text-sm text-slate-600 mb-3">Top 3 Carrier Concentration</p>
-                                    <p className="text-4xl font-bold text-slate-900">
-                                        {(strategySummary.carrier_breakdown?.slice(0, 3).reduce((sum, c) => sum + c.percentage, 0) || 0).toFixed(1)}%
-                                    </p>
-                                    <p className="text-xs text-slate-500 mt-2">of total shipment volume</p>
+                                    <div className="flex items-start gap-4 mb-4">
+                                        <div className="p-2 bg-blue-100 rounded-lg">
+                                            <TrendingUp className="w-5 h-5 text-blue-600" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-sm font-medium text-slate-600 mb-1">Top 3 Carrier Concentration</p>
+                                            <p className="text-4xl font-bold text-slate-900">
+                                                {(strategySummary.carrier_breakdown?.slice(0, 3).reduce((sum, c) => sum + c.percentage, 0) || 0).toFixed(1)}%
+                                            </p>
+                                            <p className="text-xs text-slate-500 mt-1">of total shipment volume</p>
+                                        </div>
+                                    </div>
                                     {(strategySummary.carrier_breakdown?.slice(0, 3).reduce((sum, c) => sum + c.percentage, 0) || 0) > 70 ? (
-                                        <div className="mt-3 flex items-center gap-2 text-xs text-green-700 bg-green-100 px-2 py-1 rounded">
-                                            <CheckCircle2 className="w-3 h-3" />
-                                            Strong negotiating leverage
+                                        <div className="flex items-center gap-2 text-sm text-green-700 bg-green-50 px-3 py-2 rounded-lg border border-green-200">
+                                            <CheckCircle2 className="w-4 h-4" />
+                                            <span className="font-medium">Strong negotiating leverage</span>
                                         </div>
                                     ) : (
-                                        <div className="mt-3 flex items-center gap-2 text-xs text-amber-700 bg-amber-100 px-2 py-1 rounded">
-                                            <AlertCircle className="w-3 h-3" />
-                                            Consider volume consolidation
+                                        <div className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 px-3 py-2 rounded-lg border border-amber-200">
+                                            <AlertCircle className="w-4 h-4" />
+                                            <span className="font-medium">Consider volume consolidation</span>
                                         </div>
                                     )}
                                 </CardContent>
                             </Card>
-                            <Card className="bg-slate-50">
+                            <Card className="bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200 shadow-sm">
                                 <CardContent className="pt-6">
-                                    <p className="text-sm text-slate-600 mb-3">Diversification Index</p>
-                                    <p className="text-4xl font-bold text-slate-900">
-                                        {(strategySummary.carrier_breakdown?.length || 0)}
-                                    </p>
-                                    <p className="text-xs text-slate-500 mt-2">active carriers</p>
-                                    <div className="mt-3 text-xs text-slate-600">
+                                    <div className="flex items-start gap-4 mb-4">
+                                        <div className="p-2 bg-purple-100 rounded-lg">
+                                            <BarChart3 className="w-5 h-5 text-purple-600" />
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-sm font-medium text-slate-600 mb-1">Diversification Index</p>
+                                            <p className="text-4xl font-bold text-slate-900">
+                                                {(strategySummary.carrier_breakdown?.length || 0)}
+                                            </p>
+                                            <p className="text-xs text-slate-500 mt-1">active carriers</p>
+                                        </div>
+                                    </div>
+                                    <div className="text-sm text-slate-700 bg-white/50 px-3 py-2 rounded-lg border border-purple-100">
                                         {strategySummary.carrier_breakdown?.length > 10 ? 'Highly diversified network' : 'Moderate diversification'}
                                     </div>
                                 </CardContent>
                             </Card>
                         </div>
-                        <div>
-                            <p className="text-sm font-medium mb-3">Carrier Spend Concentration</p>
-                            <div className="space-y-2">
-                                {strategySummary.carrier_breakdown?.slice(0, 10).map((item, idx) => {
-                                    const isHighConcentration = item.percentage > 15;
-                                    const ownershipDisplay = getOwnershipDisplay(item.ownership_type);
-                                    const isBrokerage = item.ownership_type?.toLowerCase() === 'brokerage';
-                                    const isNotSpecified = !item.ownership_type;
-                                    return (
-                                        <div key={idx} className="space-y-1">
-                                            <div className="flex items-center justify-between text-sm gap-2">
-                                                <div className="flex items-center gap-2 min-w-0">
-                                                    <span className="font-medium text-slate-700 truncate">{getCarrierName(item.carrier)}</span>
-                                                    <Badge
-                                                        variant="outline"
-                                                        className={`text-xs shrink-0 ${
-                                                            isNotSpecified
-                                                                ? 'bg-amber-50 text-amber-700 border-amber-300'
-                                                                : isBrokerage
-                                                                    ? 'bg-purple-100 text-purple-700 border-purple-300'
-                                                                    : 'bg-slate-100 text-slate-700 border-slate-300'
-                                                        }`}
-                                                    >
-                                                        {ownershipDisplay}
-                                                    </Badge>
+                        <Card className="border-slate-200 shadow-sm">
+                            <CardHeader>
+                                <CardTitle className="text-base">Carrier Spend Concentration</CardTitle>
+                                <CardDescription>Volume distribution across all carriers</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-3">
+                                    {strategySummary.carrier_breakdown?.slice(0, 10).map((item, idx) => {
+                                        const isHighConcentration = item.percentage > 15;
+                                        const ownershipDisplay = getOwnershipDisplay(item.ownership_type);
+                                        const isBrokerage = item.ownership_type?.toLowerCase() === 'brokerage';
+                                        const isNotSpecified = !item.ownership_type;
+                                        return (
+                                            <div key={idx} className="space-y-2 p-3 rounded-lg hover:bg-slate-50 transition-colors">
+                                                <div className="flex items-center justify-between text-sm gap-2">
+                                                    <div className="flex items-center gap-2 min-w-0">
+                                                        <span className="font-medium text-slate-900 truncate">{getCarrierName(item.carrier)}</span>
+                                                        <Badge
+                                                            variant="outline"
+                                                            className={`text-xs shrink-0 ${
+                                                                isNotSpecified
+                                                                    ? 'bg-amber-50 text-amber-700 border-amber-300'
+                                                                    : isBrokerage
+                                                                        ? 'bg-purple-100 text-purple-700 border-purple-300'
+                                                                        : 'bg-slate-100 text-slate-700 border-slate-300'
+                                                            }`}
+                                                        >
+                                                            {ownershipDisplay}
+                                                        </Badge>
+                                                    </div>
+                                                    <span className="text-slate-600 font-medium shrink-0">{item.percentage}% ({item.shipments})</span>
                                                 </div>
-                                                <span className="text-slate-600 shrink-0">{item.percentage}% ({item.shipments})</span>
+                                                <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden shadow-inner">
+                                                    <div
+                                                        className={`h-3 rounded-full transition-all duration-500 ${
+                                                            isHighConcentration
+                                                                ? 'bg-gradient-to-r from-blue-500 to-blue-600'
+                                                                : 'bg-gradient-to-r from-slate-400 to-slate-500'
+                                                        }`}
+                                                        style={{ width: `${item.percentage}%` }}
+                                                    />
+                                                </div>
                                             </div>
-                                            <div className="w-full bg-slate-200 rounded-full h-2">
-                                                <div
-                                                    className={`h-2 rounded-full ${isHighConcentration ? 'bg-blue-600' : 'bg-slate-400'}`}
-                                                    style={{ width: `${item.percentage}%` }}
-                                                />
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </div>
+                                        );
+                                    })}
+                                </div>
+                            </CardContent>
+                        </Card>
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                             <div className="flex items-start gap-3">
                                 <TrendingUp className="w-5 h-5 text-blue-600 mt-0.5" />
