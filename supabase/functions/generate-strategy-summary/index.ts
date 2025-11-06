@@ -85,7 +85,7 @@ Deno.serve(async (req: Request) => {
     console.log('=== FETCHING CARRIERS FOR SCAC MAPPING ===');
     const { data: carriers, error: carriersError } = await supabase
       .from('carriers')
-      .select('scac, name');
+      .select('scac_code, name');
 
     if (carriersError) {
       console.error('Error fetching carriers:', carriersError);
@@ -95,8 +95,8 @@ Deno.serve(async (req: Request) => {
     const scacToName: Record<string, string> = {};
     if (carriers) {
       carriers.forEach(carrier => {
-        if (carrier.scac && carrier.name) {
-          scacToName[carrier.scac.toUpperCase()] = carrier.name;
+        if (carrier.scac_code && carrier.name) {
+          scacToName[carrier.scac_code.toUpperCase()] = carrier.name;
         }
       });
       console.log(`Created SCAC mapping for ${Object.keys(scacToName).length} carriers`);
