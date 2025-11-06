@@ -26,14 +26,28 @@ export const createStrategySnapshot = async ({
     });
     const laneCount = uniqueLanes.size;
 
-    const getCarrierType = (carrierScac) => {
-      const carrier = carriers.find(c => c.scac_code?.toUpperCase() === carrierScac?.toUpperCase());
+    const getCarrierType = (carrierIdentifier) => {
+      if (!carrierIdentifier) return 'customer_direct';
+
+      const identifier = carrierIdentifier.toUpperCase();
+      const carrier = carriers.find(c =>
+        c.scac_code?.toUpperCase() === identifier ||
+        c.name?.toUpperCase() === identifier
+      );
+
       return carrier?.carrier_type || 'customer_direct';
     };
 
-    const getCarrierName = (carrierScac) => {
-      const carrier = carriers.find(c => c.scac_code?.toUpperCase() === carrierScac?.toUpperCase());
-      return carrier?.name || carrierScac;
+    const getCarrierName = (carrierIdentifier) => {
+      if (!carrierIdentifier) return 'Unknown';
+
+      const identifier = carrierIdentifier.toUpperCase();
+      const carrier = carriers.find(c =>
+        c.scac_code?.toUpperCase() === identifier ||
+        c.name?.toUpperCase() === identifier
+      );
+
+      return carrier?.name || carrierIdentifier;
     };
 
     let brokerageSpend = 0;

@@ -1026,13 +1026,23 @@ const DataVisualizationPanel = ({ cspEvent }) => {
         initialData: []
     });
 
-    const getCarrierName = (scac) => {
-        const carrier = carriers.find(c => c.scac_code?.toUpperCase() === scac?.toUpperCase());
-        return carrier ? carrier.name : scac;
+    const getCarrierName = (carrierIdentifier) => {
+        if (!carrierIdentifier) return 'Unknown';
+        const identifier = carrierIdentifier.toUpperCase();
+        const carrier = carriers.find(c =>
+            c.scac_code?.toUpperCase() === identifier ||
+            c.name?.toUpperCase() === identifier
+        );
+        return carrier ? carrier.name : carrierIdentifier;
     };
 
-    const getCarrierType = (scac) => {
-        const carrier = carriers.find(c => c.scac_code?.toUpperCase() === scac?.toUpperCase());
+    const getCarrierType = (carrierIdentifier) => {
+        if (!carrierIdentifier) return 'customer_direct';
+        const identifier = carrierIdentifier.toUpperCase();
+        const carrier = carriers.find(c =>
+            c.scac_code?.toUpperCase() === identifier ||
+            c.name?.toUpperCase() === identifier
+        );
         return carrier?.carrier_type || 'customer_direct';
     };
 
@@ -1050,7 +1060,7 @@ const DataVisualizationPanel = ({ cspEvent }) => {
         return carrierType === 'customer_direct' ? sum + (item.spend || 0) : sum;
     }, 0) || 0;
 
-    const totalSpend = brokerageSpend + customerDirectSpend;
+    const totalSpend = strategySummary.total_spend || (brokerageSpend + customerDirectSpend);
     const brokeragePercentage = totalSpend > 0 ? (brokerageSpend / totalSpend) * 100 : 0;
     const customerDirectPercentage = totalSpend > 0 ? (customerDirectSpend / totalSpend) * 100 : 0;
 
