@@ -28,7 +28,8 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
         data_start_date: cspEvent?.data_start_date || null,
         data_end_date: cspEvent?.data_end_date || null,
         projected_monthly_spend: cspEvent?.projected_monthly_spend || '',
-        projected_annual_spend: cspEvent?.projected_annual_spend || ''
+        projected_annual_spend: cspEvent?.projected_annual_spend || '',
+        avg_cost_per_shipment: cspEvent?.avg_cost_per_shipment || ''
     });
 
     const hasData = cspEvent?.total_shipments || cspEvent?.projected_annual_spend;
@@ -146,7 +147,8 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                 data_start_date: startDate ? format(startDate, 'yyyy-MM-dd') : null,
                 data_end_date: endDate ? format(endDate, 'yyyy-MM-dd') : null,
                 projected_monthly_spend: monthlySpend,
-                projected_annual_spend: annualSpend
+                projected_annual_spend: annualSpend,
+                avg_cost_per_shipment: Math.round(avgCostPerShipment * 100) / 100
             };
 
             return calculations;
@@ -226,12 +228,34 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
             }
         }
 
+        if (field === 'avg_cost_per_shipment' && formData.total_shipments) {
+            const avgCost = Number(value);
+            const totalShips = Number(formData.total_shipments);
+            const annual = Math.round(avgCost * totalShips * (12 / (Number(formData.data_timeframe_months) || 12)));
+            updates.projected_annual_spend = annual;
+            updates.projected_monthly_spend = Math.round(annual / 12);
+        }
+
         if (field === 'projected_monthly_spend') {
-            updates.projected_annual_spend = Math.round(Number(value) * 12);
+            const annual = Math.round(Number(value) * 12);
+            updates.projected_annual_spend = annual;
+            if (formData.total_shipments) {
+                const annualShips = Number(formData.monthly_shipments) * 12;
+                if (annualShips > 0) {
+                    updates.avg_cost_per_shipment = Math.round((annual / annualShips) * 100) / 100;
+                }
+            }
         }
 
         if (field === 'projected_annual_spend') {
-            updates.projected_monthly_spend = Math.round(Number(value) / 12);
+            const monthly = Math.round(Number(value) / 12);
+            updates.projected_monthly_spend = monthly;
+            if (formData.total_shipments) {
+                const annualShips = Number(formData.monthly_shipments) * 12;
+                if (annualShips > 0) {
+                    updates.avg_cost_per_shipment = Math.round((Number(value) / annualShips) * 100) / 100;
+                }
+            }
         }
 
         setFormData(prev => ({ ...prev, ...updates }));
@@ -433,7 +457,28 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                     <CardDescription>Projected costs for carrier qualification</CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="avg_cost_per_shipment">Avg Cost / Shipment</Label>
+                            {isEditing ? (
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500">$</span>
+                                    <Input
+                                        id="avg_cost_per_shipment"
+                                        type="number"
+                                        step="0.01"
+                                        value={formData.avg_cost_per_shipment}
+                                        onChange={(e) => handleValueChange('avg_cost_per_shipment', e.target.value)}
+                                        placeholder="250.00"
+                                        className="pl-7"
+                                    />
+                                </div>
+                            ) : (
+                                <p className="text-2xl font-bold text-slate-900">
+                                    {formData.avg_cost_per_shipment ? `$${Number(formData.avg_cost_per_shipment).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
+                                </p>
+                            )}
+                        </div>
                         <div className="space-y-2">
                             <Label htmlFor="projected_monthly_spend">Monthly Spend</Label>
                             {isEditing ? (
@@ -450,7 +495,7 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                                 </div>
                             ) : (
                                 <p className="text-2xl font-bold text-slate-900">
-                                    {formData.projected_monthly_spend ? `$${Number(formData.projected_monthly_spend).toLocaleString()}` : '-'}
+                                    {formData.projected_monthly_spend ? `$${Number(formData.projected_monthly_spend).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
                                 </p>
                             )}
                         </div>
@@ -470,7 +515,7 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                                 </div>
                             ) : (
                                 <p className="text-2xl font-bold text-slate-900">
-                                    {formData.projected_annual_spend ? `$${Number(formData.projected_annual_spend).toLocaleString()}` : '-'}
+                                    {formData.projected_annual_spend ? `$${Number(formData.projected_annual_spend).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : '-'}
                                 </p>
                             )}
                         </div>
@@ -502,7 +547,8 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                                 data_start_date: cspEvent?.data_start_date || null,
                                 data_end_date: cspEvent?.data_end_date || null,
                                 projected_monthly_spend: cspEvent?.projected_monthly_spend || '',
-                                projected_annual_spend: cspEvent?.projected_annual_spend || ''
+                                projected_annual_spend: cspEvent?.projected_annual_spend || '',
+                                avg_cost_per_shipment: cspEvent?.avg_cost_per_shipment || ''
                             });
                             setIsEditing(false);
                         }}
@@ -537,7 +583,11 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="font-medium">New Annual Spend:</span>
-                                    <span>${calculatedData?.projected_annual_spend?.toLocaleString()}</span>
+                                    <span>${calculatedData?.projected_annual_spend?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="font-medium">New Avg Cost/Shipment:</span>
+                                    <span>${calculatedData?.avg_cost_per_shipment?.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                 </div>
                             </div>
                         </AlertDialogDescription>
