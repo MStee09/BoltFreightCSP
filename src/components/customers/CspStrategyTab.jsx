@@ -1112,10 +1112,9 @@ const DataVisualizationPanel = ({ cspEvent }) => {
 
     if (!brokerageSpend && !customerDirectSpend) {
         strategySummary.carrier_breakdown?.forEach(item => {
-            const ownershipType = classifyOwnership(item.ownership);
-            if (ownershipType === 'brokerage') {
+            if (item.ownership_type?.toLowerCase() === 'brokerage') {
                 brokerageSpend += (item.spend || 0);
-            } else {
+            } else if (item.ownership_type?.toLowerCase() === 'customer_direct') {
                 customerDirectSpend += (item.spend || 0);
             }
         });
@@ -1589,7 +1588,9 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                             <div className="space-y-2">
                                 {strategySummary.carrier_breakdown?.slice(0, 10).map((item, idx) => {
                                     const isHighConcentration = item.percentage > 15;
-                                    const ownershipType = classifyOwnership(item.ownership);
+                                    const ownershipDisplay = getOwnershipDisplay(item.ownership_type);
+                                    const isBrokerage = item.ownership_type?.toLowerCase() === 'brokerage';
+                                    const isNotSpecified = !item.ownership_type;
                                     return (
                                         <div key={idx} className="space-y-1">
                                             <div className="flex items-center justify-between text-sm gap-2">
@@ -1597,9 +1598,15 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                                                     <span className="font-medium text-slate-700 truncate">{getCarrierName(item.carrier)}</span>
                                                     <Badge
                                                         variant="outline"
-                                                        className={`text-xs shrink-0 ${ownershipType === 'brokerage' ? 'bg-purple-100 text-purple-700 border-purple-300' : 'bg-slate-100 text-slate-700 border-slate-300'}`}
+                                                        className={`text-xs shrink-0 ${
+                                                            isNotSpecified
+                                                                ? 'bg-amber-50 text-amber-700 border-amber-300'
+                                                                : isBrokerage
+                                                                    ? 'bg-purple-100 text-purple-700 border-purple-300'
+                                                                    : 'bg-slate-100 text-slate-700 border-slate-300'
+                                                        }`}
                                                     >
-                                                        {ownershipType === 'brokerage' ? 'Brokerage' : 'Customer Direct'}
+                                                        {ownershipDisplay}
                                                     </Badge>
                                                 </div>
                                                 <span className="text-slate-600 shrink-0">{item.percentage}% ({item.shipments})</span>
