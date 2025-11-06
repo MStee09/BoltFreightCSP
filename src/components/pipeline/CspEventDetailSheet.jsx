@@ -269,9 +269,9 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
                     </div>
                 </SheetHeader>
                 <div className="flex-grow p-6 overflow-y-auto">
-                            <Tabs defaultValue="activity">
+                            <Tabs defaultValue="overview">
                                 <TabsList>
-                                    <TabsTrigger value="activity">Activity</TabsTrigger>
+                                    <TabsTrigger value="overview">Overview</TabsTrigger>
                                     <TabsTrigger value="volume-spend">Volume & Spend</TabsTrigger>
                                     <TabsTrigger value="strategy">Strategy</TabsTrigger>
                                     <TabsTrigger value="emails">Emails</TabsTrigger>
@@ -279,7 +279,7 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
                                     <TabsTrigger value="tariffs">Tariffs</TabsTrigger>
                                     <TabsTrigger value="documents">Documents</TabsTrigger>
                                 </TabsList>
-                                <TabsContent value="activity" className="space-y-4">
+                                <TabsContent value="overview" className="space-y-4">
                                     <Card>
                                         <CardHeader>
                                             <CardTitle>Event Details</CardTitle>
