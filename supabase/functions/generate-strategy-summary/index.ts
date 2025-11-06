@@ -13,6 +13,25 @@ interface AnalysisData {
   summary?: string;
 }
 
+function parseCSV(csvText: string): any[] {
+  const lines = csvText.split('\n').filter(line => line.trim());
+  if (lines.length < 2) return [];
+
+  const headers = lines[0].split(',').map(h => h.trim().replace(/['"]/g, ''));
+  const rows: any[] = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const values = lines[i].split(',').map(v => v.trim().replace(/['"]/g, ''));
+    const row: any = {};
+    headers.forEach((header, index) => {
+      row[header] = values[index] || '';
+    });
+    rows.push(row);
+  }
+
+  return rows;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -26,16 +45,69 @@ Deno.serve(async (req: Request) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const { cspEventId, analysisData } = await req.json() as { 
-      cspEventId: string; 
-      analysisData: AnalysisData 
+    const { cspEventId, analysisData, refresh = false } = await req.json() as {
+      cspEventId: string;
+      analysisData?: AnalysisData;
+      refresh?: boolean;
     };
 
-    if (!cspEventId || !analysisData) {
-      throw new Error("Missing required parameters");
+    if (!cspEventId) {
+      throw new Error("Missing cspEventId");
     }
 
-    const { txnData = [], loData = [] } = analysisData;
+    let txnData: any[] = [];
+    let loData: any[] = [];
+
+    if (refresh || !analysisData) {
+      console.log('=== FETCHING DOCUMENTS FROM STORAGE ===');
+
+      const { data: documents, error: docsError } = await supabase
+        .from('documents')
+        .select('*')
+        .eq('csp_event_id', cspEventId)
+        .in('document_type', ['transaction_detail', 'low_cost_opportunity']);
+
+      if (docsError) {
+        console.error('Error fetching documents:', docsError);
+        throw docsError;
+      }
+
+      console.log(`Found ${documents?.length || 0} documents`);
+
+      for (const doc of documents || []) {
+        try {
+          const fileName = doc.file_path.split('/').pop();
+          const { data: fileData, error: downloadError } = await supabase.storage
+            .from('documents')
+            .download(`${doc.user_id}/${fileName}`);
+
+          if (downloadError) {
+            console.error(`Error downloading ${doc.file_name}:`, downloadError);
+            continue;
+          }
+
+          const csvText = await fileData.text();
+          const parsedData = parseCSV(csvText);
+
+          if (doc.document_type === 'transaction_detail') {
+            txnData = [...txnData, ...parsedData];
+            console.log(`Loaded ${parsedData.length} rows from transaction detail`);
+          } else if (doc.document_type === 'low_cost_opportunity') {
+            loData = [...loData, ...parsedData];
+            console.log(`Loaded ${parsedData.length} rows from low cost opportunity`);
+          }
+        } catch (error) {
+          console.error(`Error processing document ${doc.file_name}:`, error);
+        }
+      }
+
+      if (txnData.length === 0 && loData.length === 0) {
+        throw new Error('No valid documents found for this CSP event');
+      }
+    } else {
+      txnData = analysisData.txnData || [];
+      loData = analysisData.loData || [];
+    }
 
     console.log(`=== STRATEGY SUMMARY GENERATION ===`);
     console.log(`Raw txnData array length: ${Array.isArray(txnData) ? txnData.length : 'not an array'}`);

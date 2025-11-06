@@ -7,8 +7,9 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../ui
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { UploadCloud, File, X, Loader2, BrainCircuit, BarChart, FileUp, Info, FileText, Calendar, User, Download, Trash2, Sparkles, MessageCircle, Send, Package, DollarSign, TrendingDown, AlertCircle, TrendingUp, CheckCircle2 } from 'lucide-react';
+import { UploadCloud, File, X, Loader2, BrainCircuit, BarChart, FileUp, Info, FileText, Calendar, User, Download, Trash2, Sparkles, MessageCircle, Send, Package, DollarSign, TrendingDown, AlertCircle, TrendingUp, CheckCircle2, RefreshCw } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from "../ui/alert";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../ui/alert-dialog";
 import { Badge } from '../ui/badge';
 import { Bar, BarChart as RechartsBarChart, Line, LineChart, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
@@ -775,7 +776,10 @@ const AiSummaryPanel = ({ cspEvent }) => {
     const [chatInput, setChatInput] = useState('');
     const [isChatLoading, setIsChatLoading] = useState(false);
     const [showChat, setShowChat] = useState(false);
+    const [showRefreshDialog, setShowRefreshDialog] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const { toast } = useToast();
+    const queryClient = useQueryClient();
 
     const { data: carriers = [] } = useQuery({
         queryKey: ['carriers'],
@@ -791,6 +795,55 @@ const AiSummaryPanel = ({ cspEvent }) => {
     if (!strategySummary || !strategySummary.summary_text) {
         return null;
     }
+
+    const handleRefreshSummary = async () => {
+        setShowRefreshDialog(false);
+        setIsRefreshing(true);
+
+        try {
+            const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-strategy-summary`;
+            const { data: { session } } = await supabase.auth.getSession();
+
+            toast({
+                title: "Refreshing Analysis",
+                description: "Fetching documents and regenerating AI summary. This may take 30-60 seconds...",
+                duration: 8000,
+            });
+
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${session?.access_token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    cspEventId: cspEvent.id,
+                    refresh: true
+                })
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to refresh AI summary');
+            }
+
+            queryClient.invalidateQueries({ queryKey: ['csp_event', cspEvent.id] });
+            queryClient.invalidateQueries({ queryKey: ['strategy_snapshots'] });
+
+            toast({
+                title: "Summary Refreshed",
+                description: "AI analysis has been updated with the latest data and knowledge.",
+            });
+        } catch (error) {
+            console.error('Refresh error:', error);
+            toast({
+                title: "Refresh Failed",
+                description: error.message || "Failed to refresh AI summary. Please try again.",
+                variant: "destructive",
+            });
+        } finally {
+            setIsRefreshing(false);
+        }
+    };
 
     const handleSendMessage = async () => {
         if (!chatInput.trim() || isChatLoading) return;
@@ -840,29 +893,42 @@ const AiSummaryPanel = ({ cspEvent }) => {
     };
 
     return (
-        <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-white">
-            <CardHeader>
-                <div className="flex items-center justify-between">
-                    <div>
-                        <CardTitle className="flex items-center gap-2">
-                            <Sparkles className="w-5 h-5 text-blue-600" />
-                            AI Strategy Summary
-                        </CardTitle>
-                        <CardDescription>
-                            Generated {strategySummary.generated_at ? format(new Date(strategySummary.generated_at), 'MMM dd, yyyy') : 'recently'}
-                        </CardDescription>
+        <>
+            <Card className="border-2 border-blue-200 bg-gradient-to-br from-blue-50 to-white">
+                <CardHeader>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <CardTitle className="flex items-center gap-2">
+                                <Sparkles className="w-5 h-5 text-blue-600" />
+                                AI Strategy Summary
+                            </CardTitle>
+                            <CardDescription>
+                                Generated {strategySummary.generated_at ? format(new Date(strategySummary.generated_at), 'MMM dd, yyyy') : 'recently'}
+                            </CardDescription>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setShowRefreshDialog(true)}
+                                disabled={isRefreshing}
+                                className="gap-2"
+                            >
+                                <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                                {isRefreshing ? 'Refreshing...' : 'Refresh'}
+                            </Button>
+                            <Button
+                                variant={showChat ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setShowChat(!showChat)}
+                                className="gap-2"
+                            >
+                                <MessageCircle className="w-4 h-4" />
+                                {showChat ? 'Hide Chat' : 'Chat with AI'}
+                            </Button>
+                        </div>
                     </div>
-                    <Button
-                        variant={showChat ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => setShowChat(!showChat)}
-                        className="gap-2"
-                    >
-                        <MessageCircle className="w-4 h-4" />
-                        {showChat ? 'Hide Chat' : 'Chat with AI'}
-                    </Button>
-                </div>
-            </CardHeader>
+                </CardHeader>
             <CardContent className="space-y-4">
                 <div className="prose prose-sm max-w-none whitespace-pre-line text-slate-700 leading-relaxed">
                     {strategySummary.summary_text}
@@ -923,6 +989,31 @@ const AiSummaryPanel = ({ cspEvent }) => {
                 )}
             </CardContent>
         </Card>
+
+        <AlertDialog open={showRefreshDialog} onOpenChange={setShowRefreshDialog}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Refresh AI Summary?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        This will regenerate the AI analysis by fetching all documents associated with this CSP event. The current summary will be replaced with a new analysis based on:
+                        <ul className="list-disc list-inside mt-2 space-y-1">
+                            <li>All uploaded transaction detail reports</li>
+                            <li>All low cost opportunity files</li>
+                            <li>Latest AI instructions and improvements</li>
+                            <li>Updated knowledge base articles</li>
+                        </ul>
+                        <p className="mt-3 font-medium">This process may take 30-60 seconds.</p>
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleRefreshSummary}>
+                        Refresh Summary
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+    </>
     );
 };
 
