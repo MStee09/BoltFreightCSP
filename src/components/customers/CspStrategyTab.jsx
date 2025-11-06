@@ -21,6 +21,63 @@ import { useAuth } from '../../contexts/AuthContext';
 import _ from 'lodash';
 import StrategyScacMatch from '../strategy/StrategyScacMatch';
 
+const validateTransactionDetailFormat = (headers) => {
+    const expectedHeaders = [
+        'Ship Date', 'SCAC', 'Carrier Name', 'Service', 'Origin City', 'Origin State', 'Origin Zip',
+        'Dest City', 'Dest State', 'Dest Zip', 'Weight', 'Dim Weight', 'Zone',
+        'Residential', 'Signature Required', 'Declared Value', 'List Cost', 'Total Cost'
+    ];
+
+    const totalCostIndex = headers.findIndex(h =>
+        h.toLowerCase() === 'total cost' || h.toLowerCase().includes('total cost')
+    );
+
+    if (totalCostIndex === -1) {
+        throw new Error(
+            'DATA FORMAT ERROR: Transaction Detail report missing "Total Cost" column.\n\n' +
+            'Expected columns: ' + expectedHeaders.join(', ') + '\n\n' +
+            'Found columns: ' + headers.join(', ') + '\n\n' +
+            'Please verify you uploaded the correct Transaction Detail report format.'
+        );
+    }
+
+    if (headers.length < 18) {
+        console.warn(`Transaction Detail: Expected 18+ columns, found ${headers.length}`);
+    }
+
+    return true;
+};
+
+const validateLowCostOpportunityFormat = (headers) => {
+    const expectedHeaders = [
+        'LoadId', 'Selected_Carrier_Name', 'Select_Carrier_Bill',
+        'LO_Carrier_Name', 'LO_Carrier_Bill'
+    ];
+
+    const requiredColumns = ['loadid', 'carrier', 'cost'];
+    const missingRequired = [];
+
+    const hasLoadId = headers.some(h => h.toLowerCase().includes('load'));
+    const hasCarrier = headers.some(h => h.toLowerCase().includes('carrier'));
+    const hasCost = headers.some(h => h.toLowerCase().includes('cost') || h.toLowerCase().includes('bill'));
+
+    if (!hasLoadId) missingRequired.push('Load ID');
+    if (!hasCarrier) missingRequired.push('Carrier Name');
+    if (!hasCost) missingRequired.push('Cost/Bill Amount');
+
+    if (missingRequired.length > 0) {
+        throw new Error(
+            'DATA FORMAT ERROR: Low Cost Opportunity report missing required columns.\n\n' +
+            'Missing: ' + missingRequired.join(', ') + '\n\n' +
+            'Expected columns: ' + expectedHeaders.join(', ') + '\n\n' +
+            'Found columns: ' + headers.join(', ') + '\n\n' +
+            'Please verify you uploaded the correct Low Cost Opportunity report format.'
+        );
+    }
+
+    return true;
+};
+
 const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
     const [txnFile, setTxnFile] = useState(null);
     const [loFile, setLoFile] = useState(null);
@@ -155,6 +212,8 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
             const headers = extractHeaders(text);
 
             if (type === 'txn') {
+                validateTransactionDetailFormat(headers);
+
                 setTxnFile(file);
                 setTxnHeaders(headers);
 
@@ -204,6 +263,8 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
                 setTxnMapping(autoMapping);
                 setTxnAdditionalFields([]);
             } else {
+                validateLowCostOpportunityFormat(headers);
+
                 setLoFile(file);
                 setLoHeaders(headers);
 

@@ -89,56 +89,99 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
             }
 
             const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
-            const dataRows = lines.slice(1);
+            const dataRows = lines.slice(1).filter(row => row.trim());
 
             const totalShipments = dataRows.length;
 
-            const costIndex = headers.findIndex(h =>
-                h.toLowerCase().includes('cost') ||
-                h.toLowerCase().includes('charge') ||
-                h.toLowerCase().includes('amount') ||
-                h.toLowerCase().includes('total')
+            console.log('=== TRANSACTION DETAIL VALIDATION ===');
+            console.log('Total Headers:', headers.length);
+            console.log('All Headers:', headers);
+
+            const expectedHeaders = [
+                'Ship Date', 'SCAC', 'Carrier Name', 'Service', 'Origin City', 'Origin State', 'Origin Zip',
+                'Dest City', 'Dest State', 'Dest Zip', 'Weight', 'Dim Weight', 'Zone',
+                'Residential', 'Signature Required', 'Declared Value', 'List Cost', 'Total Cost'
+            ];
+
+            const totalCostIndex = headers.findIndex(h =>
+                h.toLowerCase() === 'total cost' ||
+                h.toLowerCase().includes('total cost')
             );
 
-            const dateIndex = headers.findIndex(h =>
-                h.toLowerCase().includes('date') ||
-                h.toLowerCase().includes('ship')
+            if (totalCostIndex === -1) {
+                throw new Error(
+                    'DATA FORMAT ERROR: Cannot find "Total Cost" column.\n\n' +
+                    'Expected Transaction Detail format with columns:\n' +
+                    expectedHeaders.join(', ') + '\n\n' +
+                    'Found columns:\n' + headers.join(', ') + '\n\n' +
+                    'Please verify you uploaded the correct Transaction Detail report.'
+                );
+            }
+
+            const shipDateIndex = headers.findIndex(h =>
+                h.toLowerCase() === 'ship date' ||
+                h.toLowerCase().includes('ship date')
             );
 
-            console.log('=== CSV PARSING DEBUG ===');
-            console.log('Headers:', headers);
-            console.log('Cost Column:', costIndex >= 0 ? `Index ${costIndex} - "${headers[costIndex]}"` : 'NOT FOUND');
-            console.log('Date Column:', dateIndex >= 0 ? `Index ${dateIndex} - "${headers[dateIndex]}"` : 'NOT FOUND');
+            if (shipDateIndex === -1) {
+                console.warn('WARNING: Cannot find "Ship Date" column for date range calculation');
+            }
+
+            if (headers.length < 18) {
+                console.warn(`WARNING: Expected at least 18 columns, found ${headers.length}`);
+            }
+
+            if (totalCostIndex !== 17) {
+                console.warn(`WARNING: Total Cost found at index ${totalCostIndex} (Column ${String.fromCharCode(65 + totalCostIndex)}), expected index 17 (Column R)`);
+            }
+
+            console.log('Total Cost Column: Index', totalCostIndex, `(Column ${String.fromCharCode(65 + totalCostIndex)})`, `"${headers[totalCostIndex]}"`);
+            console.log('Ship Date Column: Index', shipDateIndex, shipDateIndex >= 0 ? `"${headers[shipDateIndex]}"` : 'NOT FOUND');
             console.log('Total Rows:', totalShipments);
 
             let totalSpend = 0;
             let dates = [];
             let validCostCount = 0;
+            let invalidRows = [];
 
             dataRows.forEach((row, idx) => {
                 const cols = row.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
 
-                if (costIndex >= 0 && cols[costIndex]) {
-                    const originalValue = cols[costIndex];
+                if (totalCostIndex >= 0 && cols[totalCostIndex]) {
+                    const originalValue = cols[totalCostIndex];
                     const cost = parseFloat(originalValue.replace(/[$,]/g, ''));
-                    if (!isNaN(cost)) {
+                    if (!isNaN(cost) && cost > 0) {
                         totalSpend += cost;
                         validCostCount++;
                         if (idx < 3) {
-                            console.log(`Row ${idx + 1}: "${originalValue}" → ${cost}`);
+                            console.log(`Row ${idx + 1}: Total Cost = "${originalValue}" → $${cost.toFixed(2)}`);
                         }
+                    } else if (originalValue) {
+                        invalidRows.push({ row: idx + 1, value: originalValue });
                     }
                 }
 
-                if (dateIndex >= 0 && cols[dateIndex]) {
-                    const dateStr = cols[dateIndex];
+                if (shipDateIndex >= 0 && cols[shipDateIndex]) {
+                    const dateStr = cols[shipDateIndex];
                     const date = new Date(dateStr);
                     if (!isNaN(date.getTime())) dates.push(date);
                 }
             });
 
-            console.log('Total Spend Sum:', totalSpend);
-            console.log('Valid Cost Count:', validCostCount);
+            if (invalidRows.length > 0 && invalidRows.length < 10) {
+                console.warn('Invalid cost values found in rows:', invalidRows);
+            }
+
+            if (validCostCount === 0) {
+                throw new Error(
+                    'DATA FORMAT ERROR: No valid cost data found in Total Cost column.\n\n' +
+                    'Please verify the Transaction Detail report has cost values in the Total Cost column.'
+                );
+            }
+
+            console.log('Total Spend (Sum of Total Cost column):', totalSpend.toLocaleString('en-US', { style: 'currency', currency: 'USD' }));
+            console.log('Valid Shipments with Cost:', validCostCount);
+            console.log('Total Rows:', totalShipments);
 
             dates.sort((a, b) => a - b);
             const startDate = dates.length > 0 ? dates[0] : null;
