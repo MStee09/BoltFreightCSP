@@ -116,7 +116,18 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
             }
 
             const headers = parseCSVRow(lines[0]);
-            const dataRows = lines.slice(1).filter(row => row.trim());
+
+            // Filter out summary/total rows by checking if key shipment columns are populated
+            // Columns E, F, G, K, L should have data for valid shipments
+            const keyColumnIndices = [4, 5, 6, 10, 11]; // E, F, G, K, L (0-indexed)
+
+            const dataRows = lines.slice(1)
+                .filter(row => row.trim())
+                .filter(row => {
+                    const cols = parseCSVRow(row);
+                    // Must have data in at least one of the key shipment columns
+                    return keyColumnIndices.some(idx => cols[idx] && cols[idx].trim() !== '');
+                });
 
             const totalShipments = dataRows.length;
 
@@ -124,6 +135,7 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
             console.log('Total Headers:', headers.length);
             console.log('First 5 Headers:', headers.slice(0, 5));
             console.log('Last 5 Headers:', headers.slice(-5));
+            console.log('Filtered shipments (excluding summary rows):', totalShipments);
 
             const totalBillIndex = headers.findIndex(h => {
                 const lower = h.toLowerCase().replace(/[_\s]/g, '');
