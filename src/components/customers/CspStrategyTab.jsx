@@ -174,28 +174,72 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
         return lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
     };
 
+    const parseCSVRow = (line) => {
+        const result = [];
+        let current = '';
+        let inQuotes = false;
+
+        for (let i = 0; i < line.length; i++) {
+            const char = line[i];
+            const nextChar = line[i + 1];
+
+            if (char === '"') {
+                if (inQuotes && nextChar === '"') {
+                    current += '"';
+                    i++;
+                } else {
+                    inQuotes = !inQuotes;
+                }
+            } else if (char === ',' && !inQuotes) {
+                result.push(current);
+                current = '';
+            } else {
+                current += char;
+            }
+        }
+        result.push(current);
+        return result.map(v => v.trim());
+    };
+
     const parseCSVWithMapping = (text, mapping) => {
-        const lines = text.trim().split('\n');
-        const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+        const lines = text.trim().split('\n').filter(line => line.trim());
+        const headers = parseCSVRow(lines[0]).map(h => h.replace(/^"|"$/g, ''));
         const data = [];
 
+        console.log('=== CSV PARSING DEBUG ===');
+        console.log('Total lines (including header):', lines.length);
+        console.log('Headers found:', headers.length);
+        console.log('Mapping keys:', Object.keys(mapping));
+
         for (let i = 1; i < lines.length; i++) {
-            const values = lines[i].split(',');
-            if (values.length === headers.length) {
-                const row = {};
-                headers.forEach((header, index) => {
-                    const mappedKey = Object.keys(mapping).find(key => mapping[key] === header);
-                    if (mappedKey) {
-                        let value = values[index].trim().replace(/^"|"$/g, '');
+            const values = parseCSVRow(lines[i]);
+
+            const row = {};
+            let hasAnyMappedData = false;
+
+            headers.forEach((header, index) => {
+                const mappedKey = Object.keys(mapping).find(key => mapping[key] === header);
+                if (mappedKey && index < values.length) {
+                    let value = values[index].replace(/^"|"$/g, '');
+
+                    if (value && value.trim() !== '') {
+                        hasAnyMappedData = true;
                         if (!isNaN(value) && value !== '') {
                             value = parseFloat(value);
                         }
                         row[mappedKey] = value;
                     }
-                });
+                }
+            });
+
+            if (hasAnyMappedData) {
                 data.push(row);
             }
         }
+
+        console.log('Parsed rows with data:', data.length);
+        console.log('Sample first 3 rows:', data.slice(0, 3));
+
         return data;
     };
 

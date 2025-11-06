@@ -37,12 +37,20 @@ Deno.serve(async (req: Request) => {
 
     const { txnData = [], loData = [] } = analysisData;
 
-    const totalShipments = Array.isArray(txnData) ? txnData.length : 0;
+    console.log(`=== STRATEGY SUMMARY GENERATION ===`);
+    console.log(`Raw txnData array length: ${Array.isArray(txnData) ? txnData.length : 'not an array'}`);
+    console.log(`Raw loData array length: ${Array.isArray(loData) ? loData.length : 'not an array'}`);
+    console.log(`Sample first 3 txn rows:`, txnData?.slice(0, 3));
+
+    const validTxnData = Array.isArray(txnData)
+      ? txnData.filter(txn => txn && (txn.carrier || txn.Carrier) && (txn.cost || txn.Bill || txn.bill))
+      : [];
+
+    const totalShipments = validTxnData.length;
     const lostOpportunities = Array.isArray(loData) ? loData.length : 0;
 
-    console.log(`=== STRATEGY SUMMARY GENERATION ===`);
-    console.log(`Total rows received: ${totalShipments}`);
-    console.log(`Sample first row:`, txnData[0]);
+    console.log(`Valid shipments (with carrier and cost): ${totalShipments}`);
+    console.log(`Filtered out: ${(Array.isArray(txnData) ? txnData.length : 0) - totalShipments} rows`);
 
     const carrierCounts: Record<string, number> = {};
     const carrierSpend: Record<string, number> = {};
@@ -50,8 +58,8 @@ Deno.serve(async (req: Request) => {
     const laneCounts: Record<string, number> = {};
     const laneSpend: Record<string, number> = {};
 
-    if (Array.isArray(txnData)) {
-      txnData.forEach((txn: any, idx: number) => {
+    if (Array.isArray(validTxnData)) {
+      validTxnData.forEach((txn: any, idx: number) => {
         const carrier = txn.carrier || txn.Carrier || 'Unknown';
         const costRaw = txn.cost || txn.Bill || txn.bill || 0;
         const cost = parseFloat(String(costRaw).replace(/[$,]/g, ''));
