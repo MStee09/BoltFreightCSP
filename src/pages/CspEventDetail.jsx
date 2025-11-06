@@ -22,7 +22,7 @@ export default function CspEventDetail() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
     const eventId = searchParams.get('id');
-    const defaultTab = searchParams.get('tab') || 'activity';
+    const defaultTab = searchParams.get('tab') || 'overview';
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
     const [isManageCarriersOpen, setIsManageCarriersOpen] = useState(false);
