@@ -38,11 +38,11 @@ function parseCSV(csvText: string): any[] {
     return result;
   };
 
-  const headers = parseLine(lines[0]).map(h => h.replace(/['\"]]/g, ''));
+  const headers = parseLine(lines[0]).map(h => h.replace(/['\"\]]/g, ''));
   const rows: any[] = [];
 
   for (let i = 1; i < lines.length; i++) {
-    const values = parseLine(lines[i]).map(v => v.replace(/['\"]]/g, ''));
+    const values = parseLine(lines[i]).map(v => v.replace(/['\"\]]/g, ''));
     if (values.length === headers.length) {
       const row: any = {};
       headers.forEach((header, index) => {
@@ -80,6 +80,34 @@ Deno.serve(async (req: Request) => {
 
     let txnData: any[] = [];
     let loData: any[] = [];
+
+    // Fetch all carriers to create SCAC -> Name mapping
+    console.log('=== FETCHING CARRIERS FOR SCAC MAPPING ===');
+    const { data: carriers, error: carriersError } = await supabase
+      .from('carriers')
+      .select('scac, name');
+
+    if (carriersError) {
+      console.error('Error fetching carriers:', carriersError);
+    }
+
+    // Create SCAC to Carrier Name mapping
+    const scacToName: Record<string, string> = {};
+    if (carriers) {
+      carriers.forEach(carrier => {
+        if (carrier.scac && carrier.name) {
+          scacToName[carrier.scac.toUpperCase()] = carrier.name;
+        }
+      });
+      console.log(`Created SCAC mapping for ${Object.keys(scacToName).length} carriers`);
+    }
+
+    // Helper function to resolve carrier name from SCAC
+    const resolveCarrierName = (carrierValue: string): string => {
+      if (!carrierValue || carrierValue === 'Unknown') return carrierValue;
+      const upperValue = carrierValue.toUpperCase().trim();
+      return scacToName[upperValue] || carrierValue;
+    };
 
     if (refresh || !analysisData) {
       console.log('=== FETCHING DOCUMENTS FROM STORAGE ===');
@@ -201,7 +229,8 @@ Deno.serve(async (req: Request) => {
 
     if (Array.isArray(validTxnData)) {
       validTxnData.forEach((txn: any, idx: number) => {
-        const carrier = txn.carrier || txn.Carrier || txn['Carrier Name'] || txn.Carrier_Name || txn.CarrierName || 'Unknown';
+        const carrierRaw = txn.carrier || txn.Carrier || txn['Carrier Name'] || txn.Carrier_Name || txn.CarrierName || 'Unknown';
+        const carrier = resolveCarrierName(carrierRaw);
         const costRaw = txn.cost || txn.Bill || txn.bill || txn.TotalBill || txn['Total Bill'] || txn.Total_Bill || txn.TotalCost || txn['Total Cost'] || txn.Cost || 0;
         const cost = parseFloat(String(costRaw).replace(/[$,]/g, ''));
         const ownership = txn.ownership || txn.Pricing_Ownership || txn['Pricing Ownership'] || txn.PricingOwnership || '';
@@ -309,7 +338,8 @@ Deno.serve(async (req: Request) => {
       const selectedCost = parseFloat(lo.selected_cost || lo.Selected_Carrier_Cost || 0);
       const opportunityCost = parseFloat(lo.opportunity_cost || lo.LO_Carrier_Cost || 0);
       const diff = selectedCost - opportunityCost;
-      const carrier = lo.selected_carrier || lo.Selected_Carrier_Name || 'Unknown';
+      const carrierRaw = lo.selected_carrier || lo.Selected_Carrier_Name || 'Unknown';
+      const carrier = resolveCarrierName(carrierRaw);
 
       if (diff > 0) {
         if (!opportunityByCarrier[carrier]) {
