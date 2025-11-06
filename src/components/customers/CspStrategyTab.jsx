@@ -22,28 +22,23 @@ import _ from 'lodash';
 import StrategyScacMatch from '../strategy/StrategyScacMatch';
 
 const validateTransactionDetailFormat = (headers) => {
-    const expectedHeaders = [
-        'Ship Date', 'SCAC', 'Carrier Name', 'Service', 'Origin City', 'Origin State', 'Origin Zip',
-        'Dest City', 'Dest State', 'Dest Zip', 'Weight', 'Dim Weight', 'Zone',
-        'Residential', 'Signature Required', 'Declared Value', 'List Cost', 'Total Cost'
-    ];
-
-    const totalCostIndex = headers.findIndex(h =>
-        h.toLowerCase() === 'total cost' || h.toLowerCase().includes('total cost')
-    );
+    const totalCostIndex = headers.findIndex(h => {
+        const lower = h.toLowerCase().replace(/[_\s]/g, '');
+        return lower === 'totalcost';
+    });
 
     if (totalCostIndex === -1) {
         throw new Error(
-            'DATA FORMAT ERROR: Transaction Detail report missing "Total Cost" column.\n\n' +
-            'Expected columns: ' + expectedHeaders.join(', ') + '\n\n' +
+            'DATA FORMAT ERROR: Transaction Detail report missing "TotalCost" column.\n\n' +
+            'This column is required for spend calculations.\n\n' +
             'Found columns: ' + headers.join(', ') + '\n\n' +
-            'Please verify you uploaded the correct Transaction Detail report format.'
+            'Please verify:\n' +
+            '1. You uploaded the correct Transaction Detail report\n' +
+            '2. The file contains a column named "TotalCost", "Total Cost", or "Total_Cost"'
         );
     }
 
-    if (headers.length < 18) {
-        console.warn(`Transaction Detail: Expected 18+ columns, found ${headers.length}`);
-    }
+    console.log(`Transaction Detail validated: Found cost column "${headers[totalCostIndex]}" at index ${totalCostIndex}`);
 
     return true;
 };

@@ -97,46 +97,33 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
             console.log('Total Headers:', headers.length);
             console.log('All Headers:', headers);
 
-            const expectedHeaders = [
-                'Ship Date', 'SCAC', 'Carrier Name', 'Service', 'Origin City', 'Origin State', 'Origin Zip',
-                'Dest City', 'Dest State', 'Dest Zip', 'Weight', 'Dim Weight', 'Zone',
-                'Residential', 'Signature Required', 'Declared Value', 'List Cost', 'Total Cost'
-            ];
-
-            const totalCostIndex = headers.findIndex(h =>
-                h.toLowerCase() === 'total cost' ||
-                h.toLowerCase().includes('total cost')
-            );
+            const totalCostIndex = headers.findIndex(h => {
+                const lower = h.toLowerCase().replace(/[_\s]/g, '');
+                return lower === 'totalcost';
+            });
 
             if (totalCostIndex === -1) {
                 throw new Error(
-                    'DATA FORMAT ERROR: Cannot find "Total Cost" column.\n\n' +
-                    'Expected Transaction Detail format with columns:\n' +
-                    expectedHeaders.join(', ') + '\n\n' +
+                    'DATA FORMAT ERROR: Cannot find "TotalCost" column.\n\n' +
+                    'This column is required for spend calculations.\n\n' +
                     'Found columns:\n' + headers.join(', ') + '\n\n' +
-                    'Please verify you uploaded the correct Transaction Detail report.'
+                    'Please verify:\n' +
+                    '1. You uploaded the correct Transaction Detail report\n' +
+                    '2. The file contains a column named "TotalCost", "Total Cost", or "Total_Cost"'
                 );
             }
 
-            const shipDateIndex = headers.findIndex(h =>
-                h.toLowerCase() === 'ship date' ||
-                h.toLowerCase().includes('ship date')
-            );
+            const shipDateIndex = headers.findIndex(h => {
+                const lower = h.toLowerCase().replace(/[_\s]/g, '');
+                return lower.includes('date') && (lower.includes('ship') || lower.includes('pickup') || lower.includes('delivery'));
+            });
 
             if (shipDateIndex === -1) {
-                console.warn('WARNING: Cannot find "Ship Date" column for date range calculation');
+                console.warn('WARNING: Cannot find date column (Ship Date, Pickup_Date, etc.) for date range calculation');
             }
 
-            if (headers.length < 18) {
-                console.warn(`WARNING: Expected at least 18 columns, found ${headers.length}`);
-            }
-
-            if (totalCostIndex !== 17) {
-                console.warn(`WARNING: Total Cost found at index ${totalCostIndex} (Column ${String.fromCharCode(65 + totalCostIndex)}), expected index 17 (Column R)`);
-            }
-
-            console.log('Total Cost Column: Index', totalCostIndex, `(Column ${String.fromCharCode(65 + totalCostIndex)})`, `"${headers[totalCostIndex]}"`);
-            console.log('Ship Date Column: Index', shipDateIndex, shipDateIndex >= 0 ? `"${headers[shipDateIndex]}"` : 'NOT FOUND');
+            console.log('TotalCost Column: Index', totalCostIndex, `(Column ${String.fromCharCode(65 + totalCostIndex)})`, `"${headers[totalCostIndex]}"`);
+            console.log('Date Column: Index', shipDateIndex, shipDateIndex >= 0 ? `"${headers[shipDateIndex]}"` : 'NOT FOUND');
             console.log('Total Rows:', totalShipments);
 
             let totalSpend = 0;
