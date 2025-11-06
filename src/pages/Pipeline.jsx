@@ -155,7 +155,17 @@ const StageColumn = ({ stage, events, customers, tariffs, stageRef, onEventClick
 
                           <div className="flex justify-between items-center">
                             <div className="flex gap-1">
-                              <Badge variant={event.priority === 'urgent' ? 'destructive' : 'secondary'} className="capitalize text-xs py-0 px-1.5 h-5">{event.priority}</Badge>
+                              <Badge
+                                variant={event.priority === 'urgent' ? 'destructive' : 'secondary'}
+                                className={`capitalize text-xs py-0 px-1.5 h-5 ${
+                                  event.priority === 'urgent' ? 'bg-red-500 hover:bg-red-600' :
+                                  event.priority === 'high' ? 'bg-orange-500 hover:bg-orange-600 text-white' :
+                                  event.priority === 'medium' ? 'bg-yellow-500 hover:bg-yellow-600 text-white' :
+                                  'bg-slate-300 hover:bg-slate-400 text-slate-700'
+                                }`}
+                              >
+                                {event.priority}
+                              </Badge>
                               {agingBadge}
                             </div>
                             <span className="text-xs text-slate-500 font-medium">{daysInStage}d</span>
