@@ -1673,7 +1673,15 @@ const DocumentsPanel = ({ cspEventId }) => {
                     <FileText className="w-5 h-5" />
                     Related Documents
                 </CardTitle>
-                <CardDescription>Files uploaded and stored for this CSP event</CardDescription>
+                <CardDescription>
+                    Files uploaded and stored for this CSP event
+                    {cspEvent?.data_timeframe_months && (
+                        <span className="block mt-1 font-medium text-slate-700">
+                            📅 Data Range: {cspEvent.data_timeframe_months} month{cspEvent.data_timeframe_months > 1 ? 's' : ''} of shipment data
+                            {cspEvent.total_shipments && ` • ${cspEvent.total_shipments} shipments`}
+                        </span>
+                    )}
+                </CardDescription>
             </CardHeader>
             <CardContent>
                 {documents.length === 0 ? (
