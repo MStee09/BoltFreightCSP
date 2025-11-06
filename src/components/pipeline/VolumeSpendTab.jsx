@@ -37,6 +37,19 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
     const hasData = cspEvent?.total_shipments || cspEvent?.projected_annual_spend;
 
     useEffect(() => {
+        setFormData({
+            total_shipments: cspEvent?.total_shipments || '',
+            monthly_shipments: cspEvent?.monthly_shipments || '',
+            data_timeframe_months: cspEvent?.data_timeframe_months || '',
+            data_start_date: cspEvent?.data_start_date || null,
+            data_end_date: cspEvent?.data_end_date || null,
+            projected_monthly_spend: cspEvent?.projected_monthly_spend || '',
+            projected_annual_spend: cspEvent?.projected_annual_spend || '',
+            avg_cost_per_shipment: cspEvent?.avg_cost_per_shipment || ''
+        });
+    }, [cspEvent]);
+
+    useEffect(() => {
         const checkIfCalculatedFromDataset = async () => {
             if (hasData) {
                 const { data: documents } = await supabase
