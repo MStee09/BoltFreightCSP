@@ -126,13 +126,40 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
             console.log('Date Column: Index', shipDateIndex, shipDateIndex >= 0 ? `"${headers[shipDateIndex]}"` : 'NOT FOUND');
             console.log('Total Rows:', totalShipments);
 
+            const parseCSVRow = (line) => {
+                const result = [];
+                let current = '';
+                let inQuotes = false;
+
+                for (let i = 0; i < line.length; i++) {
+                    const char = line[i];
+                    const nextChar = line[i + 1];
+
+                    if (char === '"') {
+                        if (inQuotes && nextChar === '"') {
+                            current += '"';
+                            i++;
+                        } else {
+                            inQuotes = !inQuotes;
+                        }
+                    } else if (char === ',' && !inQuotes) {
+                        result.push(current);
+                        current = '';
+                    } else {
+                        current += char;
+                    }
+                }
+                result.push(current);
+                return result.map(v => v.trim().replace(/^"|"$/g, ''));
+            };
+
             let totalSpend = 0;
             let dates = [];
             let validCostCount = 0;
             let invalidRows = [];
 
             dataRows.forEach((row, idx) => {
-                const cols = row.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
+                const cols = parseCSVRow(row);
 
                 if (totalBillIndex >= 0 && cols[totalBillIndex]) {
                     const originalValue = cols[totalBillIndex];
