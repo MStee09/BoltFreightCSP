@@ -203,13 +203,12 @@ Deno.serve(async (req: Request) => {
       .slice(0, 10)
       .map(([carrier, count]) => {
         const ownershipData = carrierOwnership[carrier] || { rocket: 0, priority1: 0, customer_direct: 0 };
-        const totalShipmentsForCarrier = ownershipData.rocket + ownershipData.priority1 + ownershipData.customer_direct;
-        let primaryOwnership = 'customer_direct';
 
+        let mostCommonOwnership = 'Customer Direct';
         if (ownershipData.rocket > ownershipData.priority1 && ownershipData.rocket > ownershipData.customer_direct) {
-          primaryOwnership = 'brokerage';
+          mostCommonOwnership = 'Rocket';
         } else if (ownershipData.priority1 > ownershipData.rocket && ownershipData.priority1 > ownershipData.customer_direct) {
-          primaryOwnership = 'brokerage';
+          mostCommonOwnership = 'Priority 1';
         }
 
         return {
@@ -217,7 +216,7 @@ Deno.serve(async (req: Request) => {
           shipments: count,
           spend: carrierSpend[carrier] || 0,
           percentage: totalShipments > 0 ? parseFloat(((count / totalShipments) * 100).toFixed(1)) : 0,
-          ownership: primaryOwnership,
+          ownership: mostCommonOwnership,
           ownership_breakdown: ownershipData,
         };
       });
