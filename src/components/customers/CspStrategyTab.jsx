@@ -265,43 +265,45 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
             });
 
             const missingTxnFields = Object.keys(requiredTxnFields).filter(key => !txnMapping[key]);
-            const missingLoFields = Object.keys(requiredLoFields).filter(key => !loMapping[key]);
+            const missingLoFields = loFile ? Object.keys(requiredLoFields).filter(key => !loMapping[key]) : [];
 
             if (missingTxnFields.length > 0) {
                 throw new Error(`Missing Transaction Detail mappings: ${missingTxnFields.map(k => requiredTxnFields[k]).join(', ')}`);
             }
-            if (missingLoFields.length > 0) {
+            if (loFile && missingLoFields.length > 0) {
                 throw new Error(`Missing Low Cost Opportunity mappings: ${missingLoFields.map(k => requiredLoFields[k]).join(', ')}`);
             }
 
             const timestamp = Date.now();
             const txnPath = `${user?.id || '00000000-0000-0000-0000-000000000000'}/${timestamp}_${txnFile.name}`;
-            const loPath = `${user?.id || '00000000-0000-0000-0000-000000000000'}/${timestamp}_${loFile.name}`;
 
-            const [txnUpload, loUpload] = await Promise.all([
-                supabase.storage.from('documents').upload(txnPath, txnFile),
-                supabase.storage.from('documents').upload(loPath, loFile)
-            ]);
-
+            const txnUpload = await supabase.storage.from('documents').upload(txnPath, txnFile);
             if (txnUpload.error) throw new Error(`Transaction file upload failed: ${txnUpload.error.message}`);
-            if (loUpload.error) throw new Error(`Low cost opportunity file upload failed: ${loUpload.error.message}`);
 
-            const [txnText, loText] = await Promise.all([
-                txnFile.text(),
-                loFile.text()
-            ]);
+            let loUpload = null;
+            let loPath = null;
+            if (loFile) {
+                loPath = `${user?.id || '00000000-0000-0000-0000-000000000000'}/${timestamp}_${loFile.name}`;
+                loUpload = await supabase.storage.from('documents').upload(loPath, loFile);
+                if (loUpload.error) throw new Error(`Low cost opportunity file upload failed: ${loUpload.error.message}`);
+            }
 
+            const txnText = await txnFile.text();
             const txnData = parseCSVWithMapping(txnText, txnMapping);
-            const loData = parseCSVWithMapping(loText, loMapping);
 
-            await Promise.all([
-                saveMappings('transaction_detail', txnMapping),
-                saveMappings('low_cost_opportunity', loMapping)
-            ]);
+            let loData = [];
+            if (loFile) {
+                const loText = await loFile.text();
+                loData = parseCSVWithMapping(loText, loMapping);
+            }
+
+            await saveMappings('transaction_detail', txnMapping);
+            if (loFile) {
+                await saveMappings('low_cost_opportunity', loMapping);
+            }
 
             if (cspEventId) {
                 const { data: { publicUrl: txnUrl } } = supabase.storage.from('documents').getPublicUrl(txnPath);
-                const { data: { publicUrl: loUrl } } = supabase.storage.from('documents').getPublicUrl(loPath);
 
                 await Document.create({
                     entity_type: 'csp_event',
@@ -317,19 +319,23 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
                     ai_processing_status: 'processing',
                 });
 
-                await Document.create({
-                    entity_type: 'csp_event',
-                    entity_id: cspEventId,
-                    csp_event_id: cspEventId,
-                    file_name: loFile.name,
-                    file_path: loUrl,
-                    file_size: loFile.size,
-                    file_type: loFile.type,
-                    document_type: loDocType,
-                    uploaded_by: user?.email || 'Unknown',
-                    user_id: user?.id || '00000000-0000-0000-0000-000000000000',
-                    ai_processing_status: 'processing',
-                });
+                if (loFile && loPath) {
+                    const { data: { publicUrl: loUrl } } = supabase.storage.from('documents').getPublicUrl(loPath);
+
+                    await Document.create({
+                        entity_type: 'csp_event',
+                        entity_id: cspEventId,
+                        csp_event_id: cspEventId,
+                        file_name: loFile.name,
+                        file_path: loUrl,
+                        file_size: loFile.size,
+                        file_type: loFile.type,
+                        document_type: loDocType,
+                        uploaded_by: user?.email || 'Unknown',
+                        user_id: user?.id || '00000000-0000-0000-0000-000000000000',
+                        ai_processing_status: 'processing',
+                    });
+                }
             }
 
             return { txnData, loData };
@@ -565,16 +571,16 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
                     <FileDropzone
                         file={loFile}
                         setFile={setLoFile}
-                        title="File B"
+                        title="File B (Optional)"
                         docType={loDocType}
                         setDocType={setLoDocType}
                         type="lo"
                     />
                 </div>
 
-                {showMapping && txnFile && loFile && (() => {
+                {showMapping && txnFile && (() => {
                     const missingTxnFields = Object.keys(requiredTxnFields).filter(key => !txnMapping[key]);
-                    const missingLoFields = Object.keys(requiredLoFields).filter(key => !loMapping[key]);
+                    const missingLoFields = loFile ? Object.keys(requiredLoFields).filter(key => !loMapping[key]) : [];
                     const hasUnmappedFields = missingTxnFields.length > 0 || missingLoFields.length > 0;
 
                     if (!hasUnmappedFields) {
@@ -609,16 +615,18 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
                                     setAdditionalFields={setTxnAdditionalFields}
                                     type="txn"
                                 />
-                                <ColumnMapper
-                                    fields={requiredLoFields}
-                                    headers={loHeaders}
-                                    mapping={loMapping}
-                                    setMapping={setLoMapping}
-                                    title="Low Cost Opportunity Columns"
-                                    additionalFields={loAdditionalFields}
-                                    setAdditionalFields={setLoAdditionalFields}
-                                    type="lo"
-                                />
+                                {loFile && (
+                                    <ColumnMapper
+                                        fields={requiredLoFields}
+                                        headers={loHeaders}
+                                        mapping={loMapping}
+                                        setMapping={setLoMapping}
+                                        title="Low Cost Opportunity Columns"
+                                        additionalFields={loAdditionalFields}
+                                        setAdditionalFields={setLoAdditionalFields}
+                                        type="lo"
+                                    />
+                                )}
                             </div>
                         </div>
                     );
@@ -627,7 +635,7 @@ const UploadPanel = ({ cspEventId, onAnalysisComplete }) => {
                 {error && <Alert variant="destructive"><AlertTitle>Error</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
                 <Button
                     onClick={() => mutation.mutate({ txnFile, loFile, txnMapping, loMapping })}
-                    disabled={!txnFile || !loFile || mutation.isPending}
+                    disabled={!txnFile || mutation.isPending}
                     className="w-full"
                 >
                     {mutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
