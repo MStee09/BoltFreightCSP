@@ -17,6 +17,7 @@ import CarrierOverview from '../components/carriers/CarrierOverview';
 import ManageContactsDialog from '../components/carriers/ManageContactsDialog';
 import { EmailComposeDialog } from '../components/email/EmailComposeDialog';
 import InteractionTimeline from '../components/customers/InteractionTimeline';
+import { BackButton } from '../components/navigation/BackButton';
 
 const PlaceholderTab = ({ title, icon }) => (
     <div className="py-12 text-center text-slate-500 border border-dashed rounded-lg mt-4">
@@ -427,10 +428,9 @@ export default function CarrierDetailPage() {
         return (
             <>
                 <div className="p-6 lg:p-8 max-w-[1600px] mx-auto">
-                    <Link to={createPageUrl("Carriers")} className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 mb-6">
-                        <ArrowLeft className="w-4 h-4" />
-                        Back to All Carriers
-                    </Link>
+                    <div className="mb-6">
+                        <BackButton fallbackPath="/Carriers" />
+                    </div>
                     <div className="text-center py-12">
                         <h1 className="text-3xl font-bold text-slate-900 mb-4">Create New Carrier</h1>
                         <p className="text-slate-600">Fill out the form to add a new carrier partner.</p>
@@ -463,11 +463,10 @@ export default function CarrierDetailPage() {
     return (
         <>
             <div className="p-6 lg:p-8 max-w-[1600px] mx-auto">
-                <Link to={createPageUrl("Carriers")} className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 mb-6">
-                    <ArrowLeft className="w-4 h-4" />
-                    Back to All Carriers
-                </Link>
-                
+                <div className="mb-6">
+                    <BackButton fallbackPath="/Carriers" />
+                </div>
+
                 <div className="flex items-start justify-between mb-4">
                     <div>
                         <h1 className="text-3xl font-bold text-slate-900">{carrier.name}</h1>

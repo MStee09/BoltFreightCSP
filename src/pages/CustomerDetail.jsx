@@ -15,6 +15,8 @@ import EditCustomerDialog from '../components/customers/EditCustomerDialog';
 import DocumentsTab from '../components/customers/DocumentsTab';
 import CustomerTariffTimeline from '../components/customers/CustomerTariffTimeline';
 import { EmailComposeDialog } from '../components/email/EmailComposeDialog';
+import { BackButton } from '../components/navigation/BackButton';
+import { useNavigation } from '../contexts/NavigationContext';
 
 export default function CustomerDetail() {
     const [searchParams] = useSearchParams();
@@ -23,6 +25,7 @@ export default function CustomerDetail() {
     const defaultTab = searchParams.get('tab') || 'overview';
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(isNew);
     const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
+    const { goBack } = useNavigation();
 
     const { data: customer, isLoading } = useQuery({
         queryKey: ['customer', customerId],
@@ -34,10 +37,9 @@ export default function CustomerDetail() {
         return (
             <>
                 <div className="p-6 lg:p-8 max-w-[1600px] mx-auto">
-                    <Link to={createPageUrl("Customers")} className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 mb-6">
-                        <ArrowLeft className="w-4 h-4" />
-                        Back to Customers
-                    </Link>
+                    <div className="mb-6">
+                        <BackButton fallbackPath="/Customers" />
+                    </div>
                     <div className="mb-8">
                         <h1 className="text-3xl font-bold text-slate-900">Create New Customer</h1>
                         <p className="text-slate-600 mt-2">Add a new customer to your database</p>
@@ -46,7 +48,7 @@ export default function CustomerDetail() {
                 <EditCustomerDialog
                     open={true}
                     onOpenChange={(open) => {
-                        if (!open) window.history.back();
+                        if (!open) goBack();
                     }}
                     customer={null}
                 />
@@ -71,10 +73,9 @@ export default function CustomerDetail() {
     return (
         <>
             <div className="p-6 lg:p-8 max-w-[1600px] mx-auto">
-                <Link to={createPageUrl("Customers")} className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 mb-6">
-                    <ArrowLeft className="w-4 h-4" />
-                    Back to All Customers
-                </Link>
+                <div className="mb-6">
+                    <BackButton fallbackPath="/Customers" />
+                </div>
 
                 <div className="flex items-start justify-between mb-4">
                     <div>

@@ -14,6 +14,7 @@ import { Badge } from "../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import EditTariffDialog from '../components/tariffs/EditTariffDialog';
 import TariffSopsTab from '../components/tariffs/TariffSopsTab';
+import { BackButton } from '../components/navigation/BackButton';
 
 const TariffDocumentManager = ({ tariff }) => {
     const queryClient = useQueryClient();
@@ -172,10 +173,9 @@ export default function TariffDetailPage() {
 
     return (
         <div className="p-6 lg:p-8 max-w-4xl mx-auto">
-            <Link to={createPageUrl("Tariffs")} className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 mb-6">
-                <ArrowLeft className="w-4 h-4" />
-                Back to Tariff Workspace
-            </Link>
+            <div className="mb-6">
+                <BackButton fallbackPath="/Tariffs" />
+            </div>
 
             <div className="flex items-start justify-between mb-6">
                 <div>

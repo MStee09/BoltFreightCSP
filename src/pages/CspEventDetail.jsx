@@ -16,6 +16,7 @@ import EditCspEventDialog from '../components/pipeline/EditCspEventDialog';
 import ManageCarriersDialog from '../components/pipeline/ManageCarriersDialog';
 import InteractionTimeline from '../components/customers/InteractionTimeline';
 import VolumeSpendTab from '../components/pipeline/VolumeSpendTab';
+import { BackButton } from '../components/navigation/BackButton';
 
 export default function CspEventDetail() {
     const navigate = useNavigate();
@@ -61,14 +62,9 @@ export default function CspEventDetail() {
     return (
         <>
             <div className="p-6 lg:p-8 max-w-[1600px] mx-auto">
-                <Button
-                    variant="ghost"
-                    onClick={() => navigate(createPageUrl("Pipeline"))}
-                    className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900 mb-6 -ml-2"
-                >
-                    <ArrowLeft className="w-4 h-4" />
-                    Back to Pipeline
-                </Button>
+                <div className="mb-6 -ml-2">
+                    <BackButton fallbackPath="/Pipeline" />
+                </div>
 
                 <div className="flex items-start justify-between mb-4">
                     <div>
