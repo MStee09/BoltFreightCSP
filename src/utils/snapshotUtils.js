@@ -26,18 +26,6 @@ export const createStrategySnapshot = async ({
     });
     const laneCount = uniqueLanes.size;
 
-    const getCarrierType = (carrierIdentifier) => {
-      if (!carrierIdentifier) return 'customer_direct';
-
-      const identifier = carrierIdentifier.toUpperCase();
-      const carrier = carriers.find(c =>
-        c.scac_code?.toUpperCase() === identifier ||
-        c.name?.toUpperCase() === identifier
-      );
-
-      return carrier?.carrier_type || 'customer_direct';
-    };
-
     const getCarrierName = (carrierIdentifier) => {
       if (!carrierIdentifier) return 'Unknown';
 
@@ -48,6 +36,14 @@ export const createStrategySnapshot = async ({
       );
 
       return carrier?.name || carrierIdentifier;
+    };
+
+    const classifyOwnership = (ownership) => {
+      const ownershipUpper = ownership?.toUpperCase() || '';
+      if (ownershipUpper.includes('ROCKET') || ownershipUpper.includes('PRIORITY 1') || ownershipUpper.includes('PRIORITY1')) {
+        return 'brokerage';
+      }
+      return 'customer_direct';
     };
 
     let brokerageSpend = 0;
@@ -62,9 +58,10 @@ export const createStrategySnapshot = async ({
       const cost = parseFloat(row.cost) || 0;
       const carrier = row.carrier;
       const mode = row.mode || 'Unknown';
-      const carrierType = getCarrierType(carrier);
+      const ownership = row.ownership || row.Pricing_Ownership || row['Pricing Ownership'] || 'Customer Direct';
+      const ownershipType = classifyOwnership(ownership);
 
-      if (carrierType === 'brokerage') {
+      if (ownershipType === 'brokerage') {
         brokerageSpend += cost;
         brokerageShipments++;
       } else {
@@ -76,7 +73,7 @@ export const createStrategySnapshot = async ({
         carrierStats[carrier] = {
           carrier,
           carrier_name: getCarrierName(carrier),
-          carrier_type: carrierType,
+          ownership_type: ownershipType,
           spend: 0,
           shipments: 0
         };
@@ -96,7 +93,7 @@ export const createStrategySnapshot = async ({
         };
       }
 
-      if (carrierType === 'brokerage') {
+      if (ownershipType === 'brokerage') {
         modeStats[mode].brokerage_spend += cost;
         modeStats[mode].brokerage_shipments++;
       } else {

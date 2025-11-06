@@ -126,27 +126,61 @@ Deno.serve(async (req: Request) => {
 
     const carrierCounts: Record<string, number> = {};
     const carrierSpend: Record<string, number> = {};
-    const carrierOwnership: Record<string, string> = {};
+    const carrierOwnership: Record<string, { rocket: number; priority1: number; customer_direct: number }> = {};
     const laneCounts: Record<string, number> = {};
     const laneSpend: Record<string, number> = {};
+
+    let brokerageSpend = 0;
+    let brokerageShipments = 0;
+    let customerDirectSpend = 0;
+    let customerDirectShipments = 0;
+
+    const classifyOwnership = (ownership: string): 'brokerage' | 'customer_direct' => {
+      const ownershipUpper = ownership?.toUpperCase() || '';
+      if (ownershipUpper.includes('ROCKET') || ownershipUpper.includes('PRIORITY 1') || ownershipUpper.includes('PRIORITY1')) {
+        return 'brokerage';
+      }
+      return 'customer_direct';
+    };
 
     if (Array.isArray(validTxnData)) {
       validTxnData.forEach((txn: any, idx: number) => {
         const carrier = txn.carrier || txn.Carrier || 'Unknown';
         const costRaw = txn.cost || txn.Bill || txn.bill || 0;
         const cost = parseFloat(String(costRaw).replace(/[$,]/g, ''));
-        const ownership = txn.ownership || txn.Pricing_Ownership || txn['Pricing Ownership'] || 'Unknown';
+        const ownership = txn.ownership || txn.Pricing_Ownership || txn['Pricing Ownership'] || 'Customer Direct';
+        const ownershipType = classifyOwnership(ownership);
         const originCity = txn.origin_city || txn['Origin City'] || txn.OriginCity || '';
         const destCity = txn.dest_city || txn['Dest City'] || txn.DestCity || '';
         const lane = originCity && destCity ? `${originCity} → ${destCity}` : 'Unknown';
 
         if (idx < 3) {
-          console.log(`Row ${idx + 1}: carrier=${carrier}, costRaw=${costRaw}, cost=${cost}`);
+          console.log(`Row ${idx + 1}: carrier=${carrier}, ownership=${ownership}, type=${ownershipType}, cost=${cost}`);
         }
 
         carrierCounts[carrier] = (carrierCounts[carrier] || 0) + 1;
         carrierSpend[carrier] = (carrierSpend[carrier] || 0) + cost;
-        carrierOwnership[carrier] = ownership;
+
+        if (!carrierOwnership[carrier]) {
+          carrierOwnership[carrier] = { rocket: 0, priority1: 0, customer_direct: 0 };
+        }
+        const ownershipUpper = ownership?.toUpperCase() || '';
+        if (ownershipUpper.includes('ROCKET')) {
+          carrierOwnership[carrier].rocket++;
+        } else if (ownershipUpper.includes('PRIORITY 1') || ownershipUpper.includes('PRIORITY1')) {
+          carrierOwnership[carrier].priority1++;
+        } else {
+          carrierOwnership[carrier].customer_direct++;
+        }
+
+        if (ownershipType === 'brokerage') {
+          brokerageSpend += cost;
+          brokerageShipments++;
+        } else {
+          customerDirectSpend += cost;
+          customerDirectShipments++;
+        }
+
         laneCounts[lane] = (laneCounts[lane] || 0) + 1;
         laneSpend[lane] = (laneSpend[lane] || 0) + cost;
       });
@@ -167,13 +201,26 @@ Deno.serve(async (req: Request) => {
     const carrierBreakdown = Object.entries(carrierCounts)
       .sort((a, b) => b[1] - a[1])
       .slice(0, 10)
-      .map(([carrier, count]) => ({
-        carrier,
-        shipments: count,
-        spend: carrierSpend[carrier] || 0,
-        percentage: totalShipments > 0 ? parseFloat(((count / totalShipments) * 100).toFixed(1)) : 0,
-        ownership: carrierOwnership[carrier] || 'Unknown',
-      }));
+      .map(([carrier, count]) => {
+        const ownershipData = carrierOwnership[carrier] || { rocket: 0, priority1: 0, customer_direct: 0 };
+        const totalShipmentsForCarrier = ownershipData.rocket + ownershipData.priority1 + ownershipData.customer_direct;
+        let primaryOwnership = 'customer_direct';
+
+        if (ownershipData.rocket > ownershipData.priority1 && ownershipData.rocket > ownershipData.customer_direct) {
+          primaryOwnership = 'brokerage';
+        } else if (ownershipData.priority1 > ownershipData.rocket && ownershipData.priority1 > ownershipData.customer_direct) {
+          primaryOwnership = 'brokerage';
+        }
+
+        return {
+          carrier,
+          shipments: count,
+          spend: carrierSpend[carrier] || 0,
+          percentage: totalShipments > 0 ? parseFloat(((count / totalShipments) * 100).toFixed(1)) : 0,
+          ownership: primaryOwnership,
+          ownership_breakdown: ownershipData,
+        };
+      });
 
     const topLanes = Object.entries(laneCounts)
       .filter(([lane]) => lane !== 'Unknown')
@@ -304,11 +351,25 @@ Format the response in markdown with clear sections. Be specific with numbers an
       ].join('\n');
     }
 
+    const brokeragePercentage = totalSpend > 0 ? (brokerageSpend / totalSpend) * 100 : 0;
+    const customerDirectPercentage = totalSpend > 0 ? (customerDirectSpend / totalSpend) * 100 : 0;
+
+    console.log(`=== BROKERAGE CLASSIFICATION ===`);
+    console.log(`Brokerage Spend: $${brokerageSpend.toLocaleString()} (${brokeragePercentage.toFixed(1)}%)`);
+    console.log(`Customer Direct Spend: $${customerDirectSpend.toLocaleString()} (${customerDirectPercentage.toFixed(1)}%)`);
+    console.log(`Total: $${totalSpend.toLocaleString()}`);
+
     const strategySummary = {
       generated_at: new Date().toISOString(),
       shipment_count: totalShipments,
       lane_count: uniqueLanes,
       total_spend: totalSpend,
+      brokerage_spend: brokerageSpend,
+      brokerage_shipments: brokerageShipments,
+      brokerage_percentage: brokeragePercentage,
+      customer_direct_spend: customerDirectSpend,
+      customer_direct_shipments: customerDirectShipments,
+      customer_direct_percentage: customerDirectPercentage,
       top_carriers: topCarriers,
       carrier_breakdown: carrierBreakdown,
       top_lanes: topLanes,

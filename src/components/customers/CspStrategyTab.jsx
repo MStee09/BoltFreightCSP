@@ -1036,33 +1036,15 @@ const DataVisualizationPanel = ({ cspEvent }) => {
         return carrier ? carrier.name : carrierIdentifier;
     };
 
-    const getCarrierType = (carrierIdentifier) => {
-        if (!carrierIdentifier) return 'customer_direct';
-        const identifier = carrierIdentifier.toUpperCase();
-        const carrier = carriers.find(c =>
-            c.scac_code?.toUpperCase() === identifier ||
-            c.name?.toUpperCase() === identifier
-        );
-        return carrier?.carrier_type || 'customer_direct';
-    };
-
     if (!strategySummary || !strategySummary.carrier_breakdown) {
         return null;
     }
 
-    const brokerageSpend = strategySummary.carrier_breakdown?.reduce((sum, item) => {
-        const carrierType = getCarrierType(item.carrier);
-        return carrierType === 'brokerage' ? sum + (item.spend || 0) : sum;
-    }, 0) || 0;
-
-    const customerDirectSpend = strategySummary.carrier_breakdown?.reduce((sum, item) => {
-        const carrierType = getCarrierType(item.carrier);
-        return carrierType === 'customer_direct' ? sum + (item.spend || 0) : sum;
-    }, 0) || 0;
-
-    const totalSpend = strategySummary.total_spend || (brokerageSpend + customerDirectSpend);
-    const brokeragePercentage = totalSpend > 0 ? (brokerageSpend / totalSpend) * 100 : 0;
-    const customerDirectPercentage = totalSpend > 0 ? (customerDirectSpend / totalSpend) * 100 : 0;
+    const brokerageSpend = strategySummary.brokerage_spend || 0;
+    const customerDirectSpend = strategySummary.customer_direct_spend || 0;
+    const totalSpend = strategySummary.total_spend || 0;
+    const brokeragePercentage = strategySummary.brokerage_percentage || 0;
+    const customerDirectPercentage = strategySummary.customer_direct_percentage || 0;
 
     const ownershipTypeData = [
         { name: 'Brokerage', value: brokeragePercentage, spend: brokerageSpend },
@@ -1264,16 +1246,16 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                             <p className="text-sm font-medium sticky top-0 bg-white py-2">Carrier Distribution</p>
                             <div className="space-y-1">
                                 {strategySummary.carrier_breakdown?.slice(0, 10).map((item, idx) => {
-                                    const carrierType = getCarrierType(item.carrier);
+                                    const ownership = item.ownership || 'customer_direct';
                                     return (
                                         <div key={idx} className="flex items-center justify-between text-sm gap-2">
                                             <div className="flex items-center gap-2 min-w-0 flex-1">
                                                 <span className="text-slate-600 truncate">{getCarrierName(item.carrier)}</span>
                                                 <Badge
                                                     variant="outline"
-                                                    className={`text-xs shrink-0 ${carrierType === 'brokerage' ? 'bg-purple-100 text-purple-700 border-purple-300' : 'bg-slate-100 text-slate-700 border-slate-300'}`}
+                                                    className={`text-xs shrink-0 ${ownership === 'brokerage' ? 'bg-purple-100 text-purple-700 border-purple-300' : 'bg-slate-100 text-slate-700 border-slate-300'}`}
                                                 >
-                                                    {carrierType === 'brokerage' ? 'Brokerage' : 'Customer Direct'}
+                                                    {ownership === 'brokerage' ? 'Brokerage' : 'Customer Direct'}
                                                 </Badge>
                                             </div>
                                             <span className="font-medium shrink-0">{item.percentage}% ({item.shipments})</span>
