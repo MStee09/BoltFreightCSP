@@ -70,10 +70,17 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
 
             const txnDoc = documents[0];
 
-            const response = await fetch(txnDoc.file_path);
-            if (!response.ok) throw new Error('Failed to fetch document file');
+            const urlParts = txnDoc.file_path.split('/');
+            const bucketIndex = urlParts.findIndex(part => part === 'documents');
+            const filePath = urlParts.slice(bucketIndex + 1).join('/');
 
-            const fileText = await response.text();
+            const { data: fileData, error: downloadError } = await supabase.storage
+                .from('documents')
+                .download(filePath);
+
+            if (downloadError) throw new Error(`Failed to download file: ${downloadError.message}`);
+
+            const fileText = await fileData.text();
             const lines = fileText.trim().split('\n');
 
             if (lines.length < 2) {
