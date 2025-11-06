@@ -252,6 +252,32 @@ const UploadPanel = ({ cspEventId, customerId, onAnalysisComplete }) => {
         return data;
     };
 
+    const extractDateRangeFromData = (data, dateFields = ['ship_date', 'pickup_date', 'delivery_date', 'date']) => {
+        const dates = [];
+
+        data.forEach(row => {
+            for (const field of dateFields) {
+                if (row[field]) {
+                    const dateValue = new Date(row[field]);
+                    if (!isNaN(dateValue.getTime())) {
+                        dates.push(dateValue);
+                        break;
+                    }
+                }
+            }
+        });
+
+        if (dates.length === 0) return { min: null, max: null };
+
+        const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
+        const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
+
+        return {
+            min: minDate.toISOString().split('T')[0],
+            max: maxDate.toISOString().split('T')[0]
+        };
+    };
+
     const handleFileSelect = async (file, type) => {
         if (!file) return;
 
@@ -400,6 +426,9 @@ const UploadPanel = ({ cspEventId, customerId, onAnalysisComplete }) => {
             const txnText = await txnFile.text();
             const txnData = parseCSVWithMapping(txnText, txnMapping);
 
+            const dateRange = extractDateRangeFromData(txnData);
+            console.log('Extracted date range:', dateRange);
+
             let loData = [];
             if (loFile) {
                 const loText = await loFile.text();
@@ -426,6 +455,8 @@ const UploadPanel = ({ cspEventId, customerId, onAnalysisComplete }) => {
                     uploaded_by: user?.email || 'Unknown',
                     user_id: user?.id || '00000000-0000-0000-0000-000000000000',
                     ai_processing_status: 'processing',
+                    data_range_start: dateRange.min,
+                    data_range_end: dateRange.max,
                 });
 
                 if (loFile && loPath) {
@@ -443,6 +474,8 @@ const UploadPanel = ({ cspEventId, customerId, onAnalysisComplete }) => {
                         uploaded_by: user?.email || 'Unknown',
                         user_id: user?.id || '00000000-0000-0000-0000-000000000000',
                         ai_processing_status: 'processing',
+                        data_range_start: dateRange.min,
+                        data_range_end: dateRange.max,
                     });
                 }
             }
@@ -1690,12 +1723,25 @@ const DocumentsPanel = ({ cspEventId }) => {
                 </CardTitle>
                 <CardDescription>
                     Files uploaded and stored for this CSP event
-                    {cspEvent?.data_timeframe_months && (
-                        <span className="block mt-1 font-medium text-slate-700">
-                            📅 Data Range: {cspEvent.data_timeframe_months} month{cspEvent.data_timeframe_months > 1 ? 's' : ''} of shipment data
-                            {cspEvent.total_shipments && ` • ${cspEvent.total_shipments} shipments`}
-                        </span>
-                    )}
+                    {(() => {
+                        const txnDoc = documents.find(d => d.document_type === 'transaction_detail');
+                        if (txnDoc?.data_range_start && txnDoc?.data_range_end) {
+                            return (
+                                <span className="block mt-1 font-medium text-slate-700">
+                                    📅 Shipment Data: {new Date(txnDoc.data_range_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} - {new Date(txnDoc.data_range_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                    {cspEvent?.total_shipments && ` • ${cspEvent.total_shipments} shipments`}
+                                </span>
+                            );
+                        } else if (cspEvent?.data_timeframe_months) {
+                            return (
+                                <span className="block mt-1 font-medium text-slate-700">
+                                    📅 Data Range: {cspEvent.data_timeframe_months} month{cspEvent.data_timeframe_months > 1 ? 's' : ''} of shipment data
+                                    {cspEvent.total_shipments && ` • ${cspEvent.total_shipments} shipments`}
+                                </span>
+                            );
+                        }
+                        return null;
+                    })()}
                 </CardDescription>
             </CardHeader>
             <CardContent>
