@@ -176,6 +176,8 @@ Deno.serve(async (req: Request) => {
     let brokerageShipments = 0;
     let customerDirectSpend = 0;
     let customerDirectShipments = 0;
+    let earliestDate: Date | null = null;
+    let latestDate: Date | null = null;
 
     const classifyOwnership = (ownership: string): 'brokerage' | 'customer_direct' | null => {
       if (!ownership || ownership.trim() === '') {
@@ -204,6 +206,19 @@ Deno.serve(async (req: Request) => {
         const originCity = txn.origin_city || txn['Origin City'] || txn.OriginCity || '';
         const destCity = txn.dest_city || txn['Dest City'] || txn.DestCity || '';
         const lane = originCity && destCity ? `${originCity} → ${destCity}` : 'Unknown';
+
+        const shipDateRaw = txn.ship_date || txn['Ship Date'] || txn.ShipDate || txn.date || txn.Date || '';
+        if (shipDateRaw) {
+          const shipDate = new Date(shipDateRaw);
+          if (!isNaN(shipDate.getTime())) {
+            if (!earliestDate || shipDate < earliestDate) {
+              earliestDate = shipDate;
+            }
+            if (!latestDate || shipDate > latestDate) {
+              latestDate = shipDate;
+            }
+          }
+        }
 
         if (idx < 3) {
           console.log(`Row ${idx + 1}: carrier=${carrier}, ownership=${ownership}, type=${ownershipType}, cost=${cost}`);
@@ -424,6 +439,8 @@ Format the response in markdown with clear sections. Be specific with numbers an
       customer_direct_spend: customerDirectSpend,
       customer_direct_shipments: customerDirectShipments,
       customer_direct_percentage: customerDirectPercentage,
+      date_range_start: earliestDate?.toISOString() || null,
+      date_range_end: latestDate?.toISOString() || null,
       top_carriers: topCarriers,
       carrier_breakdown: carrierBreakdown,
       top_lanes: topLanes,

@@ -1774,12 +1774,12 @@ const DocumentsPanel = ({ cspEventId }) => {
                 <CardDescription>
                     Files uploaded and stored for this CSP event
                     {(() => {
-                        const txnDoc = documents.find(d => d.document_type === 'transaction_detail');
-                        if (txnDoc?.data_range_start && txnDoc?.data_range_end) {
+                        const strategySummary = cspEvent?.strategy_summary;
+                        if (strategySummary?.date_range_start && strategySummary?.date_range_end) {
                             return (
                                 <span className="block mt-1 font-medium text-slate-700">
-                                    📅 Shipment Data: {new Date(txnDoc.data_range_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} - {new Date(txnDoc.data_range_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                                    {cspEvent?.total_shipments && ` • ${cspEvent.total_shipments} shipments`}
+                                    📅 Data Range: {new Date(strategySummary.date_range_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })} - {new Date(strategySummary.date_range_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                    {strategySummary.shipment_count && ` • ${strategySummary.shipment_count.toLocaleString()} shipments`}
                                 </span>
                             );
                         } else if (cspEvent?.data_timeframe_months) {
