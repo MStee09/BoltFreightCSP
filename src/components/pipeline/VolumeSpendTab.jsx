@@ -105,15 +105,29 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                 h.toLowerCase().includes('ship')
             );
 
+            console.log('=== CSV PARSING DEBUG ===');
+            console.log('Headers:', headers);
+            console.log('Cost Column:', costIndex >= 0 ? `Index ${costIndex} - "${headers[costIndex]}"` : 'NOT FOUND');
+            console.log('Date Column:', dateIndex >= 0 ? `Index ${dateIndex} - "${headers[dateIndex]}"` : 'NOT FOUND');
+            console.log('Total Rows:', totalShipments);
+
             let totalSpend = 0;
             let dates = [];
+            let validCostCount = 0;
 
-            dataRows.forEach(row => {
+            dataRows.forEach((row, idx) => {
                 const cols = row.split(',').map(c => c.trim().replace(/^"|"$/g, ''));
 
                 if (costIndex >= 0 && cols[costIndex]) {
-                    const cost = parseFloat(cols[costIndex].replace(/[$,]/g, ''));
-                    if (!isNaN(cost)) totalSpend += cost;
+                    const originalValue = cols[costIndex];
+                    const cost = parseFloat(originalValue.replace(/[$,]/g, ''));
+                    if (!isNaN(cost)) {
+                        totalSpend += cost;
+                        validCostCount++;
+                        if (idx < 3) {
+                            console.log(`Row ${idx + 1}: "${originalValue}" → ${cost}`);
+                        }
+                    }
                 }
 
                 if (dateIndex >= 0 && cols[dateIndex]) {
@@ -122,6 +136,9 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                     if (!isNaN(date.getTime())) dates.push(date);
                 }
             });
+
+            console.log('Total Spend Sum:', totalSpend);
+            console.log('Valid Cost Count:', validCostCount);
 
             dates.sort((a, b) => a - b);
             const startDate = dates.length > 0 ? dates[0] : null;
@@ -134,11 +151,19 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                 timeframeMonths = Math.max(1, Math.round(diffDays / 30));
             }
 
+            console.log('Date Range:', startDate, 'to', endDate);
+            console.log('Timeframe:', timeframeMonths, 'months');
+
             const avgCostPerShipment = totalShipments > 0 ? totalSpend / totalShipments : 0;
             const monthlyShipments = timeframeMonths > 0 ? Math.round(totalShipments / timeframeMonths) : 0;
             const annualShipments = Math.round((totalShipments / timeframeMonths) * 12);
-            const annualSpend = Math.round(avgCostPerShipment * annualShipments);
-            const monthlySpend = Math.round(annualSpend / 12);
+            const annualSpend = avgCostPerShipment * annualShipments;
+            const monthlySpend = annualSpend / 12;
+
+            console.log('Avg Cost Per Shipment:', avgCostPerShipment);
+            console.log('Annual Shipments:', annualShipments);
+            console.log('Annual Spend:', annualSpend);
+            console.log('Monthly Spend:', monthlySpend);
 
             const calculations = {
                 total_shipments: totalShipments,
@@ -146,8 +171,8 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                 data_timeframe_months: timeframeMonths,
                 data_start_date: startDate ? format(startDate, 'yyyy-MM-dd') : null,
                 data_end_date: endDate ? format(endDate, 'yyyy-MM-dd') : null,
-                projected_monthly_spend: monthlySpend,
-                projected_annual_spend: annualSpend,
+                projected_monthly_spend: Math.round(monthlySpend * 100) / 100,
+                projected_annual_spend: Math.round(annualSpend * 100) / 100,
                 avg_cost_per_shipment: Math.round(avgCostPerShipment * 100) / 100
             };
 
