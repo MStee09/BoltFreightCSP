@@ -49,9 +49,8 @@ export default function CustomersPage() {
     });
   }, [customers, tariffs, cspEvents, tasks, interactions]);
 
-  const filteredCustomers = customerData.filter(c => 
-    c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    c.account_owner?.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredCustomers = customerData.filter(c =>
+    c.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
   
   const handleRowClick = (customerId) => {
@@ -99,12 +98,11 @@ export default function CustomersPage() {
                   <TableHead>Usage %</TableHead>
                   <TableHead>Margin Trend</TableHead>
                   <TableHead>Last Touch</TableHead>
-                  <TableHead>Owner</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading ? Array(8).fill(0).map((_, i) => (
-                  <TableRow key={i}><TableCell colSpan={9}><Skeleton className="h-6 w-full" /></TableCell></TableRow>
+                  <TableRow key={i}><TableCell colSpan={8}><Skeleton className="h-6 w-full" /></TableCell></TableRow>
                 )) : filteredCustomers.map(customer => {
                   const segmentColors = {
                     'Enterprise': 'bg-purple-100 text-purple-700 border-purple-200',
@@ -169,7 +167,6 @@ export default function CustomersPage() {
                         {customer.marginTrend.toFixed(1)}%
                       </TableCell>
                       <TableCell>{customer.lastTouchDate}</TableCell>
-                      <TableCell>{customer.account_owner}</TableCell>
                     </TableRow>
                   );
                 })}

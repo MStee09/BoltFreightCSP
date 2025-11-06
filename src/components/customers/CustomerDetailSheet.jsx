@@ -120,7 +120,7 @@ export default function CustomerDetailSheet({ customerId, isOpen, onOpenChange }
                             <div className="flex items-start justify-between">
                                 <div>
                                     <SheetTitle className="text-2xl font-bold text-slate-900">{customer.name}</SheetTitle>
-                                    <SheetDescription>Owner: {customer.account_owner} • Segment: <span className="capitalize">{customer.segment}</span></SheetDescription>
+                                    <SheetDescription>Segment: <span className="capitalize">{customer.segment}</span></SheetDescription>
                                 </div>
                                 <div className="flex gap-2">
                                     <Button

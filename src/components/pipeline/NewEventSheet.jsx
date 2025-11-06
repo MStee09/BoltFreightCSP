@@ -33,7 +33,6 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers: custome
     const [showNewCustomerDialog, setShowNewCustomerDialog] = useState(false);
     const [newCustomer, setNewCustomer] = useState({
         name: '',
-        account_owner: user?.email || '',
         csp_strategy: '',
         status: 'active',
         notes: ''
@@ -211,10 +210,10 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers: custome
     });
 
     const handleSubmit = () => {
-        if (!newEvent.title || !newEvent.customer_id) {
+        if (!newEvent.title || !newEvent.customer_id || !newEvent.assigned_to) {
             toast({
                 title: "Validation Error",
-                description: "Please fill in the event title and select a customer.",
+                description: "Please fill in the event title, select a customer, and assign an owner.",
                 variant: "destructive",
             });
             return;
@@ -329,8 +328,8 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers: custome
                         </Select>
                     </div>
                     <div className="space-y-2">
-                        <Label htmlFor="assigned_to">Assigned To</Label>
-                        <Select onValueChange={value => handleValueChange('assigned_to', value)} value={newEvent.assigned_to}>
+                        <Label htmlFor="assigned_to">Assigned To *</Label>
+                        <Select onValueChange={value => handleValueChange('assigned_to', value)} value={newEvent.assigned_to} required>
                             <SelectTrigger id="assigned_to">
                                 <SelectValue placeholder="Select a user" />
                             </SelectTrigger>
@@ -424,7 +423,7 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers: custome
                 </ScrollArea>
                 <SheetFooter className="mt-4">
                     <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-                    <Button onClick={handleSubmit} disabled={isLoading || !newEvent.title || !newEvent.customer_id}>
+                    <Button onClick={handleSubmit} disabled={isLoading || !newEvent.title || !newEvent.customer_id || !newEvent.assigned_to}>
                         {isLoading ? 'Creating...' : 'Create Event'}
                     </Button>
                 </SheetFooter>
@@ -444,15 +443,6 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers: custome
                                 value={newCustomer.name}
                                 onChange={e => setNewCustomer(prev => ({ ...prev, name: e.target.value }))}
                                 placeholder="e.g., Acme Corporation"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="account_owner">Account Owner</Label>
-                            <Input
-                                id="account_owner"
-                                value={newCustomer.account_owner}
-                                onChange={e => setNewCustomer(prev => ({ ...prev, account_owner: e.target.value }))}
-                                placeholder="Account owner email"
                             />
                         </div>
                         <div className="space-y-2">

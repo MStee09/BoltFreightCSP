@@ -20,7 +20,6 @@ export default function EditCustomerDialog({ customer, isOpen, onOpenChange }) {
     const isCreating = !customer;
     const [formData, setFormData] = useState({
         name: '',
-        account_owner: '',
         segment: 'Mid-Market',
         status: 'active',
         annual_revenue: '',
@@ -36,7 +35,6 @@ export default function EditCustomerDialog({ customer, isOpen, onOpenChange }) {
         if (customer) {
             setFormData({
                 name: customer.name || '',
-                account_owner: customer.account_owner || '',
                 segment: customer.segment || 'Mid-Market',
                 status: customer.status || 'active',
                 annual_revenue: customer.annual_revenue || '',
@@ -154,24 +152,14 @@ export default function EditCustomerDialog({ customer, isOpen, onOpenChange }) {
                             />
                         </div>
 
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="account_owner">Account Owner</Label>
-                                <Input
-                                    id="account_owner"
-                                    value={formData.account_owner}
-                                    onChange={(e) => handleChange('account_owner', e.target.value)}
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="annual_revenue">Annual Revenue ($)</Label>
-                                <Input
-                                    id="annual_revenue"
-                                    type="number"
-                                    value={formData.annual_revenue}
-                                    onChange={(e) => handleChange('annual_revenue', e.target.value)}
-                                />
-                            </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="annual_revenue">Annual Revenue ($)</Label>
+                            <Input
+                                id="annual_revenue"
+                                type="number"
+                                value={formData.annual_revenue}
+                                onChange={(e) => handleChange('annual_revenue', e.target.value)}
+                            />
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">

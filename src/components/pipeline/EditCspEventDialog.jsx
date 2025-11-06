@@ -247,10 +247,11 @@ export default function EditCspEventDialog({ isOpen, onOpenChange, eventId }) {
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="assigned_to">Assigned To</Label>
+                            <Label htmlFor="assigned_to">Assigned To *</Label>
                             <Select
                                 value={formData.assigned_to}
                                 onValueChange={(value) => handleValueChange('assigned_to', value)}
+                                required
                             >
                                 <SelectTrigger id="assigned_to">
                                     <SelectValue placeholder="Select a user" />

@@ -76,10 +76,6 @@ export default function CustomerOverviewTab({ customer }) {
                 <CardContent className="space-y-3">
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <span className="text-sm text-slate-500">Account Owner</span>
-                            <p className="text-sm font-medium text-slate-900">{customer.account_owner || 'Not assigned'}</p>
-                        </div>
-                        <div>
                             <span className="text-sm text-slate-500">Revenue Tier</span>
                             <div className="mt-1">
                                 <Badge variant="outline" className={`${segmentColors[customer.segment] || 'bg-slate-100 text-slate-700'} font-medium`}>
