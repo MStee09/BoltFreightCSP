@@ -94,12 +94,19 @@ Deno.serve(async (req: Request) => {
       }
 
       const credentials = oauthCreds.setting_value;
+      const clientId = credentials.client_id ?? '';
+      const clientSecret = credentials.client_secret ?? '';
+
+      if (!clientId || !clientSecret) {
+        throw new Error('Invalid OAuth credentials. Please reconfigure in Settings.');
+      }
+
       const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
-          client_id: credentials.client_id,
-          client_secret: credentials.client_secret,
+          client_id: clientId,
+          client_secret: clientSecret,
           refresh_token: gmailTokens.refresh_token,
           grant_type: 'refresh_token',
         }),
@@ -279,7 +286,7 @@ Deno.serve(async (req: Request) => {
       emailBody
     ].join('\r\n');
 
-    const encodedMessage = btoa(emailContent)
+    const encodedMessage = btoa(unescape(encodeURIComponent(emailContent)))
       .replace(/\+/g, '-')
       .replace(/\//g, '_')
       .replace(/=+$/, '');
@@ -296,9 +303,14 @@ Deno.serve(async (req: Request) => {
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      console.error('Gmail API error:', errorData);
-      throw new Error(`Failed to send email: ${errorData.error?.message || 'Unknown error'}`);
+      const errorText = await response.text();
+      console.error('Gmail API error:', errorText);
+
+      if (response.status === 401) {
+        throw new Error('Gmail authentication failed. Please reconnect your Gmail account in Settings.');
+      }
+
+      throw new Error(`Failed to send email: ${errorText}`);
     }
 
     const info = await response.json();
