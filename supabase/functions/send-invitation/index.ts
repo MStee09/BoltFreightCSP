@@ -77,60 +77,76 @@ Deno.serve(async (req: Request) => {
     }
 
     let accessToken = gmailTokens.access_token;
-    const tokenExpiry = new Date(gmailTokens.token_expiry);
-    const now = new Date();
 
-    if (tokenExpiry <= now) {
-      console.log('Access token expired, refreshing...');
+    try {
+      const tokenExpiry = new Date(gmailTokens.token_expiry);
+      const now = new Date();
 
-      const { data: oauthCreds } = await supabaseClient
-        .from('system_settings')
-        .select('setting_value')
-        .eq('setting_key', 'gmail_oauth_credentials')
-        .maybeSingle();
+      if (tokenExpiry <= now) {
+        console.log('Access token expired, refreshing...');
 
-      if (!oauthCreds?.setting_value) {
-        throw new Error('OAuth credentials not configured');
+        const { data: oauthCreds, error: credError } = await supabaseClient
+          .from('system_settings')
+          .select('setting_value')
+          .eq('setting_key', 'gmail_oauth_credentials')
+          .maybeSingle();
+
+        if (credError) {
+          console.error('Error fetching OAuth credentials:', credError);
+          throw new Error('Failed to fetch OAuth credentials');
+        }
+
+        if (!oauthCreds?.setting_value) {
+          throw new Error('OAuth credentials not configured in system settings');
+        }
+
+        const credentials = oauthCreds.setting_value;
+        const clientId = credentials.client_id ?? '';
+        const clientSecret = credentials.client_secret ?? '';
+
+        if (!clientId || !clientSecret) {
+          throw new Error('Invalid OAuth credentials. Missing client_id or client_secret.');
+        }
+
+        if (!gmailTokens.refresh_token) {
+          throw new Error('No refresh token available. Please reconnect your Gmail account.');
+        }
+
+        console.log('Attempting token refresh...');
+        const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            client_id: clientId,
+            client_secret: clientSecret,
+            refresh_token: gmailTokens.refresh_token,
+            grant_type: 'refresh_token',
+          }),
+        });
+
+        if (!tokenResponse.ok) {
+          const errorData = await tokenResponse.json().catch(() => ({}));
+          console.error('Token refresh failed:', errorData);
+          throw new Error(`Failed to refresh access token: ${errorData.error || 'Unknown error'}. Please reconnect your Gmail account.`);
+        }
+
+        const tokenData = await tokenResponse.json();
+        accessToken = tokenData.access_token;
+        const newExpiry = new Date(Date.now() + (tokenData.expires_in || 3600) * 1000);
+
+        await supabaseClient
+          .from('user_gmail_tokens')
+          .update({
+            access_token: tokenData.access_token,
+            token_expiry: newExpiry.toISOString(),
+          })
+          .eq('user_id', user.id);
+
+        console.log('Token refreshed successfully');
       }
-
-      const credentials = oauthCreds.setting_value;
-      const clientId = credentials.client_id ?? '';
-      const clientSecret = credentials.client_secret ?? '';
-
-      if (!clientId || !clientSecret) {
-        throw new Error('Invalid OAuth credentials. Please reconfigure in Settings.');
-      }
-
-      const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          client_id: clientId,
-          client_secret: clientSecret,
-          refresh_token: gmailTokens.refresh_token,
-          grant_type: 'refresh_token',
-        }),
-      });
-
-      if (!tokenResponse.ok) {
-        const errorData = await tokenResponse.json();
-        console.error('Token refresh failed:', errorData);
-        throw new Error('Failed to refresh access token. Please reconnect your Gmail account.');
-      }
-
-      const tokenData = await tokenResponse.json();
-      accessToken = tokenData.access_token;
-      const newExpiry = new Date(Date.now() + tokenData.expires_in * 1000);
-
-      await supabaseClient
-        .from('user_gmail_tokens')
-        .update({
-          access_token: tokenData.access_token,
-          token_expiry: newExpiry.toISOString(),
-        })
-        .eq('user_id', user.id);
-
-      console.log('Token refreshed successfully');
+    } catch (refreshError) {
+      console.error('Token refresh error:', refreshError);
+      throw new Error(`Token refresh failed: ${refreshError.message}`);
     }
 
     const { data: userProfileEmail } = await supabaseClient
