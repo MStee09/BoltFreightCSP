@@ -73,9 +73,16 @@ export function GmailSetupSimple() {
       return;
     }
 
-    const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+    const appUrl = import.meta.env.VITE_APP_URL || 'https://freight-csp-tool-p8de.bolt.host';
     const redirectUri = `${appUrl}/gmail-callback`;
     const scope = 'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email';
+
+    console.log('OAuth Debug:', {
+      appUrl,
+      redirectUri,
+      windowOrigin: window.location.origin,
+      envVar: import.meta.env.VITE_APP_URL
+    });
 
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
       `client_id=${googleClientId}&` +

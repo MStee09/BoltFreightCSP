@@ -20,7 +20,7 @@ export function OAuthCredentials() {
   const [currentUrl, setCurrentUrl] = useState('');
 
   useEffect(() => {
-    const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+    const appUrl = import.meta.env.VITE_APP_URL || 'https://freight-csp-tool-p8de.bolt.host';
     setCurrentUrl(appUrl);
     loadCredentials();
   }, []);
