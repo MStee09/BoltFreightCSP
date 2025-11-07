@@ -1133,11 +1133,23 @@ const DataVisualizationPanel = ({ cspEvent }) => {
 
     const top10Carriers = strategySummary.carrier_breakdown?.slice(0, 10) || [];
 
-    const carrierPieData = top10Carriers.slice(0, 6).map((item, idx) => ({
-        name: getCarrierName(item.carrier),
-        value: item.percentage,
-        shipments: item.shipments,
-    }));
+    const top5Carriers = top10Carriers.slice(0, 5);
+    const restCarriers = strategySummary.carrier_breakdown?.slice(5) || [];
+    const othersTotal = restCarriers.reduce((sum, item) => sum + item.percentage, 0);
+    const othersShipments = restCarriers.reduce((sum, item) => sum + item.shipments, 0);
+
+    const carrierPieData = [
+        ...top5Carriers.map((item, idx) => ({
+            name: getCarrierName(item.carrier),
+            value: item.percentage,
+            shipments: item.shipments,
+        })),
+        ...(othersTotal > 0 ? [{
+            name: 'Others',
+            value: othersTotal,
+            shipments: othersShipments,
+        }] : [])
+    ];
 
     const carrierBarData = top10Carriers.slice(0, 5).map(item => {
         const carrierName = getCarrierName(item.carrier);
@@ -1258,10 +1270,10 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                                         <Pie
                                             data={ownershipTypeData}
                                             cx="50%"
-                                            cy="50%"
+                                            cy="45%"
                                             labelLine={false}
-                                            label={({ name, value }) => `${name}: ${value.toFixed(1)}%`}
-                                            outerRadius={80}
+                                            label={false}
+                                            outerRadius={70}
                                             fill="#8884d8"
                                             dataKey="value"
                                         >
@@ -1273,6 +1285,12 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                                                 `${value.toFixed(1)}% ($${Math.round(props.payload.spend).toLocaleString()})`,
                                                 name
                                             ]}
+                                        />
+                                        <Legend
+                                            verticalAlign="bottom"
+                                            height={60}
+                                            formatter={(value, entry) => `${value}: ${entry.payload.value.toFixed(1)}%`}
+                                            wrapperStyle={{ fontSize: '13px' }}
                                         />
                                     </PieChart>
                                 </ResponsiveContainer>
@@ -1304,10 +1322,10 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                                                 <Pie
                                                     data={carrierPieData}
                                                     cx="50%"
-                                                    cy="50%"
-                                                    labelLine={true}
-                                                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                                                    outerRadius={120}
+                                                    cy="45%"
+                                                    labelLine={false}
+                                                    label={false}
+                                                    outerRadius={100}
                                                     fill="#8884d8"
                                                     dataKey="value"
                                                     animationDuration={800}
@@ -1318,10 +1336,16 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                                                 </Pie>
                                                 <Tooltip
                                                     formatter={(value, name, props) => [
-                                                        `${value}% (${props.payload.shipments.toLocaleString()} shipments)`,
-                                                        'Share'
+                                                        `${value.toFixed(1)}% (${props.payload.shipments.toLocaleString()} shipments)`,
+                                                        props.payload.name
                                                     ]}
                                                     contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                                                />
+                                                <Legend
+                                                    verticalAlign="bottom"
+                                                    height={80}
+                                                    formatter={(value, entry) => `${value}: ${entry.payload.value.toFixed(1)}%`}
+                                                    wrapperStyle={{ fontSize: '13px', paddingTop: '20px' }}
                                                 />
                                             </PieChart>
                                         </ResponsiveContainer>
@@ -1604,10 +1628,10 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                                                 <Pie
                                                     data={savingsData}
                                                     cx="50%"
-                                                    cy="50%"
-                                                    labelLine={true}
-                                                    label={({ carrier, savings, percent }) => `${carrier}: $${Math.round(savings / 1000)}K`}
-                                                    outerRadius={120}
+                                                    cy="45%"
+                                                    labelLine={false}
+                                                    label={false}
+                                                    outerRadius={100}
                                                     fill="#8884d8"
                                                     dataKey="savings"
                                                     animationDuration={800}
@@ -1624,14 +1648,15 @@ const DataVisualizationPanel = ({ cspEvent }) => {
                                                         boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
                                                     }}
                                                     formatter={(value, name, props) => [
-                                                        `$${value.toLocaleString()}`,
+                                                        `$${value.toLocaleString()} (${props.payload.opportunities} opportunities)`,
                                                         props.payload.carrier
                                                     ]}
                                                 />
                                                 <Legend
                                                     verticalAlign="bottom"
-                                                    height={60}
-                                                    formatter={(value, entry) => `${entry.payload.carrier}`}
+                                                    height={80}
+                                                    formatter={(value, entry) => `${entry.payload.carrier}: $${Math.round(entry.payload.savings / 1000)}K`}
+                                                    wrapperStyle={{ fontSize: '13px', paddingTop: '20px' }}
                                                 />
                                             </PieChart>
                                         </ResponsiveContainer>
