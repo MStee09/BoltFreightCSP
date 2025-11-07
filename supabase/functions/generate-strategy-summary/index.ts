@@ -390,11 +390,26 @@ Deno.serve(async (req: Request) => {
         lostOpportunityTotal
       };
 
-      // Fetch custom strategy instructions from database
+      // Fetch custom strategy instructions and knowledge base from database
       const { data: aiSettings } = await supabase
         .from('ai_chatbot_settings')
         .select('strategy_instructions')
         .maybeSingle();
+
+      const { data: knowledgeDocs } = await supabase
+        .from('knowledge_base_documents')
+        .select('title, content')
+        .eq('is_active', true)
+        .order('created_at', { ascending: false });
+
+      let knowledgeBaseContent = '';
+      if (knowledgeDocs && knowledgeDocs.length > 0) {
+        knowledgeBaseContent = '\n\n**IMPORTANT: Company-Specific Knowledge Base (Use as Primary Reference)**\n\n';
+        knowledgeBaseContent += 'The following documents contain company-specific policies, standards, and guidelines. Use this information when making strategic recommendations.\n\n';
+        knowledgeBaseContent += knowledgeDocs.map(doc =>
+          `### ${doc.title}\n${doc.content}`
+        ).join('\n\n');
+      }
 
       const customInstructions = aiSettings?.strategy_instructions?.trim();
 
@@ -412,6 +427,8 @@ Format the response in markdown with clear sections. Be specific with numbers an
       const instructions = customInstructions || defaultInstructions;
 
       const prompt = `${instructions}
+
+${knowledgeBaseContent}
 
 Data:
 ${JSON.stringify(dataContext, null, 2)}`;
