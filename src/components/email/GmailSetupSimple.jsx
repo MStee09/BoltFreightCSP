@@ -98,9 +98,24 @@ export function GmailSetupSimple() {
       return;
     }
 
+    console.log('Setting localStorage with credentials');
+
     // Store credentials temporarily in localStorage for the callback page
     // This allows the popup to access them even without auth session
     localStorage.setItem('gmail_oauth_temp', JSON.stringify(credData.setting_value));
+
+    // Verify it was set
+    const verify = localStorage.getItem('gmail_oauth_temp');
+    console.log('Verified localStorage:', verify ? 'SET' : 'NOT SET');
+
+    // Also get the current session to pass to callback
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      localStorage.setItem('gmail_auth_session', JSON.stringify({
+        access_token: session.access_token,
+        refresh_token: session.refresh_token
+      }));
+    }
 
     const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
     const redirectUri = `${appUrl}/gmail-callback`;

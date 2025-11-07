@@ -37,21 +37,45 @@ export default function GmailCallback() {
 
       // Try to get credentials from localStorage first (for popup scenario)
       const tempCreds = localStorage.getItem('gmail_oauth_temp');
+      console.log('localStorage check:', {
+        tempCreds: tempCreds ? 'FOUND' : 'NOT FOUND',
+        length: tempCreds?.length
+      });
+
       let client_id, client_secret;
 
       if (tempCreds) {
+        console.log('Using credentials from localStorage');
         const creds = JSON.parse(tempCreds);
         client_id = creds.client_id;
         client_secret = creds.client_secret;
         // Clean up temporary storage
         localStorage.removeItem('gmail_oauth_temp');
       } else {
+        console.log('Credentials not in localStorage, trying to restore session...');
+
+        // Try to restore the session from localStorage
+        const sessionData = localStorage.getItem('gmail_auth_session');
+        if (sessionData) {
+          const session = JSON.parse(sessionData);
+          await supabase.auth.setSession({
+            access_token: session.access_token,
+            refresh_token: session.refresh_token
+          });
+          localStorage.removeItem('gmail_auth_session');
+        }
+
         // Fallback to database (for non-popup scenario)
         const { data: credData, error: credError } = await supabase
           .from('system_settings')
           .select('setting_value')
           .eq('setting_key', 'gmail_oauth_credentials')
           .maybeSingle();
+
+        console.log('Database query result:', {
+          hasData: !!credData,
+          error: credError?.message
+        });
 
         if (credError) throw credError;
 
@@ -66,6 +90,8 @@ export default function GmailCallback() {
       if (!client_id || !client_secret) {
         throw new Error('OAuth credentials not configured');
       }
+
+      console.log('Credentials loaded successfully');
 
       setMessage('Exchanging authorization code...');
 
