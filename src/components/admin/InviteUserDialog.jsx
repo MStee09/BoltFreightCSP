@@ -108,10 +108,30 @@ export function InviteUserDialog({ open, onOpenChange, onInviteSent }) {
       });
 
       if (!emailResponse.ok) {
-        console.error('Failed to send invitation email, but invitation was created');
-      }
+        const errorData = await emailResponse.json().catch(() => ({}));
 
-      toast.success('Invitation sent successfully');
+        if (errorData.requiresGmailSetup) {
+          toast.error('Gmail not connected', {
+            description: 'Please connect your Gmail account in Settings to send invitation emails.',
+            duration: 6000,
+          });
+
+          await supabase
+            .from('user_invitations')
+            .update({ status: 'cancelled' })
+            .eq('email', email.toLowerCase())
+            .eq('token', token);
+
+          return;
+        }
+
+        toast.warning('Invitation created but email failed to send', {
+          description: 'The invitation link has been created. You can manually share the registration link or resend from the Users tab.',
+          duration: 6000,
+        });
+      } else {
+        toast.success('Invitation sent successfully');
+      }
       setEmail('');
       setRole('basic');
       onOpenChange(false);
