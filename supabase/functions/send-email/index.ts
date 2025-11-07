@@ -31,6 +31,84 @@ function generateThreadId(subject: string): string {
   return `${normalizedSubject}-${randomSuffix}`;
 }
 
+async function refreshAccessToken(refreshToken: string, clientId: string, clientSecret: string): Promise<string> {
+  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: 'refresh_token',
+    }),
+  });
+
+  if (!tokenResponse.ok) {
+    throw new Error('Failed to refresh access token');
+  }
+
+  const tokens = await tokenResponse.json();
+  return tokens.access_token;
+}
+
+async function sendViaGmailAPI(
+  accessToken: string,
+  fromEmail: string,
+  to: string[],
+  cc: string[],
+  subject: string,
+  body: string,
+  trackingCode: string,
+  inReplyTo?: string
+): Promise<string> {
+  const messageParts = [
+    `From: ${fromEmail}`,
+    `To: ${to.join(', ')}`,
+  ];
+
+  if (cc && cc.length > 0) {
+    messageParts.push(`Cc: ${cc.join(', ')}`);
+  }
+
+  messageParts.push(`Subject: ${subject}`);
+  messageParts.push(`X-CSP-Tracking-Code: ${trackingCode}`);
+
+  if (inReplyTo) {
+    messageParts.push(`In-Reply-To: ${inReplyTo}`);
+    messageParts.push(`References: ${inReplyTo}`);
+  }
+
+  messageParts.push('');
+  messageParts.push(body);
+
+  const message = messageParts.join('\r\n');
+  const encodedMessage = btoa(unescape(encodeURIComponent(message)))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+
+  const response = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      raw: encodedMessage,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Gmail API error: ${errorText}`);
+  }
+
+  const result = await response.json();
+  return result.id;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, {
@@ -58,13 +136,19 @@ Deno.serve(async (req: Request) => {
       throw new Error('Unauthorized');
     }
 
-    const { data: credentials, error: credError } = await supabaseClient
+    const { data: oauthTokens, error: oauthError } = await supabaseClient
+      .from('user_gmail_tokens')
+      .select('email_address, access_token, refresh_token, token_expiry')
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    const { data: appPasswordCreds, error: appPasswordError } = await supabaseClient
       .from('user_gmail_credentials')
       .select('email_address, app_password')
       .eq('user_id', user.id)
       .maybeSingle();
 
-    if (credError || !credentials) {
+    if (!oauthTokens && !appPasswordCreds) {
       throw new Error('Gmail not connected. Please connect in Settings.');
     }
 
@@ -82,36 +166,84 @@ Deno.serve(async (req: Request) => {
       threadId,
     } = requestData;
 
-    const nodemailer = await import('npm:nodemailer@6.9.7');
+    let messageId: string;
+    let fromEmail: string;
 
-    const transporter = nodemailer.default.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587,
-      secure: false,
-      auth: {
-        user: credentials.email_address,
-        pass: credentials.app_password,
-      },
-    });
+    if (oauthTokens) {
+      fromEmail = oauthTokens.email_address;
 
-    const mailOptions: any = {
-      from: credentials.email_address,
-      to: to.join(', '),
-      cc: cc && cc.length > 0 ? cc.join(', ') : undefined,
-      subject: subject,
-      text: body,
-      headers: {
-        'X-CSP-Tracking-Code': trackingCode,
-      },
-    };
+      const tokenExpiry = new Date(oauthTokens.token_expiry);
+      const now = new Date();
+      let accessToken = oauthTokens.access_token;
 
-    if (inReplyTo) {
-      mailOptions.inReplyTo = inReplyTo;
-      mailOptions.headers['In-Reply-To'] = inReplyTo;
-      mailOptions.headers['References'] = inReplyTo;
+      if (now >= tokenExpiry) {
+        const clientId = Deno.env.get('GOOGLE_CLIENT_ID') ?? '';
+        const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET') ?? '';
+
+        accessToken = await refreshAccessToken(
+          oauthTokens.refresh_token,
+          clientId,
+          clientSecret
+        );
+
+        const newExpiry = new Date();
+        newExpiry.setHours(newExpiry.getHours() + 1);
+
+        await supabaseClient
+          .from('user_gmail_tokens')
+          .update({
+            access_token: accessToken,
+            token_expiry: newExpiry.toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq('user_id', user.id);
+      }
+
+      messageId = await sendViaGmailAPI(
+        accessToken,
+        fromEmail,
+        to,
+        cc,
+        subject,
+        body,
+        trackingCode,
+        inReplyTo
+      );
+    } else {
+      fromEmail = appPasswordCreds.email_address;
+
+      const nodemailer = await import('npm:nodemailer@6.9.7');
+
+      const transporter = nodemailer.default.createTransport({
+        host: 'smtp.gmail.com',
+        port: 587,
+        secure: false,
+        auth: {
+          user: appPasswordCreds.email_address,
+          pass: appPasswordCreds.app_password,
+        },
+      });
+
+      const mailOptions: any = {
+        from: appPasswordCreds.email_address,
+        to: to.join(', '),
+        cc: cc && cc.length > 0 ? cc.join(', ') : undefined,
+        subject: subject,
+        text: body,
+        headers: {
+          'X-CSP-Tracking-Code': trackingCode,
+        },
+      };
+
+      if (inReplyTo) {
+        mailOptions.inReplyTo = inReplyTo;
+        mailOptions.headers['In-Reply-To'] = inReplyTo;
+        mailOptions.headers['References'] = inReplyTo;
+      }
+
+      const info = await transporter.sendMail(mailOptions);
+      messageId = info.messageId;
     }
-
-    const info = await transporter.sendMail(mailOptions);
 
     const generatedThreadId = threadId || generateThreadId(subject);
 
@@ -119,15 +251,15 @@ Deno.serve(async (req: Request) => {
       .from('email_activities')
       .insert({
         tracking_code: trackingCode,
-        message_id: info.messageId,
+        message_id: messageId,
         thread_id: generatedThreadId,
         in_reply_to_message_id: inReplyTo || null,
         csp_event_id: cspEventId || null,
         customer_id: customerId || null,
         carrier_id: carrierId || null,
         subject,
-        from_email: credentials.email_address,
-        from_name: user.user_metadata?.full_name || credentials.email_address,
+        from_email: fromEmail,
+        from_name: user.user_metadata?.full_name || fromEmail,
         to_emails: to,
         cc_emails: cc || [],
         body_text: body,
@@ -143,7 +275,7 @@ Deno.serve(async (req: Request) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, messageId: info.messageId }),
+      JSON.stringify({ success: true, messageId }),
       {
         headers: {
           ...corsHeaders,

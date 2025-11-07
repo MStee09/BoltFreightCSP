@@ -5,8 +5,8 @@ import { RefreshCw, Check, X } from 'lucide-react';
 import { supabase } from '@/api/supabaseClient';
 import { toast } from 'sonner';
 
-const GMAIL_CLIENT_ID = import.meta.env.VITE_GMAIL_CLIENT_ID;
-const GMAIL_CLIENT_SECRET = import.meta.env.VITE_GMAIL_CLIENT_SECRET;
+const GMAIL_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+const GMAIL_CLIENT_SECRET = import.meta.env.VITE_GOOGLE_CLIENT_SECRET;
 
 export default function GmailCallback() {
   const navigate = useNavigate();
