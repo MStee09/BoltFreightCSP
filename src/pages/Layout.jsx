@@ -190,9 +190,6 @@ export default function Layout({ children, currentPageName }) {
                     if (item.title === "Pipeline" && staleNegotiationsCount > 0) {
                       badgeCount = staleNegotiationsCount;
                       badgeVariant = "default";
-                    } else if (item.title === "Tariffs" && expiringTariffsCount > 0) {
-                      badgeCount = expiringTariffsCount;
-                      badgeVariant = "destructive";
                     }
 
                     return (
