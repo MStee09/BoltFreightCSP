@@ -127,6 +127,19 @@ export function GmailSetupSimple() {
       clientId: googleClientId
     });
 
+    // Show helpful message about adding redirect URI
+    console.info(
+      '%cIMPORTANT: Add this redirect URI to Google Cloud Console:',
+      'color: #ff9800; font-size: 14px; font-weight: bold'
+    );
+    console.info(
+      '%c' + redirectUri,
+      'color: #4caf50; font-size: 12px; background: #f5f5f5; padding: 4px'
+    );
+    console.info(
+      'Go to: https://console.cloud.google.com/apis/credentials\nClick your OAuth 2.0 Client ID → Add URI under "Authorized redirect URIs"'
+    );
+
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
       `client_id=${googleClientId}&` +
       `redirect_uri=${encodeURIComponent(redirectUri)}&` +
