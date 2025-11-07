@@ -20,6 +20,7 @@ export function AISettings() {
   });
 
   const [instructions, setInstructions] = useState('');
+  const [strategyInstructions, setStrategyInstructions] = useState('');
   const [temperature, setTemperature] = useState([0.7]);
   const [maxTokens, setMaxTokens] = useState([1000]);
   const [hasChanges, setHasChanges] = useState(false);
@@ -27,6 +28,7 @@ export function AISettings() {
   useState(() => {
     if (settings) {
       setInstructions(settings.instructions || '');
+      setStrategyInstructions(settings.strategy_instructions || '');
       setTemperature([settings.temperature || 0.7]);
       setMaxTokens([settings.max_tokens || 1000]);
     }
@@ -81,6 +83,7 @@ export function AISettings() {
   const handleSave = () => {
     saveMutation.mutate({
       instructions: instructions || 'You are a helpful logistics and procurement analyst. Provide clear, actionable insights based on the shipment data.',
+      strategy_instructions: strategyInstructions || '',
       knowledge_base: '',
       temperature: temperature[0],
       max_tokens: maxTokens[0],
@@ -90,6 +93,7 @@ export function AISettings() {
   const handleReset = () => {
     if (confirm('Are you sure you want to reset all AI settings to defaults?')) {
       resetMutation.mutate();
+      setStrategyInstructions('');
     }
   };
 
@@ -150,6 +154,40 @@ export function AISettings() {
                 <p className="text-xs text-blue-900">
                   <strong>Tips:</strong> Specify the role (e.g., "senior analyst"), tone (e.g., "direct and concise"),
                   and focus areas (e.g., "cost savings and risk mitigation"). The more specific you are, the better the responses.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <Label htmlFor="strategyInstructions" className="text-base font-semibold">
+              Strategy Summary Instructions
+            </Label>
+            <p className="text-sm text-muted-foreground">
+              Customize how the AI generates strategy summaries for CSP events. These instructions guide the analysis of shipment data and carrier performance.
+            </p>
+            <Textarea
+              id="strategyInstructions"
+              placeholder="You are an expert logistics and procurement analyst. Analyze this shipment data and provide a comprehensive strategic summary for a CSP (Carrier Service Provider) bid.
+
+Provide a detailed analysis covering:
+1. **Executive Summary** - Key metrics and overall health
+2. **Carrier Performance Analysis** - Spend concentration, diversification opportunities
+3. **Savings Opportunities** - Specific carriers and lanes with the highest savings potential
+4. **Strategic Recommendations** - 3-5 actionable recommendations prioritized by impact
+5. **Risk Assessment** - Carrier concentration risks and market vulnerabilities
+
+Format the response in markdown with clear sections. Be specific with numbers and percentages. Focus on actionable insights."
+              value={strategyInstructions}
+              onChange={(e) => handleInputChange(setStrategyInstructions)(e.target.value)}
+              rows={10}
+              className="font-mono text-sm"
+            />
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <div className="flex gap-2">
+                <Info className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-amber-900">
+                  <strong>Note:</strong> If left empty, the default strategy analysis template will be used. This template focuses on executive summaries, carrier performance, savings opportunities, strategic recommendations, and risk assessment.
                 </p>
               </div>
             </div>

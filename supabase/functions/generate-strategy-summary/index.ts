@@ -390,10 +390,15 @@ Deno.serve(async (req: Request) => {
         lostOpportunityTotal
       };
 
-      const prompt = `You are an expert logistics and procurement analyst. Analyze this shipment data and provide a comprehensive strategic summary for a CSP (Carrier Service Provider) bid.
+      // Fetch custom strategy instructions from database
+      const { data: aiSettings } = await supabase
+        .from('ai_chatbot_settings')
+        .select('strategy_instructions')
+        .maybeSingle();
 
-Data:
-${JSON.stringify(dataContext, null, 2)}
+      const customInstructions = aiSettings?.strategy_instructions?.trim();
+
+      const defaultInstructions = `You are an expert logistics and procurement analyst. Analyze this shipment data and provide a comprehensive strategic summary for a CSP (Carrier Service Provider) bid.
 
 Provide a detailed analysis covering:
 1. **Executive Summary** - Key metrics and overall health
@@ -403,6 +408,13 @@ Provide a detailed analysis covering:
 5. **Risk Assessment** - Carrier concentration risks and market vulnerabilities
 
 Format the response in markdown with clear sections. Be specific with numbers and percentages. Focus on actionable insights.`;
+
+      const instructions = customInstructions || defaultInstructions;
+
+      const prompt = `${instructions}
+
+Data:
+${JSON.stringify(dataContext, null, 2)}`;
 
       try {
         const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
