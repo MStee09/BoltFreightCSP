@@ -4,14 +4,19 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Mail, ArrowUpRight, ArrowDownLeft, Users, Clock, ChevronDown, ChevronUp } from 'lucide-react';
+import { Mail, ArrowUpRight, ArrowDownLeft, Users, Clock, ChevronDown, ChevronUp, Reply } from 'lucide-react';
 import { supabase } from '@/api/supabaseClient';
 import { formatDistanceToNow } from 'date-fns';
+import { EmailComposeDialog } from './EmailComposeDialog';
+import { useAuth } from '@/contexts/AuthContext';
 
-export function EmailTimeline({ customerId, carrierId, cspEventId }) {
+export function EmailTimeline({ customerId, carrierId, cspEventId, onComposeClick }) {
   const [emails, setEmails] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedEmails, setExpandedEmails] = useState(new Set());
+  const [replyToEmail, setReplyToEmail] = useState(null);
+  const { user } = useAuth();
+  const currentUserEmail = user?.email;
 
   useEffect(() => {
     fetchEmailActivities();
@@ -128,6 +133,14 @@ export function EmailTimeline({ customerId, carrierId, cspEventId }) {
     });
   };
 
+  const handleReply = (emailActivity) => {
+    setReplyToEmail(emailActivity);
+  };
+
+  const handleCloseReply = () => {
+    setReplyToEmail(null);
+  };
+
   const groupByThread = (emails) => {
     const threads = {};
 
@@ -187,6 +200,7 @@ export function EmailTimeline({ customerId, carrierId, cspEventId }) {
   const threads = groupByThread(emails);
 
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
@@ -343,6 +357,17 @@ export function EmailTimeline({ customerId, carrierId, cspEventId }) {
                             <div className="text-sm whitespace-pre-wrap bg-muted/30 p-3 rounded">
                               {email.body_text || 'No message content'}
                             </div>
+
+                            <div className="flex justify-end pt-2">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleReply(email)}
+                              >
+                                <Reply className="h-3 w-3 mr-2" />
+                                Reply
+                              </Button>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -357,5 +382,28 @@ export function EmailTimeline({ customerId, carrierId, cspEventId }) {
         </ScrollArea>
       </CardContent>
     </Card>
+
+    {replyToEmail && (() => {
+      const isFollowUp = replyToEmail.direction === 'outbound' ||
+                        replyToEmail.from_email === currentUserEmail;
+
+      return (
+        <EmailComposeDialog
+          open={!!replyToEmail}
+          onOpenChange={handleCloseReply}
+          cspEvent={replyToEmail.csp_event_id ? { id: replyToEmail.csp_event_id } : (cspEventId ? { id: cspEventId } : null)}
+          customer={replyToEmail.customer_id ? { id: replyToEmail.customer_id } : (customerId ? { id: customerId } : null)}
+          carrier={replyToEmail.carrier_id ? { id: replyToEmail.carrier_id } : (carrierId ? { id: carrierId } : null)}
+          defaultSubject={isFollowUp ? replyToEmail.subject : (
+            replyToEmail.subject?.startsWith('Re:') ? replyToEmail.subject : `Re: ${replyToEmail.subject}`
+          )}
+          defaultRecipients={isFollowUp ? replyToEmail.to_emails : [replyToEmail.from_email]}
+          defaultCc={isFollowUp ? (replyToEmail.cc_emails || []) : []}
+          inReplyTo={replyToEmail.message_id}
+          threadId={replyToEmail.thread_id}
+        />
+      );
+    })()}
+  </>
   );
 }
