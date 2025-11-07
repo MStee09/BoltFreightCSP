@@ -46,7 +46,8 @@ export default function GmailCallback() {
 
       setMessage('Exchanging authorization code...');
 
-      const redirectUri = `${window.location.origin}/gmail-callback`;
+      const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+      const redirectUri = `${appUrl}/gmail-callback`;
       const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: {
