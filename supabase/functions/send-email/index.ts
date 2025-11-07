@@ -177,8 +177,24 @@ Deno.serve(async (req: Request) => {
       let accessToken = oauthTokens.access_token;
 
       if (now >= tokenExpiry) {
-        const clientId = Deno.env.get('GOOGLE_CLIENT_ID') ?? '';
-        const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET') ?? '';
+        // Fetch OAuth credentials from database
+        const { data: settingsData, error: settingsError } = await supabaseClient
+          .from('system_settings')
+          .select('setting_value')
+          .eq('setting_key', 'gmail_oauth_credentials')
+          .maybeSingle();
+
+        if (settingsError || !settingsData?.setting_value) {
+          throw new Error('Gmail OAuth credentials not configured. Please configure in Settings → Integrations.');
+        }
+
+        const credentials = settingsData.setting_value;
+        const clientId = credentials.client_id ?? '';
+        const clientSecret = credentials.client_secret ?? '';
+
+        if (!clientId || !clientSecret) {
+          throw new Error('Invalid OAuth credentials. Please reconfigure in Settings → Integrations.');
+        }
 
         accessToken = await refreshAccessToken(
           oauthTokens.refresh_token,
