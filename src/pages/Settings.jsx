@@ -188,13 +188,15 @@ export default function Settings() {
 
         <TabsContent value="integrations" className="space-y-6 mt-6">
           {isAdmin && (
-            <div className="max-w-4xl">
-              <OAuthCredentials />
-            </div>
+            <>
+              <div className="max-w-4xl">
+                <OAuthCredentials />
+              </div>
+              <EmailSetupGuide />
+            </>
           )}
-          <EmailSetupGuide />
-          <div className="max-w-2xl mt-8">
-            <h3 className="text-lg font-semibold mb-4">Connect Your Gmail Account</h3>
+          <div className="max-w-2xl">
+            {!isAdmin && <h3 className="text-lg font-semibold mb-4">Connect Your Gmail Account</h3>}
             <GmailSetupSimple />
           </div>
         </TabsContent>
