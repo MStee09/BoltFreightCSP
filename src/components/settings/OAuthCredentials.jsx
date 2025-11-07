@@ -164,7 +164,7 @@ export function OAuthCredentials() {
             <div>
               <Label className="text-sm font-medium">Authorized JavaScript Origins</Label>
               <div className="mt-1 p-2 bg-white border rounded text-sm font-mono break-all">
-                {new URL(currentUrl).origin}
+                {currentUrl ? new URL(currentUrl).origin : 'Loading...'}
               </div>
               <p className="text-xs text-slate-500 mt-1">
                 Add this to your Google OAuth settings
@@ -174,7 +174,7 @@ export function OAuthCredentials() {
             <div>
               <Label className="text-sm font-medium">Authorized Redirect URIs</Label>
               <div className="mt-1 p-2 bg-white border rounded text-sm font-mono break-all">
-                {currentUrl}/gmail-callback
+                {currentUrl ? `${currentUrl}/gmail-callback` : 'Loading...'}
               </div>
               <p className="text-xs text-slate-500 mt-1">
                 Add this to your Google OAuth settings
