@@ -22,14 +22,23 @@ export default function GmailCallback() {
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get('code');
       const error = urlParams.get('error');
+      const errorDescription = urlParams.get('error_description');
 
-      console.log('Callback started:', { code: code?.substring(0, 10), error, isPopup });
+      console.log('Callback started:', {
+        code: code?.substring(0, 10),
+        error,
+        errorDescription,
+        fullUrl: window.location.href,
+        isPopup
+      });
 
       if (error) {
-        throw new Error('Gmail authorization was denied');
+        console.error('OAuth Error:', error, errorDescription);
+        throw new Error(`Gmail authorization failed: ${error}${errorDescription ? ` - ${errorDescription}` : ''}`);
       }
 
       if (!code) {
+        console.error('No code in URL. Full URL:', window.location.href);
         throw new Error('No authorization code received');
       }
 
