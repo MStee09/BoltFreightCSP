@@ -312,52 +312,30 @@ export function GmailSetupSimple() {
               </div>
             </div>
 
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg space-y-2">
-              <p className="text-xs font-medium text-red-900">WebContainer Limitation</p>
-              <p className="text-xs text-red-700">
-                Google OAuth doesn't work in WebContainer environments due to COEP (Cross-Origin-Embedder-Policy) restrictions.
-                The "refused to connect" error is a browser security limitation, not a configuration issue.
-              </p>
-              <div className="pt-2 space-y-1">
-                <p className="text-xs font-medium text-red-900">Solutions:</p>
-                <ul className="text-xs text-red-700 space-y-1 ml-4 list-disc">
-                  <li>Deploy to Netlify, Vercel, or Cloudflare Pages for full OAuth support</li>
-                  <li>Use the manual token setup below for testing in WebContainer</li>
-                </ul>
-              </div>
-            </div>
-
             <div className="flex gap-2">
-              <Button onClick={handleConnectGmail} className="flex-1" size="lg" disabled>
+              <Button onClick={handleConnectGmail} className="flex-1" size="lg">
                 <Mail className="h-4 w-4 mr-2" />
-                Connect Gmail (Disabled in WebContainer)
+                Connect Gmail Account
               </Button>
-            </div>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-background px-2 text-muted-foreground">
-                  Development Workaround
-                </span>
-              </div>
             </div>
 
             <Alert>
               <AlertCircle className="h-4 w-4" />
               <AlertDescription className="text-xs">
-                For testing in WebContainer: Obtain OAuth tokens manually using the{' '}
-                <a
-                  href="https://developers.google.com/oauthplayground"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline"
-                >
-                  OAuth 2.0 Playground
-                </a>
-                {' '}and enter them below. This is only for development - production deployments will use the standard OAuth flow.
+                <strong>Important:</strong> Make sure you've added the redirect URI to your Google Cloud Console:
+                <div className="mt-2 p-2 bg-slate-100 rounded font-mono text-xs break-all">
+                  {currentRedirectUri}
+                </div>
+                <div className="mt-2">
+                  <a
+                    href="https://console.cloud.google.com/apis/credentials"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline inline-flex items-center gap-1"
+                  >
+                    Configure in Google Cloud Console <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
               </AlertDescription>
             </Alert>
 
