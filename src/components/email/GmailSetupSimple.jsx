@@ -73,7 +73,8 @@ export function GmailSetupSimple() {
       return;
     }
 
-    const redirectUri = `${window.location.origin}/gmail-callback`;
+    const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+    const redirectUri = `${appUrl}/gmail-callback`;
     const scope = 'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email';
 
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +

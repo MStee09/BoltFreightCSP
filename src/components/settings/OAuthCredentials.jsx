@@ -20,7 +20,8 @@ export function OAuthCredentials() {
   const [currentUrl, setCurrentUrl] = useState('');
 
   useEffect(() => {
-    setCurrentUrl(window.location.origin);
+    const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+    setCurrentUrl(appUrl);
     loadCredentials();
   }, []);
 
