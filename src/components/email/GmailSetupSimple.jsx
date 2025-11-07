@@ -80,11 +80,27 @@ export function GmailSetupSimple() {
     }
   };
 
-  const handleConnectGmail = () => {
+  const handleConnectGmail = async () => {
     if (!googleClientId) {
       toast.error('OAuth credentials not configured. Please contact your administrator.');
       return;
     }
+
+    // Load the full OAuth credentials (including client_secret) to pass to callback
+    const { data: credData } = await supabase
+      .from('system_settings')
+      .select('setting_value')
+      .eq('setting_key', 'gmail_oauth_credentials')
+      .maybeSingle();
+
+    if (!credData?.setting_value?.client_secret) {
+      toast.error('OAuth client secret not configured. Please contact your administrator.');
+      return;
+    }
+
+    // Store credentials temporarily in localStorage for the callback page
+    // This allows the popup to access them even without auth session
+    localStorage.setItem('gmail_oauth_temp', JSON.stringify(credData.setting_value));
 
     const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
     const redirectUri = `${appUrl}/gmail-callback`;

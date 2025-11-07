@@ -33,19 +33,37 @@ export default function GmailCallback() {
 
       setMessage('Loading OAuth credentials...');
 
-      const { data: credData, error: credError } = await supabase
-        .from('system_settings')
-        .select('setting_value')
-        .eq('setting_key', 'gmail_oauth_credentials')
-        .maybeSingle();
+      // Try to get credentials from localStorage first (for popup scenario)
+      const tempCreds = localStorage.getItem('gmail_oauth_temp');
+      let client_id, client_secret;
 
-      if (credError) throw credError;
+      if (tempCreds) {
+        const creds = JSON.parse(tempCreds);
+        client_id = creds.client_id;
+        client_secret = creds.client_secret;
+        // Clean up temporary storage
+        localStorage.removeItem('gmail_oauth_temp');
+      } else {
+        // Fallback to database (for non-popup scenario)
+        const { data: credData, error: credError } = await supabase
+          .from('system_settings')
+          .select('setting_value')
+          .eq('setting_key', 'gmail_oauth_credentials')
+          .maybeSingle();
 
-      if (!credData?.setting_value?.client_id || !credData?.setting_value?.client_secret) {
-        throw new Error('OAuth credentials not configured');
+        if (credError) throw credError;
+
+        if (!credData?.setting_value?.client_id || !credData?.setting_value?.client_secret) {
+          throw new Error('OAuth credentials not configured');
+        }
+
+        client_id = credData.setting_value.client_id;
+        client_secret = credData.setting_value.client_secret;
       }
 
-      const { client_id, client_secret } = credData.setting_value;
+      if (!client_id || !client_secret) {
+        throw new Error('OAuth credentials not configured');
+      }
 
       setMessage('Exchanging authorization code...');
 
