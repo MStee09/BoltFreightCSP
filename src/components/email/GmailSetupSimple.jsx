@@ -91,7 +91,22 @@ export function GmailSetupSimple() {
       `access_type=offline&` +
       `prompt=consent`;
 
-    window.location.href = authUrl;
+    // Open in popup for iframe environments, or redirect for normal browsing
+    const isInIframe = window.self !== window.top;
+    if (isInIframe) {
+      const width = 600;
+      const height = 700;
+      const left = window.screen.width / 2 - width / 2;
+      const top = window.screen.height / 2 - height / 2;
+      window.open(
+        authUrl,
+        'Gmail OAuth',
+        `width=${width},height=${height},left=${left},top=${top}`
+      );
+      toast.info('Complete the authorization in the popup window');
+    } else {
+      window.location.href = authUrl;
+    }
   };
 
   const handleSendTestEmail = async () => {
