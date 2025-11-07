@@ -17,6 +17,19 @@ export function GmailSetupSimple() {
 
   useEffect(() => {
     loadOAuthCredentials();
+
+    // Listen for messages from the OAuth popup
+    const handleMessage = (event) => {
+      if (event.data.type === 'GMAIL_AUTH_SUCCESS') {
+        toast.success(`Gmail connected: ${event.data.email}`);
+        checkGmailConnection();
+      } else if (event.data.type === 'GMAIL_AUTH_ERROR') {
+        toast.error(`Failed to connect Gmail: ${event.data.error}`);
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
   }, []);
 
   useEffect(() => {

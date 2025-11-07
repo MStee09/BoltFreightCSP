@@ -15,6 +15,9 @@ export default function GmailCallback() {
   }, []);
 
   const handleCallback = async () => {
+    // Check if we're in a popup window
+    const isPopup = window.opener && !window.opener.closed;
+
     try {
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get('code');
@@ -63,7 +66,9 @@ export default function GmailCallback() {
       });
 
       if (!tokenResponse.ok) {
-        throw new Error('Failed to exchange authorization code');
+        const errorData = await tokenResponse.json();
+        console.error('Token exchange error:', errorData);
+        throw new Error(errorData.error_description || 'Failed to exchange authorization code');
       }
 
       const tokens = await tokenResponse.json();
@@ -112,20 +117,44 @@ export default function GmailCallback() {
 
       setStatus('success');
       setMessage('Gmail connected successfully!');
-      toast.success('Gmail account connected');
 
-      setTimeout(() => {
-        navigate('/settings');
-      }, 2000);
+      // If in popup, close it and notify parent
+      if (isPopup) {
+        try {
+          window.opener.postMessage({ type: 'GMAIL_AUTH_SUCCESS', email: profile.email }, '*');
+        } catch (e) {
+          console.error('Failed to notify parent:', e);
+        }
+        setTimeout(() => {
+          window.close();
+        }, 1500);
+      } else {
+        toast.success('Gmail account connected');
+        setTimeout(() => {
+          navigate('/settings');
+        }, 2000);
+      }
     } catch (error) {
       console.error('Gmail callback error:', error);
       setStatus('error');
       setMessage(error.message || 'Failed to connect Gmail');
-      toast.error('Failed to connect Gmail');
 
-      setTimeout(() => {
-        navigate('/settings');
-      }, 3000);
+      // If in popup, close it and notify parent
+      if (isPopup) {
+        try {
+          window.opener.postMessage({ type: 'GMAIL_AUTH_ERROR', error: error.message }, '*');
+        } catch (e) {
+          console.error('Failed to notify parent:', e);
+        }
+        setTimeout(() => {
+          window.close();
+        }, 2000);
+      } else {
+        toast.error('Failed to connect Gmail');
+        setTimeout(() => {
+          navigate('/settings');
+        }, 3000);
+      }
     }
   };
 
