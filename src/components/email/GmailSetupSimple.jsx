@@ -14,6 +14,7 @@ export function GmailSetupSimple() {
   const [sendingTest, setSendingTest] = useState(false);
   const [googleClientId, setGoogleClientId] = useState(null);
   const [credentialsLoading, setCredentialsLoading] = useState(true);
+  const [showManualSetup, setShowManualSetup] = useState(false);
 
   useEffect(() => {
     loadOAuthCredentials();
@@ -311,39 +312,54 @@ export function GmailSetupSimple() {
               </div>
             </div>
 
-            <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg space-y-2">
-              <p className="text-xs font-medium text-orange-900">Required Setup:</p>
-              <p className="text-xs text-orange-700">Add this redirect URI to Google Cloud Console first:</p>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 text-xs bg-white p-2 rounded border border-orange-300 break-all">
-                  {currentRedirectUri}
-                </code>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    navigator.clipboard.writeText(currentRedirectUri);
-                    toast.success('Copied to clipboard');
-                  }}
-                >
-                  <Copy className="h-3 w-3" />
-                </Button>
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg space-y-2">
+              <p className="text-xs font-medium text-red-900">WebContainer Limitation</p>
+              <p className="text-xs text-red-700">
+                Google OAuth doesn't work in WebContainer environments due to COEP (Cross-Origin-Embedder-Policy) restrictions.
+                The "refused to connect" error is a browser security limitation, not a configuration issue.
+              </p>
+              <div className="pt-2 space-y-1">
+                <p className="text-xs font-medium text-red-900">Solutions:</p>
+                <ul className="text-xs text-red-700 space-y-1 ml-4 list-disc">
+                  <li>Deploy to Netlify, Vercel, or Cloudflare Pages for full OAuth support</li>
+                  <li>Use the manual token setup below for testing in WebContainer</li>
+                </ul>
               </div>
-              <a
-                href="https://console.cloud.google.com/apis/credentials"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-orange-600 hover:underline inline-flex items-center gap-1"
-              >
-                Open Google Cloud Console
-                <ExternalLink className="h-3 w-3" />
-              </a>
             </div>
 
-            <Button onClick={handleConnectGmail} className="w-full" size="lg">
-              <Mail className="h-4 w-4 mr-2" />
-              Connect Gmail Account
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={handleConnectGmail} className="flex-1" size="lg" disabled>
+                <Mail className="h-4 w-4 mr-2" />
+                Connect Gmail (Disabled in WebContainer)
+              </Button>
+            </div>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Development Workaround
+                </span>
+              </div>
+            </div>
+
+            <Alert>
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="text-xs">
+                For testing in WebContainer: Obtain OAuth tokens manually using the{' '}
+                <a
+                  href="https://developers.google.com/oauthplayground"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline"
+                >
+                  OAuth 2.0 Playground
+                </a>
+                {' '}and enter them below. This is only for development - production deployments will use the standard OAuth flow.
+              </AlertDescription>
+            </Alert>
 
             <div className="bg-slate-50 border border-slate-200 rounded-lg p-3">
               <p className="text-xs font-semibold text-slate-800 mb-2">What you're authorizing:</p>
