@@ -5,9 +5,6 @@ import { RefreshCw, Check, X } from 'lucide-react';
 import { supabase } from '@/api/supabaseClient';
 import { toast } from 'sonner';
 
-const GMAIL_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-const GMAIL_CLIENT_SECRET = import.meta.env.VITE_GOOGLE_CLIENT_SECRET;
-
 export default function GmailCallback() {
   const navigate = useNavigate();
   const [status, setStatus] = useState('processing');
@@ -31,6 +28,22 @@ export default function GmailCallback() {
         throw new Error('No authorization code received');
       }
 
+      setMessage('Loading OAuth credentials...');
+
+      const { data: credData, error: credError } = await supabase
+        .from('system_settings')
+        .select('setting_value')
+        .eq('setting_key', 'gmail_oauth_credentials')
+        .maybeSingle();
+
+      if (credError) throw credError;
+
+      if (!credData?.setting_value?.client_id || !credData?.setting_value?.client_secret) {
+        throw new Error('OAuth credentials not configured');
+      }
+
+      const { client_id, client_secret } = credData.setting_value;
+
       setMessage('Exchanging authorization code...');
 
       const redirectUri = `${window.location.origin}/gmail-callback`;
@@ -41,8 +54,8 @@ export default function GmailCallback() {
         },
         body: new URLSearchParams({
           code,
-          client_id: GMAIL_CLIENT_ID,
-          client_secret: GMAIL_CLIENT_SECRET,
+          client_id,
+          client_secret,
           redirect_uri: redirectUri,
           grant_type: 'authorization_code',
         }),

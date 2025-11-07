@@ -2,21 +2,48 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Mail, Check, AlertCircle, RefreshCw, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/api/supabaseClient';
-
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 export function GmailSetupSimple() {
   const [isConnected, setIsConnected] = useState(false);
   const [emailAddress, setEmailAddress] = useState('');
   const [loading, setLoading] = useState(true);
   const [sendingTest, setSendingTest] = useState(false);
+  const [googleClientId, setGoogleClientId] = useState(null);
+  const [credentialsLoading, setCredentialsLoading] = useState(true);
 
   useEffect(() => {
-    checkGmailConnection();
+    loadOAuthCredentials();
   }, []);
+
+  useEffect(() => {
+    if (googleClientId) {
+      checkGmailConnection();
+    }
+  }, [googleClientId]);
+
+  const loadOAuthCredentials = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('system_settings')
+        .select('setting_value')
+        .eq('setting_key', 'gmail_oauth_credentials')
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data?.setting_value?.client_id) {
+        setGoogleClientId(data.setting_value.client_id);
+      }
+    } catch (error) {
+      console.error('Error loading OAuth credentials:', error);
+    } finally {
+      setCredentialsLoading(false);
+    }
+  };
 
   const checkGmailConnection = async () => {
     try {
@@ -41,11 +68,16 @@ export function GmailSetupSimple() {
   };
 
   const handleConnectGmail = () => {
+    if (!googleClientId) {
+      toast.error('OAuth credentials not configured. Please contact your administrator.');
+      return;
+    }
+
     const redirectUri = `${window.location.origin}/gmail-callback`;
     const scope = 'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email';
 
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
-      `client_id=${GOOGLE_CLIENT_ID}&` +
+      `client_id=${googleClientId}&` +
       `redirect_uri=${encodeURIComponent(redirectUri)}&` +
       `response_type=code&` +
       `scope=${encodeURIComponent(scope)}&` +
@@ -123,13 +155,37 @@ export function GmailSetupSimple() {
     }
   };
 
-  if (loading && !isConnected) {
+  if (credentialsLoading || (loading && !isConnected)) {
     return (
       <Card>
         <CardContent className="pt-6">
           <div className="flex items-center justify-center py-8">
             <RefreshCw className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!googleClientId) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Mail className="h-5 w-5" />
+            Gmail Integration
+          </CardTitle>
+          <CardDescription>
+            Send tracked emails using Gmail or Google Workspace
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Gmail OAuth credentials have not been configured yet. Please contact your administrator to set up the integration in Settings → Integrations.
+            </AlertDescription>
+          </Alert>
         </CardContent>
       </Card>
     );
