@@ -23,6 +23,8 @@ export default function GmailCallback() {
       const code = urlParams.get('code');
       const error = urlParams.get('error');
 
+      console.log('Callback started:', { code: code?.substring(0, 10), error, isPopup });
+
       if (error) {
         throw new Error('Gmail authorization was denied');
       }
@@ -145,7 +147,7 @@ export default function GmailCallback() {
         }
         setTimeout(() => {
           window.close();
-        }, 1500);
+        }, 2500);
       } else {
         toast.success('Gmail account connected');
         setTimeout(() => {
@@ -164,9 +166,10 @@ export default function GmailCallback() {
         } catch (e) {
           console.error('Failed to notify parent:', e);
         }
+        // Don't close immediately on error - let user see what happened
         setTimeout(() => {
           window.close();
-        }, 2000);
+        }, 5000);
       } else {
         toast.error('Failed to connect Gmail');
         setTimeout(() => {
