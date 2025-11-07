@@ -18,7 +18,9 @@ import {
   AreaChart,
   Settings,
   Shield,
-  HelpCircle
+  HelpCircle,
+  LogOut,
+  ChevronDown
 } from "lucide-react";
 import {
   Sidebar,
@@ -39,6 +41,15 @@ import { Button } from "../components/ui/button";
 import { DashboardChatbot } from "../components/dashboard/DashboardChatbot";
 import NotificationBell from "../components/notifications/NotificationBell";
 import OnboardingTour from "../components/onboarding/OnboardingTour";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "../components/ui/dropdown-menu";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 
 const navigationItems = [
@@ -91,6 +102,7 @@ const navigationItems = [
 
 export default function Layout({ children, currentPageName }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const { isAdmin, userProfile } = useUserRole();
   const [currentUser, setCurrentUser] = useState(null);
 
@@ -126,6 +138,17 @@ export default function Layout({ children, currentPageName }) {
   const fetchCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     setCurrentUser(user);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      toast.success('Logged out successfully');
+      navigate('/login');
+    } catch (error) {
+      console.error('Error logging out:', error);
+      toast.error('Failed to log out');
+    }
   };
 
   const toArray = (data) => {
@@ -249,33 +272,52 @@ export default function Layout({ children, currentPageName }) {
           </SidebarContent>
 
           <SidebarFooter className="border-t border-slate-200 p-4">
-            <div className="space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-slate-200 to-slate-300 rounded-full flex items-center justify-center">
-                  <span className="text-slate-700 font-semibold text-sm">
-                    {userProfile?.full_name?.charAt(0) || currentUser?.email?.charAt(0) || 'U'}
-                  </span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-slate-900 text-sm truncate">
-                    {userProfile?.full_name || currentUser?.email || 'User'}
-                  </p>
-                  <div className="flex items-center gap-1">
-                    {isAdmin && (
-                      <Badge variant="default" className="text-xs gap-1 px-1 py-0">
-                        <Shield className="h-2.5 w-2.5" />
-                        Admin
-                      </Badge>
-                    )}
-                    {!isAdmin && (
-                      <p className="text-xs text-slate-500 truncate">
-                        {currentUser?.email}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  className="w-full justify-start px-2 py-2 h-auto hover:bg-slate-50"
+                >
+                  <div className="flex items-center gap-3 w-full">
+                    <div className="w-10 h-10 bg-gradient-to-br from-slate-200 to-slate-300 rounded-full flex items-center justify-center">
+                      <span className="text-slate-700 font-semibold text-sm">
+                        {userProfile?.full_name?.charAt(0) || currentUser?.email?.charAt(0) || 'U'}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0 text-left">
+                      <p className="font-medium text-slate-900 text-sm truncate">
+                        {userProfile?.full_name || currentUser?.email || 'User'}
                       </p>
-                    )}
+                      <div className="flex items-center gap-1">
+                        {isAdmin && (
+                          <Badge variant="default" className="text-xs gap-1 px-1 py-0">
+                            <Shield className="h-2.5 w-2.5" />
+                            Admin
+                          </Badge>
+                        )}
+                        {!isAdmin && (
+                          <p className="text-xs text-slate-500 truncate">
+                            {currentUser?.email}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <ChevronDown className="h-4 w-4 text-slate-400" />
                   </div>
-                </div>
-              </div>
-            </div>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onClick={() => navigate('/settings')} className="cursor-pointer">
+                  <Settings className="h-4 w-4 mr-2" />
+                  Settings
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600 focus:text-red-600">
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Log Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </SidebarFooter>
         </Sidebar>
 
