@@ -164,6 +164,10 @@ export default function GmailCallback() {
       setStatus('success');
       setMessage('Gmail connected successfully!');
 
+      // Get return path or default to settings
+      const returnPath = localStorage.getItem('gmail_oauth_return_path') || '/settings';
+      localStorage.removeItem('gmail_oauth_return_path');
+
       // If in popup, close it and notify parent
       if (isPopup) {
         try {
@@ -177,8 +181,8 @@ export default function GmailCallback() {
       } else {
         toast.success('Gmail account connected');
         setTimeout(() => {
-          navigate('/settings');
-        }, 2000);
+          navigate(returnPath);
+        }, 1500);
       }
     } catch (error) {
       console.error('Gmail callback error:', error);

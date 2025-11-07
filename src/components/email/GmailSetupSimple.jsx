@@ -135,22 +135,12 @@ export function GmailSetupSimple() {
       `access_type=offline&` +
       `prompt=consent`;
 
-    // Open in popup for iframe environments, or redirect for normal browsing
-    const isInIframe = window.self !== window.top;
-    if (isInIframe) {
-      const width = 600;
-      const height = 700;
-      const left = window.screen.width / 2 - width / 2;
-      const top = window.screen.height / 2 - height / 2;
-      window.open(
-        authUrl,
-        'Gmail OAuth',
-        `width=${width},height=${height},left=${left},top=${top}`
-      );
-      toast.info('Complete the authorization in the popup window');
-    } else {
-      window.location.href = authUrl;
-    }
+    // Always use redirect flow since localStorage doesn't work across credentialless contexts
+    // Store return path to come back here after OAuth
+    localStorage.setItem('gmail_oauth_return_path', window.location.pathname);
+
+    toast.info('Redirecting to Google for authorization...');
+    window.location.href = authUrl;
   };
 
   const handleSendTestEmail = async () => {
