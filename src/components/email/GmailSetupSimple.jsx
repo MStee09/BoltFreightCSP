@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Mail, Check, AlertCircle, RefreshCw, Send } from 'lucide-react';
+import { Mail, Check, AlertCircle, RefreshCw, Send, Copy, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/api/supabaseClient';
 
@@ -260,6 +260,8 @@ export function GmailSetupSimple() {
     );
   }
 
+  const currentRedirectUri = `${import.meta.env.VITE_APP_URL || window.location.origin}/gmail-callback`;
+
   return (
     <Card>
       <CardHeader>
@@ -307,6 +309,35 @@ export function GmailSetupSimple() {
                   </div>
                 </div>
               </div>
+            </div>
+
+            <div className="p-3 bg-orange-50 border border-orange-200 rounded-lg space-y-2">
+              <p className="text-xs font-medium text-orange-900">Required Setup:</p>
+              <p className="text-xs text-orange-700">Add this redirect URI to Google Cloud Console first:</p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 text-xs bg-white p-2 rounded border border-orange-300 break-all">
+                  {currentRedirectUri}
+                </code>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    navigator.clipboard.writeText(currentRedirectUri);
+                    toast.success('Copied to clipboard');
+                  }}
+                >
+                  <Copy className="h-3 w-3" />
+                </Button>
+              </div>
+              <a
+                href="https://console.cloud.google.com/apis/credentials"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-orange-600 hover:underline inline-flex items-center gap-1"
+              >
+                Open Google Cloud Console
+                <ExternalLink className="h-3 w-3" />
+              </a>
             </div>
 
             <Button onClick={handleConnectGmail} className="w-full" size="lg">
