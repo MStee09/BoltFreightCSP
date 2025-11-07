@@ -46,24 +46,69 @@ export function EmailTimeline({ customerId, carrierId, cspEventId }) {
 
   const fetchEmailActivities = async () => {
     try {
-      let query = supabase
-        .from('email_activities')
-        .select('*')
-        .order('sent_at', { ascending: false });
+      let data = [];
 
-      if (cspEventId) {
-        query = query.eq('csp_event_id', cspEventId);
+      if (cspEventId && customerId) {
+        // For CSP events with a customer, get emails directly linked to the CSP event
+        // OR emails linked to the customer with null csp_event_id
+        const { data: cspEmails, error: cspError } = await supabase
+          .from('email_activities')
+          .select('*')
+          .eq('csp_event_id', cspEventId)
+          .order('sent_at', { ascending: false });
+
+        const { data: customerEmails, error: customerError } = await supabase
+          .from('email_activities')
+          .select('*')
+          .eq('customer_id', customerId)
+          .is('csp_event_id', null)
+          .order('sent_at', { ascending: false });
+
+        if (cspError) throw cspError;
+        if (customerError) throw customerError;
+
+        // Combine and deduplicate by id
+        const combined = [...(cspEmails || []), ...(customerEmails || [])];
+        const seen = new Set();
+        data = combined.filter(email => {
+          if (seen.has(email.id)) return false;
+          seen.add(email.id);
+          return true;
+        });
+
+        // Sort by sent_at descending
+        data.sort((a, b) => new Date(b.sent_at) - new Date(a.sent_at));
+      } else if (cspEventId) {
+        // If we only have cspEventId, just get those directly linked
+        const { data: result, error } = await supabase
+          .from('email_activities')
+          .select('*')
+          .eq('csp_event_id', cspEventId)
+          .order('sent_at', { ascending: false });
+
+        if (error) throw error;
+        data = result || [];
       } else if (customerId) {
-        query = query.eq('customer_id', customerId);
+        const { data: result, error } = await supabase
+          .from('email_activities')
+          .select('*')
+          .eq('customer_id', customerId)
+          .order('sent_at', { ascending: false });
+
+        if (error) throw error;
+        data = result || [];
       } else if (carrierId) {
-        query = query.eq('carrier_id', carrierId);
+        const { data: result, error } = await supabase
+          .from('email_activities')
+          .select('*')
+          .eq('carrier_id', carrierId)
+          .order('sent_at', { ascending: false });
+
+        if (error) throw error;
+        data = result || [];
       }
 
-      const { data, error } = await query;
-
-      if (error) throw error;
-
-      setEmails(data || []);
+      setEmails(data);
     } catch (error) {
       console.error('Error fetching email activities:', error);
     } finally {

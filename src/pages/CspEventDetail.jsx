@@ -133,7 +133,11 @@ export default function CspEventDetail() {
                         <InteractionTimeline customerId={event.customer_id} entityType="customer" />
                     </TabsContent>
                     <TabsContent value="emails">
-                        <EmailTimeline cspEventId={eventId} customerId={event?.customer_id} />
+                        <EmailTimeline
+                            cspEventId={eventId}
+                            customerId={event?.customer_id}
+                            onComposeClick={() => setIsEmailDialogOpen(true)}
+                        />
                     </TabsContent>
                     <TabsContent value="carriers">
                         <div className="mt-4">
