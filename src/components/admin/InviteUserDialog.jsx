@@ -109,6 +109,7 @@ export function InviteUserDialog({ open, onOpenChange, onInviteSent }) {
 
       if (!emailResponse.ok) {
         const errorData = await emailResponse.json().catch(() => ({}));
+        console.error('Email send failed:', emailResponse.status, errorData);
 
         if (errorData.requiresGmailSetup) {
           toast.error('Gmail not connected', {
@@ -125,10 +126,21 @@ export function InviteUserDialog({ open, onOpenChange, onInviteSent }) {
           return;
         }
 
-        toast.warning('Invitation created but email failed to send', {
-          description: 'The invitation link has been created. You can manually share the registration link or resend from the Users tab.',
-          duration: 6000,
+        const errorMessage = errorData.error || 'Unknown error';
+        console.error('Edge function error:', errorMessage);
+
+        toast.error('Failed to send invitation email', {
+          description: errorMessage,
+          duration: 8000,
         });
+
+        await supabase
+          .from('user_invitations')
+          .update({ status: 'cancelled' })
+          .eq('email', email.toLowerCase())
+          .eq('token', token);
+
+        return;
       } else {
         toast.success('Invitation sent successfully');
       }
