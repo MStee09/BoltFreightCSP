@@ -48,7 +48,9 @@ const CustomerTariffTimeline = ({ customerId }) => {
 
     const renderTariff = (tariff) => {
         const carrierIds = tariff.carrier_ids || [];
-        const firstCarrier = carriers.find(c => carrierIds.includes(c.id));
+        const carrier = carrierIds.length > 0
+            ? carriers.find(c => carrierIds.includes(c.id))
+            : carriers.find(c => c.id === tariff.carrier_id);
         const expiryDate = tariff.expiry_date ? new Date(tariff.expiry_date) : null;
         const daysUntilExpiry = expiryDate ? differenceInDays(expiryDate, today) : null;
 
@@ -60,7 +62,7 @@ const CustomerTariffTimeline = ({ customerId }) => {
             >
                 <div className="flex justify-between items-start">
                     <div>
-                        <p className="font-semibold">{firstCarrier?.name || (carrierIds.length > 1 ? `${carrierIds.length} carriers` : 'Multiple Carriers')}</p>
+                        <p className="font-semibold">{carrier?.name || (carrierIds.length > 1 ? `${carrierIds.length} carriers` : 'Unknown Carrier')}</p>
                         <p className="text-sm text-slate-600">Version: {tariff.version}</p>
                     </div>
                     <div className="flex items-center gap-2">
