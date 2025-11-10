@@ -194,6 +194,7 @@ export default function TariffsPage() {
         (customer?.name?.toLowerCase().includes(searchTermLower)) ||
         searchCarriers.includes(searchTermLower) ||
         (t.version?.toLowerCase().includes(searchTermLower)) ||
+        (t.tariff_reference_id?.toLowerCase().includes(searchTermLower)) ||
         (t.tariff_family_id?.toLowerCase().includes(searchTermLower)) ||
         (cspEvent?.title?.toLowerCase().includes(searchTermLower))
       );
@@ -1104,9 +1105,9 @@ export default function TariffsPage() {
                                   <div className="flex items-center gap-2">
                                     <Link
                                       to={createPageUrl(`TariffDetail?id=${tariff.id}`)}
-                                      className="font-medium text-slate-900 hover:text-blue-600 hover:underline"
+                                      className="font-medium text-slate-900 hover:text-blue-600 hover:underline font-mono"
                                     >
-                                      {tariff.version || 'No Version'}
+                                      {tariff.tariff_reference_id || tariff.version || 'No Version'}
                                     </Link>
                                     {sopCount > 0 && (
                                       <Badge variant="outline" className="text-xs h-5 px-1.5">

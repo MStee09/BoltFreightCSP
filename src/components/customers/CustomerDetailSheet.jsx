@@ -59,8 +59,8 @@ const CustomerTariffTimeline = ({ customerId }) => {
                     >
                         <div className="flex justify-between items-start">
                             <div>
-                                <p className="font-semibold">{firstCarrier?.name || (carrierIds.length > 1 ? `${carrierIds.length} carriers` : 'Multiple Carriers')}</p>
-                                <p className="text-sm text-slate-600">Version: {tariff.version}</p>
+                                <p className="font-semibold">{tariff.tariff_reference_id || tariff.version}</p>
+                                <p className="text-sm text-slate-600">{firstCarrier?.name || (carrierIds.length > 1 ? `${carrierIds.length} carriers` : 'Multiple Carriers')}</p>
                             </div>
                             <div className="flex items-center gap-2">
                                <Badge variant={tariff.status === 'active' ? 'default' : 'outline'} className={tariff.status === 'active' ? 'bg-green-100 text-green-800' : ''}>{tariff.status}</Badge>

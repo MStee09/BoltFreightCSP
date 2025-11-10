@@ -184,9 +184,12 @@ export default function TariffDetailPage() {
                 <div>
                     <div className="flex items-center gap-3">
                         {tariff.is_blanket_tariff && <BookMarked className="w-8 h-8 text-blue-600"/>}
-                        <h1 className="text-3xl font-bold text-slate-900">Tariff: {tariff.version}</h1>
+                        <div>
+                            <h1 className="text-3xl font-bold text-slate-900">{tariff.tariff_reference_id || tariff.version}</h1>
+                            {tariff.tariff_reference_id && <p className="text-sm text-slate-500 font-mono mt-1">ID: {tariff.tariff_reference_id}</p>}
+                        </div>
                     </div>
-                    <p className="text-slate-600 mt-1">{headerDescription}</p>
+                    <p className="text-slate-600 mt-2">{headerDescription}</p>
                 </div>
                 <Button variant="outline" onClick={() => setIsEditDialogOpen(true)}>
                     <Edit className="w-4 h-4 mr-2" /> Edit Details

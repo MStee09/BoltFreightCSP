@@ -62,8 +62,8 @@ const CustomerTariffTimeline = ({ customerId }) => {
             >
                 <div className="flex justify-between items-start">
                     <div>
-                        <p className="font-semibold">{carrier?.name || (carrierIds.length > 1 ? `${carrierIds.length} carriers` : 'Unknown Carrier')}</p>
-                        <p className="text-sm text-slate-600">Version: {tariff.version}</p>
+                        <p className="font-semibold">{tariff.tariff_reference_id || tariff.version}</p>
+                        <p className="text-sm text-slate-600">{carrier?.name || (carrierIds.length > 1 ? `${carrierIds.length} carriers` : 'Unknown Carrier')}</p>
                     </div>
                     <div className="flex items-center gap-2">
                         {tariff.status === 'active' && daysUntilExpiry !== null && daysUntilExpiry <= 90 && daysUntilExpiry > 0 ? (

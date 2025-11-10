@@ -401,7 +401,7 @@ const CarrierTariffs = ({ carrierId, highlightId }) => {
                     <TableHeader>
                         <TableRow>
                             <TableHead>Customer</TableHead>
-                            <TableHead>Version</TableHead>
+                            <TableHead>Tariff ID</TableHead>
                             <TableHead>Status</TableHead>
                             <TableHead>Days Left</TableHead>
                             <TableHead>Last Updated</TableHead>
@@ -420,7 +420,7 @@ const CarrierTariffs = ({ carrierId, highlightId }) => {
                                     onClick={() => window.location.href = createPageUrl(`TariffDetail?id=${tariff.id}`)}
                                 >
                                     <TableCell className="font-medium">{customer?.name || (tariff.is_blanket_tariff ? 'Blanket' : 'N/A')}</TableCell>
-                                    <TableCell>{tariff.version}</TableCell>
+                                    <TableCell className="font-mono text-sm">{tariff.tariff_reference_id || tariff.version}</TableCell>
                                     <TableCell>{getStatusBadge(tariff.status)}</TableCell>
                                     <TableCell>{daysLeft !== null && daysLeft >= 0 ? `${daysLeft} days` : 'Expired'}</TableCell>
                                     <TableCell>{formatDistanceToNow(new Date(tariff.updated_date), { addSuffix: true })}</TableCell>
