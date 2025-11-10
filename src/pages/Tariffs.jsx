@@ -10,7 +10,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../components/ui/dropdown-menu";
-import { PlusCircle, Search, Upload, ChevronDown, ChevronRight, AlertCircle, Eye, GitCompare, Download, FileText, Plus, Calendar, Link2, UploadCloud, RefreshCw, FileCheck, ArrowUpDown, Briefcase, FolderOpen, TrendingUp, Clock, X, Pin, User, Truck, Package } from "lucide-react";
+import { PlusCircle, Search, Upload, ChevronDown, ChevronRight, AlertCircle, Eye, GitCompare, Download, FileText, Plus, Calendar, Link2, UploadCloud, RefreshCw, FileCheck, ArrowUpDown, Briefcase, FolderOpen, TrendingUp, Clock, X, Pin, User, Truck, Package, Edit } from "lucide-react";
 import { format, isAfter, isBefore, differenceInDays } from "date-fns";
 import { Skeleton } from "../components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
@@ -123,6 +123,18 @@ export default function TariffsPage() {
     initialData: [],
   });
 
+  const { data: userProfiles = [] } = useQuery({
+    queryKey: ["user_profiles"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_profiles")
+        .select("id, first_name, last_name");
+      if (error) throw error;
+      return data || [];
+    },
+    initialData: [],
+  });
+
   const { data: sopCounts = {} } = useQuery({
     queryKey: ["tariff_sop_counts"],
     queryFn: async () => {
@@ -148,19 +160,41 @@ export default function TariffsPage() {
     const expiryDate = tariff.expiry_date ? new Date(tariff.expiry_date) : null;
     const daysUntilExpiry = expiryDate ? differenceInDays(expiryDate, today) : null;
 
-    if (tariff.status === 'expired' || (expiryDate && isBefore(expiryDate, today))) {
-      return <Badge variant="secondary" className="bg-slate-100 text-slate-600">Expired</Badge>;
-    }
-    if (tariff.status === 'superseded') {
-      return <Badge variant="outline" className="text-slate-500">Superseded</Badge>;
-    }
-    if (tariff.status === 'proposed') {
-      return <Badge className="bg-blue-100 text-blue-800 border-blue-200">Proposed</Badge>;
-    }
-    if (daysUntilExpiry !== null && daysUntilExpiry <= 90 && daysUntilExpiry > 0) {
-      return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">Expiring ({daysUntilExpiry}d)</Badge>;
-    }
-    return <Badge className="bg-green-100 text-green-800 border-green-200">Active</Badge>;
+    const updatedBy = tariff.updated_by ? userProfiles.find(u => u.id === tariff.updated_by) : null;
+    const createdBy = tariff.created_by ? userProfiles.find(u => u.id === tariff.created_by) : null;
+    const publisher = updatedBy || createdBy;
+    const tooltipText = publisher
+      ? `Published by ${publisher.first_name} ${publisher.last_name}`
+      : 'Publisher unknown';
+
+    const badge = (() => {
+      if (tariff.status === 'expired' || (expiryDate && isBefore(expiryDate, today))) {
+        return <Badge variant="secondary" className="bg-slate-100 text-slate-600">Expired</Badge>;
+      }
+      if (tariff.status === 'superseded') {
+        return <Badge variant="outline" className="text-slate-500">Superseded</Badge>;
+      }
+      if (tariff.status === 'proposed') {
+        return <Badge className="bg-blue-100 text-blue-800 border-blue-200">Proposed</Badge>;
+      }
+      if (daysUntilExpiry !== null && daysUntilExpiry <= 90 && daysUntilExpiry > 0) {
+        return <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">Expiring ({daysUntilExpiry}d)</Badge>;
+      }
+      return <Badge className="bg-green-100 text-green-800 border-green-200">Active</Badge>;
+    })();
+
+    return (
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="inline-flex">{badge}</div>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>{tooltipText}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
   };
 
   const getOwnershipColor = (ownershipType) => {
@@ -1227,14 +1261,35 @@ export default function TariffsPage() {
                                             variant="ghost"
                                             size="icon"
                                             className="h-7 w-7"
+                                            onClick={() => {
+                                              const familyVersions = family.versions.filter(v => v.id !== tariff.id);
+                                              if (familyVersions.length > 0) {
+                                                navigate(createPageUrl(`TariffDetail?id=${tariff.id}&compare=${familyVersions[0].id}`));
+                                              }
+                                            }}
+                                            disabled={family.versions.length < 2}
+                                          >
+                                            <GitCompare className="w-3.5 h-3.5" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Compare versions</TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7"
                                             asChild
                                           >
                                             <Link to={createPageUrl(`TariffDetail?id=${tariff.id}`)}>
-                                              <Eye className="w-3.5 h-3.5" />
+                                              <Edit className="w-3.5 h-3.5" />
                                             </Link>
                                           </Button>
                                         </TooltipTrigger>
-                                        <TooltipContent>View</TooltipContent>
+                                        <TooltipContent>Edit details</TooltipContent>
                                       </Tooltip>
                                     </TooltipProvider>
                                     <TooltipProvider>
@@ -1247,11 +1302,11 @@ export default function TariffsPage() {
                                             asChild
                                           >
                                             <Link to={createPageUrl(`TariffDetail?id=${tariff.id}#documents`)}>
-                                              <FileCheck className="w-3.5 h-3.5" />
+                                              <Download className="w-3.5 h-3.5" />
                                             </Link>
                                           </Button>
                                         </TooltipTrigger>
-                                        <TooltipContent>Documents</TooltipContent>
+                                        <TooltipContent>Download documents</TooltipContent>
                                       </Tooltip>
                                     </TooltipProvider>
                                   </div>
