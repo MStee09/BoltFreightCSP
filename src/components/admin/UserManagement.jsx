@@ -194,7 +194,9 @@ export function UserManagement() {
         .single();
 
       const inviterName = profile?.full_name || profile?.email || 'A team member';
-      const inviteUrl = `${window.location.origin}/register?token=${invitation.token}`;
+      // Ensure HTTPS is used for invitation links
+      const origin = window.location.origin.replace(/^http:/, 'https:');
+      const inviteUrl = `${origin}/register?token=${invitation.token}`;
 
       const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-invitation`, {
         method: 'POST',
