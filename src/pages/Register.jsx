@@ -40,7 +40,6 @@ export default function Register() {
         .from('user_invitations')
         .select('*')
         .eq('token', token)
-        .eq('status', 'pending')
         .maybeSingle();
 
       console.log('Invitation query result:', { data, error });
@@ -53,13 +52,31 @@ export default function Register() {
       }
 
       if (!data) {
-        setError('Invalid or expired invitation link');
+        setError('This invitation link is invalid. Please contact your administrator for a new invitation.');
+        setLoadingInvitation(false);
+        return;
+      }
+
+      if (data.status === 'cancelled') {
+        setError('This invitation has been cancelled. A new invitation may have been sent to your email. Please check your inbox for the most recent invitation email.');
+        setLoadingInvitation(false);
+        return;
+      }
+
+      if (data.status === 'accepted') {
+        setError('This invitation has already been used. If you already have an account, please sign in instead.');
         setLoadingInvitation(false);
         return;
       }
 
       if (new Date(data.expires_at) < new Date()) {
-        setError('This invitation has expired');
+        setError('This invitation has expired (valid for 7 days). Please contact your administrator for a new invitation.');
+        setLoadingInvitation(false);
+        return;
+      }
+
+      if (data.status !== 'pending') {
+        setError('This invitation is no longer valid. Please contact your administrator for a new invitation.');
         setLoadingInvitation(false);
         return;
       }

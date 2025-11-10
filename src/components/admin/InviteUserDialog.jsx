@@ -57,16 +57,20 @@ export function InviteUserDialog({ open, onOpenChange, onInviteSent }) {
         return;
       }
 
-      const { data: existingInvitation } = await supabase
+      const { data: existingInvitations } = await supabase
         .from('user_invitations')
         .select('id')
         .eq('email', email.toLowerCase())
-        .eq('status', 'pending')
-        .maybeSingle();
+        .eq('status', 'pending');
 
-      if (existingInvitation) {
-        toast.error('An invitation has already been sent to this email');
-        return;
+      if (existingInvitations && existingInvitations.length > 0) {
+        await supabase
+          .from('user_invitations')
+          .update({ status: 'cancelled' })
+          .eq('email', email.toLowerCase())
+          .eq('status', 'pending');
+
+        toast.info('Previous invitation cancelled. Sending new invitation...');
       }
 
       const token = await generateToken();
