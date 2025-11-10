@@ -1,7 +1,9 @@
 import React from 'react';
 import { format, endOfMonth } from 'date-fns';
-import { AlertTriangle, FileText, Target, Zap, TrendingUp, Sparkles, Brain } from 'lucide-react';
+import { AlertTriangle, FileText, Target, Zap, TrendingUp, Sparkles, Brain, Clock, TrendingDown } from 'lucide-react';
 import { Card, CardContent } from '../ui/card';
+import { Link } from 'react-router-dom';
+import { createPageUrl } from '../../utils';
 
 const PredictiveInsight = ({ icon: Icon, title, description, trend, color }) => (
   <div className={`p-4 rounded-lg border ${color} bg-white`}>
@@ -25,7 +27,7 @@ const PredictiveInsight = ({ icon: Icon, title, description, trend, color }) => 
   </div>
 );
 
-export const PredictiveInsightsPanel = ({ events, tariffs, cspEvents, compact = false }) => {
+export const PredictiveInsightsPanel = ({ events, tariffs, cspEvents, dailyDigest, compact = false }) => {
   const today = new Date();
 
   const predictExpiringSoon = () => {
@@ -103,6 +105,97 @@ export const PredictiveInsightsPanel = ({ events, tariffs, cspEvents, compact = 
   const pattern = detectPatterns();
 
   const insights = [];
+
+  // Add Daily Digest action items first if they exist
+  if (dailyDigest?.action_items && dailyDigest.action_items.length > 0) {
+    dailyDigest.action_items.forEach((item, index) => {
+      const iconMap = {
+        high: AlertTriangle,
+        medium: Clock,
+        low: Sparkles,
+      };
+      const colorMap = {
+        high: 'border-red-200',
+        medium: 'border-yellow-200',
+        low: 'border-blue-200',
+      };
+
+      insights.push(
+        <PredictiveInsight
+          key={`digest-${index}`}
+          icon={iconMap[item.priority] || Sparkles}
+          title={item.message}
+          description={item.action}
+          color={colorMap[item.priority] || 'border-blue-200'}
+        />
+      );
+    });
+  }
+
+  // Add digest detail insights if content exists
+  if (dailyDigest) {
+    if (dailyDigest.expiring_tariffs && dailyDigest.expiring_tariffs.length > 0) {
+      const tariffsList = dailyDigest.expiring_tariffs.slice(0, 3).map(t => (
+        <Link
+          key={t.id}
+          to={createPageUrl(`TariffDetail?id=${t.id}`)}
+          className="text-purple-700 hover:text-purple-800 hover:underline"
+        >
+          {t.customers?.name || 'Customer'}
+        </Link>
+      ));
+
+      insights.push(
+        <div key="digest-tariffs" className="p-4 rounded-lg border border-orange-200 bg-white">
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-orange-100">
+              <FileText className="w-5 h-5 text-orange-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h4 className="text-sm font-semibold text-slate-900 mb-1">
+                {dailyDigest.expiring_tariffs.length} Tariff{dailyDigest.expiring_tariffs.length > 1 ? 's' : ''} Expiring Soon
+              </h4>
+              <p className="text-xs text-slate-600 mb-2">Review and initiate renewal process</p>
+              <div className="space-y-1">
+                {tariffsList}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (dailyDigest.stalled_csps && dailyDigest.stalled_csps.length > 0) {
+      const cspsList = dailyDigest.stalled_csps.slice(0, 3).map(c => (
+        <Link
+          key={c.id}
+          to={createPageUrl(`CspEventDetail?id=${c.id}`)}
+          className="text-purple-700 hover:text-purple-800 hover:underline"
+        >
+          {c.title}
+        </Link>
+      ));
+
+      insights.push(
+        <div key="digest-csps" className="p-4 rounded-lg border border-yellow-200 bg-white">
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-yellow-100">
+              <TrendingDown className="w-5 h-5 text-yellow-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h4 className="text-sm font-semibold text-slate-900 mb-1">
+                {dailyDigest.stalled_csps.length} Stalled CSP{dailyDigest.stalled_csps.length > 1 ? 's' : ''}
+              </h4>
+              <p className="text-xs text-slate-600 mb-2">No activity in 7+ days</p>
+              <div className="space-y-1">
+                {cspsList}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+  }
 
   if (expiring.csps > 0) {
     insights.push(

@@ -11,12 +11,12 @@ import ReportUploadPrompt from "../components/dashboard/ReportUploadPrompt";
 import MetricCard from "../components/dashboard/MetricCard";
 import DailyFocusBanner from "../components/dashboard/DailyFocusBanner";
 import { PredictiveInsightsPanel } from "../components/dashboard/PredictiveInsights";
-import DailyDigest from "../components/dashboard/DailyDigest";
 import { Users, Truck, FileText, Trash2, RefreshCw } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
 import { useToast } from "../components/ui/use-toast";
 import { clearMockData } from "../utils/mockData";
+import { supabase } from "../api/supabaseClient";
 
 function toArray(data) {
   if (!data) return [];
@@ -52,6 +52,25 @@ export default function Dashboard() {
       if (error) throw error;
       return data;
     }
+  });
+
+  // Fetch daily digest
+  const { data: dailyDigest } = useQuery({
+    queryKey: ['daily-digest', userProfile?.id],
+    queryFn: async () => {
+      if (!userProfile?.id) return null;
+      const today = new Date().toISOString().split('T')[0];
+      const { data, error } = await supabase
+        .from('daily_digests')
+        .select('*')
+        .eq('user_id', userProfile.id)
+        .eq('digest_date', today)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!userProfile?.id,
   });
 
   useEffect(() => {
@@ -186,10 +205,6 @@ export default function Dashboard() {
           cspEvents={cspEvents}
         />
 
-        <div className="mb-3">
-          <DailyDigest userId={userProfile?.id} />
-        </div>
-
         <div className="flex items-center gap-2 text-xs text-slate-500 mb-3">
           <RefreshCw className="w-3.5 h-3.5" />
           <span>Data last updated {getTimeSinceSync()}</span>
@@ -245,6 +260,7 @@ export default function Dashboard() {
             events={tasks}
             tariffs={tariffs}
             cspEvents={cspEvents}
+            dailyDigest={dailyDigest}
             compact={false}
           />
         </div>
