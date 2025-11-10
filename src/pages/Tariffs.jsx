@@ -10,7 +10,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../components/ui/dropdown-menu";
-import { PlusCircle, Search, Upload, ChevronDown, ChevronRight, AlertCircle, Eye, GitCompare, Download, FileText, Plus, Calendar, Link2, UploadCloud, RefreshCw, FileCheck, ArrowUpDown, Briefcase, FolderOpen, TrendingUp, Clock, X, Pin, User, Truck, Package, Edit } from "lucide-react";
+import { PlusCircle, Search, Upload, ChevronDown, ChevronRight, AlertCircle, Eye, GitCompare, Download, FileText, Plus, Calendar, Link2, UploadCloud, RefreshCw, FileCheck, ArrowUpDown, Briefcase, FolderOpen, TrendingUp, Clock, X, Pin, User, Truck, Package, Edit, History, FileSpreadsheet } from "lucide-react";
 import { format, isAfter, isBefore, differenceInDays } from "date-fns";
 import { Skeleton } from "../components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
@@ -75,6 +75,7 @@ export default function TariffsPage() {
   const [showNewTariffDialog, setShowNewTariffDialog] = useState(false);
   const [newTariffCspEvent, setNewTariffCspEvent] = useState(null);
   const [myAccountsOnly, setMyAccountsOnly] = useState(false);
+  const [selectedForCompare, setSelectedForCompare] = useState([]);
   const { userProfile } = useUserRole();
 
   const handleSort = (column) => {
@@ -403,6 +404,58 @@ export default function TariffsPage() {
 
     return [...pinnedGroups, ...unpinnedGroups];
   }, [filteredTariffs, ownershipTab, customers, carriers, sortColumn, sortDirection, sortBy, pinnedCustomers]);
+
+  const exportToCSV = () => {
+    const allTariffs = groupedTariffs.flatMap(group =>
+      Object.values(group.families || {}).flatMap(family =>
+        family.versions.map(tariff => {
+          const customer = customers.find(c => c.id === tariff.customer_id);
+          const tariffCarriers = (tariff.carrier_ids || [])
+            .map(id => carriers.find(c => c.id === id))
+            .filter(Boolean);
+          const cspEvent = tariff.csp_event_id ? cspEvents.find(e => e.id === tariff.csp_event_id) : null;
+
+          return {
+            'Tariff ID': tariff.tariff_reference_id || tariff.version || '',
+            'Customer': customer?.name || '',
+            'Carrier(s)': tariffCarriers.map(c => c.name).join('; ') || '',
+            'Status': tariff.status || '',
+            'Ownership': OWNERSHIP_TYPES.find(t => t.value === tariff.ownership_type)?.label || '',
+            'Service Type': tariff.service_type || '',
+            'Mode': tariff.mode || '',
+            'Effective Date': tariff.effective_date ? format(new Date(tariff.effective_date), 'yyyy-MM-dd') : '',
+            'Expiry Date': tariff.expiry_date ? format(new Date(tariff.expiry_date), 'yyyy-MM-dd') : '',
+            'CSP Event': cspEvent?.title || '',
+            'Created Date': tariff.created_date ? format(new Date(tariff.created_date), 'yyyy-MM-dd') : '',
+            'Updated Date': tariff.updated_date ? format(new Date(tariff.updated_date), 'yyyy-MM-dd') : ''
+          };
+        })
+      )
+    );
+
+    const csvHeaders = Object.keys(allTariffs[0] || {});
+    const csvRows = allTariffs.map(row =>
+      csvHeaders.map(header => {
+        const value = row[header] || '';
+        return `"${value.toString().replace(/"/g, '""')}"`;
+      }).join(',')
+    );
+
+    const csv = [
+      csvHeaders.join(','),
+      ...csvRows
+    ].join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute('download', `tariffs_export_${format(new Date(), 'yyyy-MM-dd')}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const toggleGroup = (groupKey) => {
     const newExpanded = new Set(expandedGroups);
@@ -780,6 +833,48 @@ export default function TariffsPage() {
                 )}
               </div>
             </div>
+            <div className="flex items-center gap-2">
+              {selectedForCompare.length === 2 && (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => {
+                    navigate(createPageUrl(`TariffDetail?id=${selectedForCompare[0]}&compare=${selectedForCompare[1]}`));
+                    setSelectedForCompare([]);
+                  }}
+                  className="h-8 flex items-center gap-2"
+                >
+                  <GitCompare className="w-3.5 h-3.5" />
+                  Compare Selected
+                </Button>
+              )}
+              {selectedForCompare.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedForCompare([])}
+                  className="h-8"
+                >
+                  Clear ({selectedForCompare.length})
+                </Button>
+              )}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={exportToCSV}
+                      className="h-8 flex items-center gap-2"
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5" />
+                      Export CSV
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Export visible tariffs to CSV</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -927,6 +1022,9 @@ export default function TariffsPage() {
                           <table className="w-full">
                             <thead className="bg-slate-50 border-b">
                               <tr>
+                                <th className="text-center p-3 text-xs font-semibold text-slate-600 w-10">
+                                  <input type="checkbox" className="w-3.5 h-3.5" disabled />
+                                </th>
                                 <th className="text-left p-3 text-xs font-semibold text-slate-600">
                                   <button
                                     onClick={() => handleSort('version')}
@@ -996,7 +1094,7 @@ export default function TariffsPage() {
                             <React.Fragment key={family.familyId}>
                               {showDivider && (
                                 <tr>
-                                  <td colSpan="7" className="p-3 bg-slate-100 border-t-4 border-slate-300">
+                                  <td colSpan="8" className="p-3 bg-slate-100 border-t-4 border-slate-300">
                                     <div className="flex items-center gap-2 text-sm font-medium text-slate-600">
                                       <div className="h-px flex-1 bg-slate-300"></div>
                                       <span>Archived Families (Expired/Superseded)</span>
@@ -1007,7 +1105,7 @@ export default function TariffsPage() {
                               )}
                               {family.versions.length >= 1 && (
                                 <tr className={`border-b-2 border-slate-200 border-l-4 ${getOwnershipBorderColor(ownershipTab)} ${isArchived ? 'bg-slate-50/50' : ''} ${isFamilyCollapsed ? 'hover:bg-slate-50' : isArchived ? 'bg-slate-100/60' : 'bg-gradient-to-r from-slate-50 to-slate-100'}`}>
-                                <td colSpan="7" className={`${isFamilyCollapsed ? 'p-2' : 'p-4'}`}>
+                                <td colSpan="8" className={`${isFamilyCollapsed ? 'p-2' : 'p-4'}`}>
                                   {isFamilyCollapsed ? (
                                     <TooltipProvider>
                                       <Tooltip>
@@ -1192,6 +1290,8 @@ export default function TariffsPage() {
                               const isHistory = !isLive && (tariff.status === 'expired' || tariff.status === 'superseded' ||
                                               (expiryDate && isBefore(expiryDate, today)));
                               const sopCount = sopCounts[tariff.id] || 0;
+                              const effectiveDate = tariff.effective_date ? new Date(tariff.effective_date) : null;
+                              const daysActive = effectiveDate && tariff.status === 'active' ? differenceInDays(today, effectiveDate) : null;
 
                               if (isHistory && !showHistory && !expandedFamilyHistory.has(family.familyId)) {
                                 return null;
@@ -1204,6 +1304,23 @@ export default function TariffsPage() {
                                 onMouseEnter={() => setHoveredRowId(tariff.id)}
                                 onMouseLeave={() => setHoveredRowId(null)}
                               >
+                                <td className="p-3 text-center">
+                                  <input
+                                    type="checkbox"
+                                    className="w-3.5 h-3.5 cursor-pointer"
+                                    checked={selectedForCompare.includes(tariff.id)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        if (selectedForCompare.length < 2) {
+                                          setSelectedForCompare([...selectedForCompare, tariff.id]);
+                                        }
+                                      } else {
+                                        setSelectedForCompare(selectedForCompare.filter(id => id !== tariff.id));
+                                      }
+                                    }}
+                                    disabled={selectedForCompare.length >= 2 && !selectedForCompare.includes(tariff.id)}
+                                  />
+                                </td>
                                 <td className="p-3">
                                   <div className="flex items-center gap-2">
                                     <Link
@@ -1217,6 +1334,39 @@ export default function TariffsPage() {
                                         <FileText className="h-3 w-3 mr-1" />
                                         {sopCount}
                                       </Badge>
+                                    )}
+                                    {daysActive !== null && daysActive > 0 && (
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Badge variant="outline" className="text-xs h-5 px-1.5 bg-green-50 text-green-700 border-green-200">
+                                              <Clock className="h-3 w-3 mr-1" />
+                                              {daysActive}d
+                                            </Badge>
+                                          </TooltipTrigger>
+                                          <TooltipContent>Active for {daysActive} days</TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    )}
+                                    {tariff.updated_date && (
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <div className="inline-flex">
+                                              <History className="h-3.5 w-3.5 text-slate-400 hover:text-slate-600 cursor-pointer" />
+                                            </div>
+                                          </TooltipTrigger>
+                                          <TooltipContent className="max-w-xs">
+                                            <div className="text-xs space-y-1">
+                                              <div className="font-semibold">Last Activity</div>
+                                              <div>Updated {format(new Date(tariff.updated_date), 'MMM d, yyyy')}</div>
+                                              {tariff.updated_by && userProfiles.find(u => u.id === tariff.updated_by) && (
+                                                <div>by {userProfiles.find(u => u.id === tariff.updated_by).first_name} {userProfiles.find(u => u.id === tariff.updated_by).last_name}</div>
+                                              )}
+                                            </div>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
                                     )}
                                   </div>
                                 </td>
@@ -1314,7 +1464,7 @@ export default function TariffsPage() {
                               </tr>
                               {isExpanded && (
                                 <tr className={`${getRowColorClass(tariff)}`}>
-                                  <td colSpan="7" className="px-4 py-2 bg-slate-50/50 border-b last:border-b-0">
+                                  <td colSpan="8" className="px-4 py-2 bg-slate-50/50 border-b last:border-b-0">
                                     <div className="text-sm space-y-1">
                                       <div className="font-medium text-slate-700">All Carriers:</div>
                                       {tariffCarriers.map((carrier, idx) => (
@@ -1342,7 +1492,7 @@ export default function TariffsPage() {
                               if (historyCount > 0 && !showHistory && !expandedFamilyHistory.has(family.familyId)) {
                                 return (
                                   <tr key={`${family.familyId}-history-toggle`}>
-                                    <td colSpan="7" className="p-2 text-center bg-slate-50 border-b">
+                                    <td colSpan="8" className="p-2 text-center bg-slate-50 border-b">
                                       <button
                                         onClick={() => {
                                           const newExpanded = new Set(expandedFamilyHistory);
