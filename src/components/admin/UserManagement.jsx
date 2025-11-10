@@ -165,6 +165,11 @@ export function UserManagement() {
 
   const handleCancelInvitation = async (invitationId) => {
     try {
+      // Debug: Check current JWT
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log('Current JWT app_metadata:', session?.user?.app_metadata);
+      console.log('Current JWT user_metadata:', session?.user?.user_metadata);
+
       const { data, error } = await supabase
         .from('user_invitations')
         .update({ status: 'cancelled' })
