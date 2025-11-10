@@ -90,61 +90,22 @@ export default function DailyDigest({ userId }) {
   });
 
   if (isLoading) {
-    return (
-      <Card className="border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50">
-        <CardHeader>
-          <Skeleton className="h-6 w-48" />
-          <Skeleton className="h-4 w-64 mt-2" />
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            <Skeleton className="h-16 w-full" />
-            <Skeleton className="h-16 w-full" />
-            <Skeleton className="h-16 w-full" />
-          </div>
-        </CardContent>
-      </Card>
-    );
+    return null;
   }
 
   if (!digest) {
-    return (
-      <Card className="border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50">
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-purple-600" />
-            <CardTitle>Daily Digest</CardTitle>
-          </div>
-          <CardDescription>Your personalized morning summary</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8">
-            <Calendar className="w-12 h-12 mx-auto text-slate-300 mb-3" />
-            <p className="text-slate-600 mb-4">No digest available for today</p>
-            <Button
-              onClick={() => generateDigestMutation.mutate()}
-              disabled={isGenerating}
-              className="bg-purple-600 hover:bg-purple-700"
-            >
-              {isGenerating ? (
-                <>
-                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <Zap className="w-4 h-4 mr-2" />
-                  Generate Digest
-                </>
-              )}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
+    return null;
   }
 
   const actionItems = digest.action_items || [];
+  const hasContent = actionItems.length > 0 ||
+                     digest.expiring_tariffs?.length > 0 ||
+                     digest.stalled_csps?.length > 0 ||
+                     digest.pending_sops?.length > 0;
+
+  if (!hasContent) {
+    return null;
+  }
 
   return (
     <Card className={`border-purple-200 bg-gradient-to-br from-purple-50 to-blue-50 ${!digest.is_read ? 'ring-2 ring-purple-400' : ''}`}>
@@ -172,42 +133,30 @@ export default function DailyDigest({ userId }) {
           </div>
         </div>
         <CardDescription>
-          {actionItems.length === 0 ? (
-            'All caught up! No urgent items today.'
-          ) : (
-            `${actionItems.length} item${actionItems.length > 1 ? 's' : ''} need${actionItems.length === 1 ? 's' : ''} your attention`
-          )}
+          {actionItems.length} item${actionItems.length > 1 ? 's' : ''} need${actionItems.length === 1 ? 's' : ''} your attention
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {actionItems.length === 0 ? (
-          <div className="text-center py-6">
-            <CheckCircle className="w-12 h-12 mx-auto text-green-500 mb-3" />
-            <p className="text-slate-600 font-medium">You're all set!</p>
-            <p className="text-sm text-slate-500 mt-1">No action items for today</p>
-          </div>
-        ) : (
-          actionItems.map((item, index) => {
-            const config = PRIORITY_CONFIG[item.priority] || PRIORITY_CONFIG.medium;
-            const Icon = config.icon;
+        {actionItems.length > 0 && actionItems.map((item, index) => {
+          const config = PRIORITY_CONFIG[item.priority] || PRIORITY_CONFIG.medium;
+          const Icon = config.icon;
 
-            return (
-              <div
-                key={index}
-                className={`p-4 rounded-lg border ${config.color} transition-all hover:shadow-md`}
-              >
-                <div className="flex items-start gap-3">
-                  <Icon className="w-5 h-5 mt-0.5 flex-shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm mb-1">{item.message}</p>
-                    <p className="text-xs opacity-80">{item.action}</p>
-                  </div>
-                  <ChevronRight className="w-4 h-4 flex-shrink-0 opacity-50" />
+          return (
+            <div
+              key={index}
+              className={`p-4 rounded-lg border ${config.color} transition-all hover:shadow-md`}
+            >
+              <div className="flex items-start gap-3">
+                <Icon className="w-5 h-5 mt-0.5 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-semibold text-sm mb-1">{item.message}</p>
+                  <p className="text-xs opacity-80">{item.action}</p>
                 </div>
+                <ChevronRight className="w-4 h-4 flex-shrink-0 opacity-50" />
               </div>
-            );
-          })
-        )}
+            </div>
+          );
+        })}
 
         {(digest.expiring_tariffs?.length > 0 || digest.stalled_csps?.length > 0 || digest.pending_sops?.length > 0) && (
           <div className="pt-4 border-t space-y-3">
