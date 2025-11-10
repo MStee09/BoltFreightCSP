@@ -212,8 +212,18 @@ export function UserManagement() {
 
       if (!emailResponse.ok) {
         const errorData = await emailResponse.json().catch(() => ({}));
-        console.error('Email send error:', errorData);
-        throw new Error(errorData.error || 'Failed to send email');
+        console.error('Email send error response:', {
+          status: emailResponse.status,
+          statusText: emailResponse.statusText,
+          data: errorData
+        });
+
+        // Check if Gmail setup is required
+        if (errorData.requiresGmailSetup) {
+          throw new Error('Gmail not connected. Please connect Gmail in Settings → Integrations');
+        }
+
+        throw new Error(errorData.error || `Failed to send email (${emailResponse.status})`);
       }
 
       const result = await emailResponse.json();
