@@ -23,7 +23,7 @@ const OWNERSHIP_TYPES = [
   { value: 'rocket_csp', label: 'Rocket CSP', color: 'bg-purple-50 border-l-4 border-l-purple-500' },
   { value: 'customer_direct', label: 'Customer Direct', color: 'bg-blue-50 border-l-4 border-l-blue-500' },
   { value: 'rocket_blanket', label: 'Rocket Blanket', color: 'bg-orange-50 border-l-4 border-l-orange-500' },
-  { value: 'priority1_blanket', label: 'Priority 1 Blanket', color: 'bg-green-50 border-l-4 border-l-green-500' }
+  { value: 'priority1_blanket', label: 'Priority 1 CSP', color: 'bg-green-50 border-l-4 border-l-green-500' }
 ];
 
 const STATUS_FILTERS = [
