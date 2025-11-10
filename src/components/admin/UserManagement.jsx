@@ -182,7 +182,9 @@ export function UserManagement() {
 
   const handleResendInvitation = async (invitation) => {
     try {
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://siujmppdeumvwwvyqcsq.supabase.co';
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpdWptcHBkZXVtdnd3dnlxY3NxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEwNTg5NjQsImV4cCI6MjA3NjYzNDk2NH0.MXDB0IkA0TOA-L7rrfakvnRcGVniSXIqqHRyTeG3cV0';
+
       const { data: { session } } = await supabase.auth.getSession();
       const { data: { user } } = await supabase.auth.getUser();
 
@@ -198,11 +200,15 @@ export function UserManagement() {
       const origin = window.location.origin.replace(/^http:/, 'https:');
       const inviteUrl = `${origin}/register?token=${invitation.token}`;
 
-      const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-invitation`, {
+      const functionUrl = `${supabaseUrl}/functions/v1/send-invitation`;
+      console.log('Calling edge function:', functionUrl);
+
+      const emailResponse = await fetch(functionUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session?.access_token}`,
+          'apikey': anonKey,
         },
         body: JSON.stringify({
           email: invitation.email,
