@@ -173,7 +173,7 @@ export default function Register() {
               ) : (
                 <User className="h-3 w-3" />
               )}
-              {invitation.role === 'admin' ? 'Administrator' : 'Basic User'}
+              {invitation.role === 'admin' ? 'Administrator' : invitation.role === 'elite' ? 'Elite User' : 'Basic User'}
             </Badge>
           )}
         </CardHeader>
