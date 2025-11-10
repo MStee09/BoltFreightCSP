@@ -211,14 +211,17 @@ export function UserManagement() {
       });
 
       if (!emailResponse.ok) {
-        const errorData = await emailResponse.json();
+        const errorData = await emailResponse.json().catch(() => ({}));
+        console.error('Email send error:', errorData);
         throw new Error(errorData.error || 'Failed to send email');
       }
 
+      const result = await emailResponse.json();
+      console.log('Invitation resent successfully:', result);
       toast.success('Invitation email resent');
     } catch (error) {
       console.error('Error resending invitation:', error);
-      toast.error('Failed to resend invitation');
+      toast.error(`Failed to resend invitation: ${error.message}`);
     }
   };
 
