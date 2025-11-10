@@ -204,8 +204,8 @@ export default function CreateAwardedCspDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[600px]">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <div className="flex items-center gap-2">
             <Award className="w-5 h-5 text-green-600" />
             <DialogTitle>Create Awarded CSP Event</DialogTitle>
@@ -216,7 +216,7 @@ export default function CreateAwardedCspDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto space-y-4 px-1">
           <div className="space-y-2">
             <Label htmlFor="title">Event Title *</Label>
             <Input
@@ -441,16 +441,16 @@ export default function CreateAwardedCspDialog({
             <div className="font-medium mb-1">Stage: Awarded</div>
             <div>This CSP event will be created in the "Awarded" stage, indicating the tariff has been finalized and is ready for implementation and activation.</div>
           </div>
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={handleCancel}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={createCspEventMutation.isPending}>
-              {createCspEventMutation.isPending ? 'Creating...' : 'Create CSP Event & Continue'}
-            </Button>
-          </DialogFooter>
         </form>
+
+        <DialogFooter className="flex-shrink-0 mt-4">
+          <Button type="button" variant="outline" onClick={handleCancel}>
+            Cancel
+          </Button>
+          <Button type="submit" onClick={handleSubmit} disabled={createCspEventMutation.isPending}>
+            {createCspEventMutation.isPending ? 'Creating...' : 'Create CSP Event & Continue'}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
