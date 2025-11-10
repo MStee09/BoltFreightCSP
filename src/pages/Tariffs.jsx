@@ -463,10 +463,27 @@ export default function TariffsPage() {
   const getTabCounts = useMemo(() => {
     const counts = {};
     OWNERSHIP_TYPES.forEach(type => {
-      counts[type.value] = tariffs.filter(t => t.ownership_type === type.value).length;
+      const filteredByOwnership = tariffs.filter(t => {
+        if (t.ownership_type !== type.value) return false;
+
+        const customer = customers.find(c => c.id === t.customer_id);
+
+        if (myAccountsOnly && customer && userProfile) {
+          const isOwner = customer.csp_owner_id === userProfile.id;
+          const isCollaborator = customer.collaborators?.includes(userProfile.id);
+          if (!isOwner && !isCollaborator) return false;
+        }
+
+        if (serviceTypeFilter !== 'all' && t.mode !== serviceTypeFilter) return false;
+
+        return true;
+      });
+
+      const uniqueFamilies = new Set(filteredByOwnership.map(t => t.tariff_family_id || t.id));
+      counts[type.value] = uniqueFamilies.size;
     });
     return counts;
-  }, [tariffs]);
+  }, [tariffs, customers, myAccountsOnly, userProfile, serviceTypeFilter]);
 
   const expiringCount = useMemo(() => {
     const today = new Date();
