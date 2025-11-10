@@ -1105,7 +1105,7 @@ export default function TariffsPage() {
                                   <div className="flex items-center gap-2">
                                     <Link
                                       to={createPageUrl(`TariffDetail?id=${tariff.id}`)}
-                                      className="font-medium text-slate-900 hover:text-blue-600 hover:underline font-mono"
+                                      className="font-medium text-slate-900 hover:text-blue-600 hover:underline"
                                     >
                                       {tariff.tariff_reference_id || tariff.version || 'No Version'}
                                     </Link>

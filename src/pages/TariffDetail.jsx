@@ -186,7 +186,6 @@ export default function TariffDetailPage() {
                         {tariff.is_blanket_tariff && <BookMarked className="w-8 h-8 text-blue-600"/>}
                         <div>
                             <h1 className="text-3xl font-bold text-slate-900">{tariff.tariff_reference_id || tariff.version}</h1>
-                            {tariff.tariff_reference_id && <p className="text-sm text-slate-500 font-mono mt-1">ID: {tariff.tariff_reference_id}</p>}
                         </div>
                     </div>
                     <p className="text-slate-600 mt-2">{headerDescription}</p>
