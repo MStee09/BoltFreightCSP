@@ -414,7 +414,11 @@ const CarrierTariffs = ({ carrierId, highlightId }) => {
                             const customer = customers.find(c => c.id === tariff.customer_id);
                             const daysLeft = tariff.expiry_date ? differenceInDays(new Date(tariff.expiry_date), new Date()) : null;
                             return (
-                                <TableRow key={tariff.id} className={tariff.id === highlightId ? 'bg-blue-50' : ''}>
+                                <TableRow
+                                    key={tariff.id}
+                                    className={`cursor-pointer hover:bg-slate-50 ${tariff.id === highlightId ? 'bg-blue-50' : ''}`}
+                                    onClick={() => window.location.href = createPageUrl('TariffDetail', { id: tariff.id })}
+                                >
                                     <TableCell className="font-medium">{customer?.name || (tariff.is_blanket_tariff ? 'Blanket' : 'N/A')}</TableCell>
                                     <TableCell>{tariff.version}</TableCell>
                                     <TableCell>{getStatusBadge(tariff.status)}</TableCell>
