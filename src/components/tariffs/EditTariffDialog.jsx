@@ -8,8 +8,10 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Checkbox } from '../ui/checkbox';
-import { Loader2, ExternalLink, Plus } from 'lucide-react';
+import { Textarea } from '../ui/textarea';
+import { Loader2, ExternalLink, Plus, AlertTriangle, Lock, Info } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
+import { Alert, AlertDescription } from '../ui/alert';
 import { supabase } from '../../api/supabaseClient';
 import { toast } from 'sonner';
 import { createPageUrl } from '../../utils';
@@ -43,6 +45,9 @@ export default function EditTariffDialog({
     const [originalCarrierPortalUrl, setOriginalCarrierPortalUrl] = useState('');
     const [showUpdateCarrierPrompt, setShowUpdateCarrierPrompt] = useState(false);
     const [pendingSubmit, setPendingSubmit] = useState(false);
+    const [updateReason, setUpdateReason] = useState('');
+    const [ownershipChangeWarning, setOwnershipChangeWarning] = useState(false);
+    const [activeTariffWarning, setActiveTariffWarning] = useState('');
 
     const { data: customers = [] } = useQuery({
         queryKey: ['customers'],
@@ -92,6 +97,10 @@ export default function EditTariffDialog({
             setCarrierPortalUrl('');
             setOriginalCarrierPortalUrl('');
         }
+
+        setUpdateReason('');
+        setOwnershipChangeWarning(false);
+        setActiveTariffWarning('');
     }, [open]);
 
     useEffect(() => {
@@ -105,6 +114,46 @@ export default function EditTariffDialog({
             }
         }
     }, [carrierId, carriers]);
+
+    useEffect(() => {
+        if (tariff && ownershipType !== tariff.ownership_type) {
+            setOwnershipChangeWarning(true);
+        } else {
+            setOwnershipChangeWarning(false);
+        }
+    }, [ownershipType, tariff]);
+
+    useEffect(() => {
+        if (status === 'active' && tariff?.tariff_family_id) {
+            checkForActiveTariffs();
+        }
+    }, [status, tariff]);
+
+    const checkForActiveTariffs = async () => {
+        if (!tariff?.tariff_family_id) return;
+
+        try {
+            const { data, error } = await supabase
+                .from('tariffs')
+                .select('id, version, tariff_reference_id')
+                .eq('tariff_family_id', tariff.tariff_family_id)
+                .eq('status', 'active')
+                .neq('id', tariff.id)
+                .limit(1);
+
+            if (error) throw error;
+
+            if (data && data.length > 0) {
+                const activeTariff = data[0];
+                const displayName = activeTariff.tariff_reference_id || activeTariff.version;
+                setActiveTariffWarning(`Setting this to active will auto-supersede: ${displayName}`);
+            } else {
+                setActiveTariffWarning('');
+            }
+        } catch (error) {
+            console.error('Error checking active tariffs:', error);
+        }
+    };
 
     const updateMutation = useMutation({
         mutationFn: (data) => tariff ? Tariff.update(tariff.id, data) : Tariff.create(data),
@@ -125,6 +174,11 @@ export default function EditTariffDialog({
     const handleSubmit = async (e, skipCarrierUpdate = false) => {
         e?.preventDefault();
 
+        if (tariff && !updateReason?.trim()) {
+            toast.error('Update reason is required');
+            return;
+        }
+
         const selectedCarrier = carriers.find(c => c.id === carrierId);
         const carrierHasDifferentUrl = selectedCarrier && selectedCarrier.portal_login_url !== carrierPortalUrl;
         const userChangedUrl = carrierPortalUrl && carrierPortalUrl !== originalCarrierPortalUrl;
@@ -141,7 +195,7 @@ export default function EditTariffDialog({
             ownership_type: ownershipType,
             mode,
             effective_date: effectiveDate,
-            expiry_date: expiryDate,
+            expiry_date: expiryDate || null,
             customer_id: customerId || null,
             customer_ids: customerIds,
             carrier_id: carrierId || null,
@@ -151,6 +205,7 @@ export default function EditTariffDialog({
             credential_password: credentialPassword,
             shipper_number: shipperNumber,
             carrier_portal_url: carrierPortalUrl,
+            updated_reason: updateReason || null,
         };
         updateMutation.mutate(data);
     };
@@ -229,10 +284,23 @@ export default function EditTariffDialog({
                                     <SelectItem value="superseded">Superseded</SelectItem>
                                 </SelectContent>
                             </Select>
+                            {activeTariffWarning && (
+                                <Alert className="mt-2 bg-amber-50 border-amber-200">
+                                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                                    <AlertDescription className="text-xs text-amber-800">
+                                        {activeTariffWarning}
+                                    </AlertDescription>
+                                </Alert>
+                            )}
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="ownership_type">Type *</Label>
+                            <Label htmlFor="ownership_type" className="flex items-center gap-1">
+                                Type *
+                                {tariff?.tariff_family_id && (
+                                    <Lock className="h-3 w-3 text-gray-400" title="Changing ownership creates new family" />
+                                )}
+                            </Label>
                             <Select value={ownershipType} onValueChange={setOwnershipType}>
                                 <SelectTrigger>
                                     <SelectValue />
@@ -243,6 +311,14 @@ export default function EditTariffDialog({
                                     <SelectItem value="customer_csp">Customer CSP</SelectItem>
                                 </SelectContent>
                             </Select>
+                            {ownershipChangeWarning && (
+                                <Alert className="mt-2 bg-blue-50 border-blue-200">
+                                    <Info className="h-4 w-4 text-blue-600" />
+                                    <AlertDescription className="text-xs text-blue-800">
+                                        Ownership change will create a new tariff family
+                                    </AlertDescription>
+                                </Alert>
+                            )}
                         </div>
 
                         <div className="space-y-2">
@@ -283,14 +359,15 @@ export default function EditTariffDialog({
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="expiry_date">Expiry Date *</Label>
+                            <Label htmlFor="expiry_date">Expiry Date</Label>
                             <Input
                                 id="expiry_date"
                                 type="date"
                                 value={expiryDate}
                                 onChange={(e) => setExpiryDate(e.target.value)}
-                                required
+                                placeholder="Auto-defaults to +12 months"
                             />
+                            <p className="text-xs text-gray-500">Defaults to +12 months from effective date if not provided</p>
                         </div>
                     </div>
 
@@ -418,6 +495,28 @@ export default function EditTariffDialog({
                             )}
                         </div>
                     </div>
+
+                    {tariff && (
+                        <div className="space-y-2">
+                            <Label htmlFor="update_reason">Update Reason *</Label>
+                            <Textarea
+                                id="update_reason"
+                                value={updateReason}
+                                onChange={(e) => setUpdateReason(e.target.value)}
+                                placeholder="Explain why this change is being made..."
+                                rows={3}
+                                required
+                            />
+                            <p className="text-xs text-gray-500">Required for audit trail</p>
+                        </div>
+                    )}
+
+                    <Alert className="bg-gray-50 border-gray-200">
+                        <Info className="h-4 w-4 text-gray-600" />
+                        <AlertDescription className="text-xs text-gray-700">
+                            <strong>Data Governance:</strong> Only 1 active tariff per family. Family IDs are immutable. Changing ownership creates a new family. All changes are audited.
+                        </AlertDescription>
+                    </Alert>
 
                     <div className="flex justify-end gap-2">
                         <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
