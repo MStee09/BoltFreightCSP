@@ -15,6 +15,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import EditTariffDialog from '../components/tariffs/EditTariffDialog';
 import TariffSopsTab from '../components/tariffs/TariffSopsTab';
 import { BackButton } from '../components/navigation/BackButton';
+import LinkedCspSummaryCard from '../components/tariffs/LinkedCspSummaryCard';
+import RenewalStatusBadge from '../components/tariffs/RenewalStatusBadge';
+import TariffActivityTimeline from '../components/tariffs/TariffActivityTimeline';
 
 const TariffDocumentManager = ({ tariff }) => {
     const queryClient = useQueryClient();
@@ -198,11 +201,25 @@ export default function TariffDetailPage() {
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
                 <TabsList>
                     <TabsTrigger value="overview">Overview</TabsTrigger>
+                    <TabsTrigger value="activity">Activity</TabsTrigger>
                     <TabsTrigger value="documents">Documents</TabsTrigger>
                     <TabsTrigger value="sops">SOPs</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="overview" className="space-y-6">
+                    {cspEvent && (
+                        <LinkedCspSummaryCard
+                            cspEvent={cspEvent}
+                            customer={customer}
+                            carriers={carriers.filter(c => tariff.carrier_ids?.includes(c.id))}
+                        />
+                    )}
+
+                    {tariff.renewal_csp_event_id && (() => {
+                        const renewalCsp = cspEvents.find(e => e.id === tariff.renewal_csp_event_id);
+                        return renewalCsp ? <RenewalStatusBadge renewalCspEvent={renewalCsp} /> : null;
+                    })()}
+
                     {(cspEvent || customer) && (
                         <Card className="border-blue-200 bg-blue-50/50">
                             <CardHeader>
@@ -292,6 +309,23 @@ export default function TariffDetailPage() {
                             </CardContent>
                         </Card>
                     )}
+                </TabsContent>
+
+                <TabsContent value="activity" className="space-y-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Lifecycle Activity</CardTitle>
+                            <CardDescription>
+                                Complete history of this tariff including CSP stages, updates, documents, and communications
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <TariffActivityTimeline
+                                tariffId={tariffId}
+                                tariffFamilyId={tariff.tariff_family_id}
+                            />
+                        </CardContent>
+                    </Card>
                 </TabsContent>
 
                 <TabsContent value="documents" className="space-y-6">

@@ -19,6 +19,7 @@ import { useUserRole } from "../hooks/useUserRole";
 import { toast } from "sonner";
 import CreateAwardedCspDialog from "../components/tariffs/CreateAwardedCspDialog";
 import EditTariffDialog from "../components/tariffs/EditTariffDialog";
+import RenewalStatusBadge from "../components/tariffs/RenewalStatusBadge";
 
 const OWNERSHIP_TYPES = [
   { value: 'rocket_csp', label: 'Rocket CSP', color: 'bg-purple-50 border-l-4 border-l-purple-500', tooltip: 'Tariffs negotiated and managed by Rocket on behalf of the customer' },
@@ -1335,27 +1336,37 @@ export default function TariffsPage() {
                                               }
                                               return null;
                                             })()}
-                                            {expiringVersion && !isArchived && (
-                                              <TooltipProvider>
-                                                <Tooltip>
-                                                  <TooltipTrigger asChild>
-                                                    <button
-                                                      className="text-xs text-purple-600 hover:text-purple-700 hover:underline flex items-center gap-1 font-medium"
-                                                      onClick={(e) => {
-                                                        e.stopPropagation();
-                                                        handleCreateRenewalCSP(family, group.name, family.carrierName);
-                                                      }}
-                                                    >
-                                                      <Repeat className="w-3 h-3" />
-                                                      Create Renewal CSP
-                                                    </button>
-                                                  </TooltipTrigger>
-                                                  <TooltipContent>
-                                                    Start a renewal negotiation for this expiring tariff
-                                                  </TooltipContent>
-                                                </Tooltip>
-                                              </TooltipProvider>
-                                            )}
+                                            {(() => {
+                                              const renewalCspId = firstVersion?.renewal_csp_event_id;
+                                              const renewalCsp = renewalCspId ? cspEvents.find(e => e.id === renewalCspId) : null;
+
+                                              if (renewalCsp) {
+                                                return <RenewalStatusBadge renewalCspEvent={renewalCsp} />;
+                                              } else if (expiringVersion && !isArchived) {
+                                                return (
+                                                  <TooltipProvider>
+                                                    <Tooltip>
+                                                      <TooltipTrigger asChild>
+                                                        <button
+                                                          className="text-xs text-purple-600 hover:text-purple-700 hover:underline flex items-center gap-1 font-medium"
+                                                          onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            handleCreateRenewalCSP(family, group.name, family.carrierName);
+                                                          }}
+                                                        >
+                                                          <Repeat className="w-3 h-3" />
+                                                          Create Renewal CSP
+                                                        </button>
+                                                      </TooltipTrigger>
+                                                      <TooltipContent>
+                                                        Start a renewal negotiation for this expiring tariff
+                                                      </TooltipContent>
+                                                    </Tooltip>
+                                                  </TooltipProvider>
+                                                );
+                                              }
+                                              return null;
+                                            })()}
                                           </div>
                                         </div>
                                         <div className="flex items-center gap-1 text-xs text-slate-500">
@@ -1702,11 +1713,47 @@ export default function TariffsPage() {
           isOpen={showRenewalDialog}
           onOpenChange={setShowRenewalDialog}
           preselectedCustomerId={renewalFamilyData.customerId}
-          onCspCreated={(cspEvent) => {
-            toast.success(`Renewal CSP created: ${cspEvent.title}`);
-            navigate(createPageUrl(`CspEventDetail?id=${cspEvent.id}`));
-            setShowRenewalDialog(false);
-            setRenewalFamilyData(null);
+          onCspCreated={async (cspEvent) => {
+            try {
+              // Set the related_tariff_family_id on the new CSP
+              await supabase
+                .from('csp_events')
+                .update({ related_tariff_family_id: renewalFamilyData.familyId })
+                .eq('id', cspEvent.id);
+
+              // Set renewal_csp_event_id on all tariffs in this family
+              await supabase
+                .from('tariffs')
+                .update({ renewal_csp_event_id: cspEvent.id })
+                .eq('tariff_family_id', renewalFamilyData.familyId);
+
+              // Log the renewal activity
+              await supabase
+                .from('tariff_activities')
+                .insert({
+                  tariff_family_id: renewalFamilyData.familyId,
+                  csp_event_id: cspEvent.id,
+                  activity_type: 'renewal_csp_created',
+                  title: `Renewal CSP created: ${cspEvent.title}`,
+                  description: `Renewal negotiation started for expiring tariff family`,
+                  user_id: userProfile?.id,
+                  user_name: userProfile?.full_name,
+                  metadata: {
+                    csp_event_id: cspEvent.id,
+                    original_family_id: renewalFamilyData.familyId,
+                    expiry_date: renewalFamilyData.expiryDate
+                  }
+                });
+
+              toast.success(`Renewal CSP created: ${cspEvent.title}`);
+              navigate(createPageUrl(`CspEventDetail?id=${cspEvent.id}`));
+            } catch (error) {
+              console.error('Error setting renewal linkage:', error);
+              toast.error('CSP created but failed to link to tariff family');
+            } finally {
+              setShowRenewalDialog(false);
+              setRenewalFamilyData(null);
+            }
           }}
         />
       )}
