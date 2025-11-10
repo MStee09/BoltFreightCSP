@@ -698,20 +698,27 @@ export default function TariffsPage() {
               {expiringCount} Expiring Soon
             </Button>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowHistory(!showHistory)}
-            className={`h-8 flex items-center gap-2 ${showHistory ? 'bg-blue-50 text-blue-700 border-blue-300' : ''}`}
-          >
-            <input
-              type="checkbox"
-              checked={showHistory}
-              onChange={() => {}}
-              className="w-3.5 h-3.5"
-            />
-            Include history
-          </Button>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowHistory(!showHistory)}
+                  className={`h-8 flex items-center gap-2 ${showHistory ? 'bg-blue-50 text-blue-700 border-blue-300' : ''}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={showHistory}
+                    onChange={() => {}}
+                    className="w-3.5 h-3.5"
+                  />
+                  Include history
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Show all historical tariff families</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
       </div>
 
