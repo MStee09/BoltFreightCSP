@@ -196,7 +196,15 @@ export function UserManagement() {
   };
 
   const handleCopyInviteLink = (invitation) => {
-    const origin = window.location.origin.replace(/^http:/, 'https:');
+    let origin = window.location.origin;
+
+    // Force HTTPS protocol
+    if (!origin.startsWith('https://') && !origin.startsWith('http://')) {
+      origin = 'https://' + origin;
+    } else if (origin.startsWith('http://')) {
+      origin = origin.replace('http://', 'https://');
+    }
+
     const inviteUrl = `${origin}/register?token=${invitation.token}`;
 
     navigator.clipboard.writeText(inviteUrl).then(() => {
@@ -223,8 +231,17 @@ export function UserManagement() {
         .single();
 
       const inviterName = profile?.full_name || profile?.email || 'A team member';
+
       // Ensure HTTPS is used for invitation links
-      const origin = window.location.origin.replace(/^http:/, 'https:');
+      let origin = window.location.origin;
+
+      // Force HTTPS protocol
+      if (!origin.startsWith('https://') && !origin.startsWith('http://')) {
+        origin = 'https://' + origin;
+      } else if (origin.startsWith('http://')) {
+        origin = origin.replace('http://', 'https://');
+      }
+
       const inviteUrl = `${origin}/register?token=${invitation.token}`;
 
       const functionUrl = `${supabaseUrl}/functions/v1/send-invitation`;

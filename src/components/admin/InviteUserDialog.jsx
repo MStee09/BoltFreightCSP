@@ -91,7 +91,15 @@ export function InviteUserDialog({ open, onOpenChange, onInviteSent }) {
       const { data: { session } } = await supabase.auth.getSession();
 
       // Ensure HTTPS is used for invitation links
-      const origin = window.location.origin.replace(/^http:/, 'https:');
+      let origin = window.location.origin;
+
+      // Force HTTPS protocol
+      if (!origin.startsWith('https://') && !origin.startsWith('http://')) {
+        origin = 'https://' + origin;
+      } else if (origin.startsWith('http://')) {
+        origin = origin.replace('http://', 'https://');
+      }
+
       const inviteUrl = `${origin}/register?token=${token}`;
 
       const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-invitation`, {
