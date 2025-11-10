@@ -228,7 +228,17 @@ export function UserManagement() {
 
       const result = await emailResponse.json();
       console.log('Invitation resent successfully:', result);
-      toast.success('Invitation email resent');
+
+      // Update the sent_at timestamp in the database
+      await supabase
+        .from('user_invitations')
+        .update({ sent_at: new Date().toISOString() })
+        .eq('id', invitation.id);
+
+      // Refresh the invitations list
+      await fetchInvitations();
+
+      toast.success('Invitation email resent successfully');
     } catch (error) {
       console.error('Error resending invitation:', error);
       toast.error(`Failed to resend invitation: ${error.message}`);
