@@ -829,7 +829,7 @@ export default function TariffsPage() {
                                     onClick={() => handleSort('version')}
                                     className="flex items-center gap-1 hover:text-slate-900 transition-colors"
                                   >
-                                    Version
+                                    Tariff ID
                                     {sortColumn === 'version' && (
                                       <ArrowUpDown className={`w-3 h-3 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
                                     )}
@@ -924,7 +924,7 @@ export default function TariffsPage() {
                                             {activeVersion && (
                                               <>
                                                 <span className="text-slate-500">|</span>
-                                                <span className="font-medium text-slate-700">{activeVersion.version} Active</span>
+                                                <span className="font-medium text-slate-700">{activeVersion.tariff_reference_id || activeVersion.version} Active</span>
                                               </>
                                             )}
                                             {expiringVersion && (
@@ -939,7 +939,7 @@ export default function TariffsPage() {
                                             {proposedVersion && (
                                               <>
                                                 <span className="text-slate-500">|</span>
-                                                <span className="text-blue-700 font-medium">Next {proposedVersion.version}</span>
+                                                <span className="text-blue-700 font-medium">Next {proposedVersion.tariff_reference_id || proposedVersion.version}</span>
                                               </>
                                             )}
                                             {ownershipTab === 'rocket_csp' && (
@@ -1029,8 +1029,8 @@ export default function TariffsPage() {
                                       </div>
                                       {activeVersion && (
                                         <div className="flex flex-col gap-1">
-                                          <span className="text-slate-500 font-medium">Active Version</span>
-                                          <span className="text-slate-900 font-semibold">{activeVersion.version}</span>
+                                          <span className="text-slate-500 font-medium">Active Tariff</span>
+                                          <span className="text-slate-900 font-semibold">{activeVersion.tariff_reference_id || activeVersion.version}</span>
                                         </div>
                                       )}
                                       {expiringVersion && (
@@ -1047,7 +1047,7 @@ export default function TariffsPage() {
                                       {proposedVersion && (
                                         <div className="flex flex-col gap-1">
                                           <span className="text-slate-500 font-medium">Next Proposed</span>
-                                          <span className="text-blue-700 font-semibold">{proposedVersion.version}</span>
+                                          <span className="text-blue-700 font-semibold">{proposedVersion.tariff_reference_id || proposedVersion.version}</span>
                                         </div>
                                       )}
                                       {cspEvent && (
@@ -1105,9 +1105,9 @@ export default function TariffsPage() {
                                   <div className="flex items-center gap-2">
                                     <Link
                                       to={createPageUrl(`TariffDetail?id=${tariff.id}`)}
-                                      className="font-medium text-slate-900 hover:text-blue-600 hover:underline"
+                                      className="text-slate-900 hover:text-blue-600 hover:underline"
                                     >
-                                      {tariff.tariff_reference_id || tariff.version || 'No Version'}
+                                      {tariff.tariff_reference_id || tariff.version || 'No ID'}
                                     </Link>
                                     {sopCount > 0 && (
                                       <Badge variant="outline" className="text-xs h-5 px-1.5">
