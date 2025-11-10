@@ -7,7 +7,9 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Checkbox } from '../ui/checkbox';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ExternalLink } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
+import { supabase } from '../../api/supabaseClient';
 import { toast } from 'sonner';
 
 export default function EditTariffDialog({
@@ -34,6 +36,10 @@ export default function EditTariffDialog({
     const [credentialUsername, setCredentialUsername] = useState('');
     const [credentialPassword, setCredentialPassword] = useState('');
     const [shipperNumber, setShipperNumber] = useState('');
+    const [carrierPortalUrl, setCarrierPortalUrl] = useState('');
+    const [originalCarrierPortalUrl, setOriginalCarrierPortalUrl] = useState('');
+    const [showUpdateCarrierPrompt, setShowUpdateCarrierPrompt] = useState(false);
+    const [pendingSubmit, setPendingSubmit] = useState(false);
 
     const { data: customers = [] } = useQuery({
         queryKey: ['customers'],
@@ -64,6 +70,8 @@ export default function EditTariffDialog({
             setCredentialUsername(tariff.credential_username || '');
             setCredentialPassword(tariff.credential_password || '');
             setShipperNumber(tariff.shipper_number || '');
+            setCarrierPortalUrl(tariff.carrier_portal_url || '');
+            setOriginalCarrierPortalUrl(tariff.carrier_portal_url || '');
         } else {
             setVersion('');
             setStatus('active');
@@ -78,8 +86,22 @@ export default function EditTariffDialog({
             setCredentialUsername('');
             setCredentialPassword('');
             setShipperNumber('');
+            setCarrierPortalUrl('');
+            setOriginalCarrierPortalUrl('');
         }
     }, [open]);
+
+    useEffect(() => {
+        if (carrierId && carriers.length > 0) {
+            const selectedCarrier = carriers.find(c => c.id === carrierId);
+            if (selectedCarrier && selectedCarrier.portal_login_url) {
+                if (!carrierPortalUrl || carrierPortalUrl === originalCarrierPortalUrl) {
+                    setCarrierPortalUrl(selectedCarrier.portal_login_url);
+                    setOriginalCarrierPortalUrl(selectedCarrier.portal_login_url);
+                }
+            }
+        }
+    }, [carrierId, carriers]);
 
     const updateMutation = useMutation({
         mutationFn: (data) => tariff ? Tariff.update(tariff.id, data) : Tariff.create(data),
@@ -97,8 +119,19 @@ export default function EditTariffDialog({
         },
     });
 
-    const handleSubmit = (e) => {
-        e.preventDefault();
+    const handleSubmit = async (e, skipCarrierUpdate = false) => {
+        e?.preventDefault();
+
+        const selectedCarrier = carriers.find(c => c.id === carrierId);
+        const carrierHasDifferentUrl = selectedCarrier && selectedCarrier.portal_login_url !== carrierPortalUrl;
+        const userChangedUrl = carrierPortalUrl && carrierPortalUrl !== originalCarrierPortalUrl;
+
+        if (!skipCarrierUpdate && carrierHasDifferentUrl && userChangedUrl && carrierPortalUrl) {
+            setPendingSubmit(true);
+            setShowUpdateCarrierPrompt(true);
+            return;
+        }
+
         const data = {
             version,
             status,
@@ -114,8 +147,32 @@ export default function EditTariffDialog({
             credential_username: credentialUsername,
             credential_password: credentialPassword,
             shipper_number: shipperNumber,
+            carrier_portal_url: carrierPortalUrl,
         };
         updateMutation.mutate(data);
+    };
+
+    const handleUpdateCarrier = async () => {
+        try {
+            await supabase
+                .from('carriers')
+                .update({ portal_login_url: carrierPortalUrl })
+                .eq('id', carrierId);
+
+            queryClient.invalidateQueries({ queryKey: ['carriers'] });
+            toast.success('Carrier portal URL updated');
+        } catch (error) {
+            toast.error('Failed to update carrier: ' + error.message);
+        }
+        setShowUpdateCarrierPrompt(false);
+        setPendingSubmit(false);
+        handleSubmit(null, true);
+    };
+
+    const handleSkipCarrierUpdate = () => {
+        setShowUpdateCarrierPrompt(false);
+        setPendingSubmit(false);
+        handleSubmit(null, true);
     };
 
     const handleCustomerToggle = (customerId) => {
@@ -328,6 +385,27 @@ export default function EditTariffDialog({
                                 placeholder="Shipper identification number"
                             />
                         </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="carrier_portal_url">Carrier Login URL</Label>
+                            <Input
+                                id="carrier_portal_url"
+                                type="url"
+                                value={carrierPortalUrl}
+                                onChange={(e) => setCarrierPortalUrl(e.target.value)}
+                                placeholder="https://carrier-portal.com/login"
+                            />
+                            {carrierPortalUrl && (
+                                <a
+                                    href={carrierPortalUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-xs text-blue-600 hover:text-blue-800 hover:underline inline-flex items-center gap-1"
+                                >
+                                    <ExternalLink className="w-3 h-3" />
+                                    Test link
+                                </a>
+                            )}
+                        </div>
                     </div>
 
                     <div className="flex justify-end gap-2">
@@ -341,6 +419,25 @@ export default function EditTariffDialog({
                     </div>
                 </form>
             </DialogContent>
+
+            <AlertDialog open={showUpdateCarrierPrompt} onOpenChange={setShowUpdateCarrierPrompt}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Update Carrier Portal URL?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            You've changed the Carrier Login URL. Would you like to update this URL for the carrier record as well? This will make it the default for future tariffs with this carrier.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={handleSkipCarrierUpdate}>
+                            No, just this tariff
+                        </AlertDialogCancel>
+                        <AlertDialogAction onClick={handleUpdateCarrier}>
+                            Yes, update carrier too
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </Dialog>
     );
 }

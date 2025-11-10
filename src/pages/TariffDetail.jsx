@@ -258,6 +258,20 @@ export default function TariffDetailPage() {
                             <CardContent>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
                                     <InfoItem label="Carrier" value={carrier.name} />
+                                    <InfoItem label="Carrier Login">
+                                        {(tariff.carrier_portal_url || carrier.portal_login_url) ? (
+                                            <a
+                                                href={tariff.carrier_portal_url || carrier.portal_login_url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-blue-600 hover:text-blue-800 hover:underline break-all"
+                                            >
+                                                {tariff.carrier_portal_url || carrier.portal_login_url}
+                                            </a>
+                                        ) : (
+                                            'N/A'
+                                        )}
+                                    </InfoItem>
                                     <InfoItem label="Username" value={tariff.credential_username} />
                                     <InfoItem label="Password" value={tariff.credential_password} />
                                     <InfoItem label="Shipper Number/Code" value={tariff.shipper_number} />

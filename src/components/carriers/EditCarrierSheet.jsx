@@ -124,6 +124,17 @@ export default function EditCarrierSheet({ carrierId, isOpen, onOpenChange, pref
                                     <Input id="website" placeholder="https://..." value={formData.website || ''} onChange={handleChange} />
                                 </div>
                                 <div className="space-y-2">
+                                    <Label htmlFor="portal_login_url">Portal Login URL</Label>
+                                    <Input
+                                        id="portal_login_url"
+                                        type="url"
+                                        placeholder="https://carrier-portal.com/login"
+                                        value={formData.portal_login_url || ''}
+                                        onChange={handleChange}
+                                    />
+                                    <p className="text-xs text-slate-500">URL to the carrier's login portal for accessing shipment information</p>
+                                </div>
+                                <div className="space-y-2">
                                     <Label htmlFor="notes">General Notes</Label>
                                     <Textarea id="notes" placeholder="Any other relevant notes about this carrier" value={formData.notes || ''} onChange={handleChange} rows={3} />
                                 </div>
