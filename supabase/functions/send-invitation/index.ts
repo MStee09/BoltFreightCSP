@@ -336,6 +336,32 @@ Deno.serve(async (req: Request) => {
     console.log('Role:', roleLabel);
     console.log('Invited by:', invitedBy);
 
+    // Log email activity for tracking
+    try {
+      await supabaseClient
+        .from('email_activities')
+        .insert({
+          tracking_code: `INV-${Date.now()}`,
+          subject: emailSubject,
+          from_email: fromEmail,
+          from_name: invitedBy,
+          to_emails: [email],
+          body_html: emailBody,
+          direction: 'outbound',
+          sent_at: new Date().toISOString(),
+          created_by: user.id,
+          message_id: info.id,
+          metadata: {
+            type: 'invitation',
+            role: role,
+            invite_url: inviteUrl
+          }
+        });
+      console.log('Email activity logged successfully');
+    } catch (logError) {
+      console.error('Failed to log email activity:', logError);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,

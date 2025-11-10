@@ -184,7 +184,16 @@ export function UserManagement() {
     try {
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const { data: { session } } = await supabase.auth.getSession();
+      const { data: { user } } = await supabase.auth.getUser();
 
+      // Get current user's profile for invitedBy name
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('full_name, email')
+        .eq('id', user.id)
+        .single();
+
+      const inviterName = profile?.full_name || profile?.email || 'A team member';
       const inviteUrl = `${window.location.origin}/register?token=${invitation.token}`;
 
       const emailResponse = await fetch(`${supabaseUrl}/functions/v1/send-invitation`, {
@@ -197,6 +206,7 @@ export function UserManagement() {
           email: invitation.email,
           role: invitation.role,
           inviteUrl,
+          invitedBy: inviterName,
         }),
       });
 
