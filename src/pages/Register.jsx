@@ -34,14 +34,25 @@ export default function Register() {
 
   const validateInvitation = async (token) => {
     try {
+      console.log('Validating invitation token:', token);
+
       const { data, error } = await supabase
         .from('user_invitations')
         .select('*')
         .eq('token', token)
         .eq('status', 'pending')
-        .single();
+        .maybeSingle();
 
-      if (error || !data) {
+      console.log('Invitation query result:', { data, error });
+
+      if (error) {
+        console.error('Database error:', error);
+        setError(`Database error: ${error.message}`);
+        setLoadingInvitation(false);
+        return;
+      }
+
+      if (!data) {
         setError('Invalid or expired invitation link');
         setLoadingInvitation(false);
         return;
@@ -58,7 +69,7 @@ export default function Register() {
       setLoadingInvitation(false);
     } catch (err) {
       console.error('Error validating invitation:', err);
-      setError('Failed to validate invitation');
+      setError(`Failed to validate invitation: ${err.message}`);
       setLoadingInvitation(false);
     }
   };
@@ -84,7 +95,8 @@ export default function Register() {
       await signUp(email, password);
 
       if (invitation) {
-        await supabase
+        console.log('Updating invitation status...');
+        const { error: inviteError } = await supabase
           .from('user_invitations')
           .update({
             status: 'accepted',
@@ -92,18 +104,29 @@ export default function Register() {
           })
           .eq('id', invitation.id);
 
+        if (inviteError) {
+          console.error('Error updating invitation:', inviteError);
+        }
+
+        console.log('Getting user profile...');
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
-          await supabase
+          console.log('Updating user role to:', invitation.role);
+          const { error: roleError } = await supabase
             .from('user_profiles')
             .update({ role: invitation.role })
             .eq('id', user.id);
+
+          if (roleError) {
+            console.error('Error updating user role:', roleError);
+          }
         }
       }
 
       setSuccess(true);
       setTimeout(() => navigate('/'), 2000);
     } catch (err) {
+      console.error('Registration error:', err);
       setError(err.message || 'Failed to create account');
     } finally {
       setLoading(false);
