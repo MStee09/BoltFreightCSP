@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { Carrier, CSPEventCarrier, CarrierContact } from '../../api/entities';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Button } from '../ui/button';
@@ -12,10 +13,12 @@ import { useToast } from '../ui/use-toast';
 import { Search, Plus, Mail, Phone, User, X, ExternalLink } from 'lucide-react';
 import { Separator } from '../ui/separator';
 import { ScrollArea } from '../ui/scroll-area';
+import { createPageUrl } from '../../utils';
 
 export default function ManageCarriersDialog({ isOpen, onOpenChange, cspEventId }) {
     const queryClient = useQueryClient();
     const { toast } = useToast();
+    const navigate = useNavigate();
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCarriers, setSelectedCarriers] = useState(new Set());
 
@@ -125,9 +128,23 @@ export default function ManageCarriersDialog({ isOpen, onOpenChange, cspEventId 
 
                 <div className="grid grid-cols-2 gap-6 flex-1 min-h-0">
                     <div className="flex flex-col space-y-4 min-h-0">
-                        <div>
-                            <Label className="text-sm font-semibold">Available Carriers</Label>
-                            <p className="text-xs text-slate-500 mb-3">Select carriers to add to this event</p>
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <Label className="text-sm font-semibold">Available Carriers</Label>
+                                <p className="text-xs text-slate-500 mb-3">Select carriers to add to this event</p>
+                            </div>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                    onOpenChange(false);
+                                    navigate(createPageUrl('CarrierDetail?new=true'));
+                                }}
+                                className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            >
+                                <Plus className="w-4 h-4 mr-1" />
+                                Add Carrier
+                            </Button>
                         </div>
 
                         <div className="relative">

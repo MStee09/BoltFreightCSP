@@ -302,13 +302,13 @@ export default function CreateAwardedCspDialog({
                             handleReset();
                             onOpenChange(false);
                             setTimeout(() => {
-                              navigate('/carriers');
+                              navigate(createPageUrl('CarrierDetail?new=true'));
                             }, 100);
                           }}
                           className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
                         >
                           <ExternalLink className="h-3 w-3" />
-                          Go to Carriers page to create new carrier
+                          Create new carrier
                         </button>
                       </div>
                     </CommandEmpty>
@@ -330,6 +330,21 @@ export default function CreateAwardedCspDialog({
                             {carrier.name}
                           </CommandItem>
                         ))}
+                      <div className="border-t border-slate-200 mt-1 pt-1">
+                        <CommandItem
+                          onSelect={() => {
+                            handleReset();
+                            onOpenChange(false);
+                            setTimeout(() => {
+                              navigate(createPageUrl('CarrierDetail?new=true'));
+                            }, 100);
+                          }}
+                          className="text-blue-600 font-medium cursor-pointer"
+                        >
+                          <ExternalLink className="mr-2 h-4 w-4" />
+                          Add New Carrier
+                        </CommandItem>
+                      </div>
                     </CommandGroup>
                   </CommandList>
                 </Command>

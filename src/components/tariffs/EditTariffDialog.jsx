@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
 import { Customer, Carrier, Tariff } from '../../api/entities';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
 import { Button } from '../ui/button';
@@ -7,10 +8,11 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Checkbox } from '../ui/checkbox';
-import { Loader2, ExternalLink } from 'lucide-react';
+import { Loader2, ExternalLink, Plus } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../ui/alert-dialog';
 import { supabase } from '../../api/supabaseClient';
 import { toast } from 'sonner';
+import { createPageUrl } from '../../utils';
 
 export default function EditTariffDialog({
   open,
@@ -22,6 +24,7 @@ export default function EditTariffDialog({
   onSuccess
 }) {
     const queryClient = useQueryClient();
+    const navigate = useNavigate();
 
     const [version, setVersion] = useState('');
     const [status, setStatus] = useState('active');
@@ -349,6 +352,14 @@ export default function EditTariffDialog({
                                         {carrier.name}
                                     </SelectItem>
                                 ))}
+                                <div className="relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-slate-100 border-t border-slate-200 mt-1"
+                                     onClick={() => {
+                                         onOpenChange(false);
+                                         navigate(createPageUrl('CarrierDetail?new=true'));
+                                     }}>
+                                    <Plus className="mr-2 h-4 w-4 text-blue-600" />
+                                    <span className="text-blue-600 font-medium">Add New Carrier</span>
+                                </div>
                             </SelectContent>
                         </Select>
                     </div>
