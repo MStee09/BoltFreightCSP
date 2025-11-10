@@ -9,6 +9,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../com
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../components/ui/dropdown-menu";
 import { PlusCircle, Search, Upload, ChevronDown, ChevronRight, AlertCircle, Eye, GitCompare, Download, FileText, Plus, Calendar, Link2, UploadCloud, RefreshCw, FileCheck, ArrowUpDown, Briefcase, FolderOpen, TrendingUp, Clock, X, Pin, User, Truck, Package } from "lucide-react";
 import { format, isAfter, isBefore, differenceInDays } from "date-fns";
 import { Skeleton } from "../components/ui/skeleton";
@@ -37,13 +38,14 @@ const STATUS_FILTERS = [
 const SERVICE_TYPE_FILTERS = [
   { value: 'all', label: 'All' },
   { value: 'LTL', label: 'LTL' },
-  { value: 'Home Delivery', label: 'Home Delivery' }
+  { value: 'Home Delivery', label: 'Home Delivery LTL' }
 ];
 
 const SORT_OPTIONS = [
   { value: 'expiry_date', label: 'Expiry Date ▼' },
-  { value: 'customer_name', label: 'Customer Name A-Z' },
-  { value: 'last_activity', label: 'Last Activity Date' }
+  { value: 'customer_name', label: 'Customer A–Z' },
+  { value: 'last_updated', label: 'Last Updated' },
+  { value: 'owner', label: 'Owner' }
 ];
 
 export default function TariffsPage() {
@@ -72,6 +74,8 @@ export default function TariffsPage() {
   const [cspActionType, setCspActionType] = useState('tariff');
   const [showNewTariffDialog, setShowNewTariffDialog] = useState(false);
   const [newTariffCspEvent, setNewTariffCspEvent] = useState(null);
+  const [myAccountsOnly, setMyAccountsOnly] = useState(false);
+  const { userProfile } = useUserRole();
 
   const handleSort = (column) => {
     if (sortColumn === column) {
@@ -180,6 +184,12 @@ export default function TariffsPage() {
 
       const customer = customers.find(c => c.id === t.customer_id);
 
+      if (myAccountsOnly && customer && userProfile) {
+        const isOwner = customer.csp_owner_id === userProfile.id;
+        const isCollaborator = customer.collaborators?.includes(userProfile.id);
+        if (!isOwner && !isCollaborator) return false;
+      }
+
       if (serviceTypeFilter !== 'all' && t.mode !== serviceTypeFilter) return false;
 
       const carrierIds = t.carrier_ids || [];
@@ -223,7 +233,7 @@ export default function TariffsPage() {
 
       return true;
     });
-  }, [tariffs, ownershipTab, statusFilter, searchTerm, customers, carriers, cspEvents, serviceTypeFilter]);
+  }, [tariffs, ownershipTab, statusFilter, searchTerm, customers, carriers, cspEvents, serviceTypeFilter, myAccountsOnly, userProfile]);
 
   const groupedTariffs = useMemo(() => {
     const groups = {};
@@ -513,14 +523,32 @@ export default function TariffsPage() {
         </div>
         <div className="flex gap-3">
           <IfHasPermission permission="tariffs.create">
-            <Button
-              onClick={() => {
-                setShowCspDialog(true);
-              }}
-            >
-              <PlusCircle className="w-4 h-4 mr-2" />
-              New Tariff
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button>
+                  <PlusCircle className="w-4 h-4 mr-2" />
+                  New Tariff
+                  <ChevronDown className="w-4 h-4 ml-2" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem onClick={() => setShowCspDialog(true)}>
+                  <Upload className="w-4 h-4 mr-2" />
+                  <div>
+                    <div className="font-medium">Manual Upload</div>
+                    <div className="text-xs text-slate-500">Upload tariff document</div>
+                  </div>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate(createPageUrl('Pipeline'))}>
+                  <Link2 className="w-4 h-4 mr-2" />
+                  <div>
+                    <div className="font-medium">Create from CSP</div>
+                    <div className="text-xs text-slate-500">Link to a CSP event</div>
+                  </div>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </IfHasPermission>
         </div>
       </div>
@@ -556,13 +584,30 @@ export default function TariffsPage() {
                   Service Type
                   {serviceTypeFilter !== 'all' && (
                     <>
-                      : {serviceTypeFilter}
+                      : {SERVICE_TYPE_FILTERS.find(f => f.value === serviceTypeFilter)?.label}
                       <X className="w-3 h-3 ml-1" onClick={(e) => { e.stopPropagation(); setServiceTypeFilter('all'); }} />
                     </>
                   )}
                 </Button>
               </TooltipTrigger>
-              <TooltipContent>Filter by service type (LTL, Home Delivery)</TooltipContent>
+              <TooltipContent>Filter by service type (LTL, Home Delivery LTL)</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={myAccountsOnly ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setMyAccountsOnly(!myAccountsOnly)}
+                  className="h-8 flex items-center gap-1"
+                >
+                  <User className="w-3.5 h-3.5" />
+                  My Accounts
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Show only accounts you manage</TooltipContent>
             </Tooltip>
           </TooltipProvider>
 
