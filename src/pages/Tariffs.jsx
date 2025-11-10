@@ -182,7 +182,11 @@ export default function TariffsPage() {
 
       if (serviceTypeFilter !== 'all' && t.mode !== serviceTypeFilter) return false;
 
-      const searchCarriers = (t.carrier_ids || []).map(cid => carriers.find(c => c.id === cid)?.name).join(' ').toLowerCase() || '';
+      const carrierIds = t.carrier_ids || [];
+      const carrierNames = carrierIds.length > 0
+        ? carrierIds.map(cid => carriers.find(c => c.id === cid)?.name).filter(Boolean).join(' ')
+        : (carriers.find(c => c.id === t.carrier_id)?.name || '');
+      const searchCarriers = carrierNames.toLowerCase();
       const cspEvent = cspEvents.find(e => e.id === t.csp_event_id);
       const searchTermLower = searchTerm.toLowerCase();
 
@@ -227,7 +231,10 @@ export default function TariffsPage() {
       let groupKey, groupName, subGroupKey, subGroupName;
 
       if (ownershipTab === 'rocket_blanket' || ownershipTab === 'priority1_blanket') {
-        const carrier = carriers.find(c => tariff.carrier_ids?.includes(c.id));
+        const carrierIds = tariff.carrier_ids || [];
+        const carrier = carrierIds.length > 0
+          ? carriers.find(c => carrierIds.includes(c.id))
+          : carriers.find(c => c.id === tariff.carrier_id);
         groupKey = carrier?.id || 'unknown';
         groupName = carrier ? `${carrier.name} Blanket` : 'Unknown Carrier';
         subGroupKey = tariff.tariff_family_id || tariff.id;
@@ -237,7 +244,10 @@ export default function TariffsPage() {
         groupKey = customer?.id || 'unknown';
         groupName = customer?.name || 'Unknown Customer';
 
-        const carrier = carriers.find(c => tariff.carrier_ids?.includes(c.id));
+        const carrierIds = tariff.carrier_ids || [];
+        const carrier = carrierIds.length > 0
+          ? carriers.find(c => carrierIds.includes(c.id))
+          : carriers.find(c => c.id === tariff.carrier_id);
         subGroupKey = tariff.tariff_family_id || tariff.id;
         subGroupName = carrier?.name || 'Unknown Carrier';
       }
