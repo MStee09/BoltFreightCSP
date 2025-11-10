@@ -410,15 +410,27 @@ export default function TariffsPage() {
       Object.values(group.families || {}).flatMap(family =>
         family.versions.map(tariff => {
           const customer = customers.find(c => c.id === tariff.customer_id);
-          const tariffCarriers = (tariff.carrier_ids || [])
-            .map(id => carriers.find(c => c.id === id))
-            .filter(Boolean);
+
+          // Get carrier names - try multiple sources
+          let carrierNames = '';
+          if (tariff.carrier_ids && tariff.carrier_ids.length > 0) {
+            const tariffCarriers = tariff.carrier_ids
+              .map(id => carriers.find(c => c.id === id))
+              .filter(Boolean);
+            carrierNames = tariffCarriers.map(c => c.name).join('; ');
+          } else if (tariff.carrier_id) {
+            const carrier = carriers.find(c => c.id === tariff.carrier_id);
+            carrierNames = carrier?.name || '';
+          } else if (family.carrierName && family.carrierName !== 'Unknown Carrier') {
+            carrierNames = family.carrierName;
+          }
+
           const cspEvent = tariff.csp_event_id ? cspEvents.find(e => e.id === tariff.csp_event_id) : null;
 
           return {
             'Tariff ID': tariff.tariff_reference_id || tariff.version || '',
             'Customer': customer?.name || '',
-            'Carrier(s)': tariffCarriers.map(c => c.name).join('; ') || '',
+            'Carrier(s)': carrierNames,
             'Status': tariff.status || '',
             'Ownership': OWNERSHIP_TYPES.find(t => t.value === tariff.ownership_type)?.label || '',
             'Service Type': tariff.service_type || '',
