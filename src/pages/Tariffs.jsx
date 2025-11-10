@@ -10,35 +10,36 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../components/ui/dropdown-menu";
-import { PlusCircle, Search, Upload, ChevronDown, ChevronRight, AlertCircle, Eye, GitCompare, Download, FileText, Plus, Calendar, Link2, UploadCloud, RefreshCw, FileCheck, ArrowUpDown, Briefcase, FolderOpen, TrendingUp, Clock, X, Pin, User, Truck, Package, Edit, History, FileSpreadsheet } from "lucide-react";
+import { PlusCircle, Search, Upload, ChevronDown, ChevronRight, AlertCircle, Eye, GitCompare, Download, FileText, Plus, Calendar, Link2, UploadCloud, RefreshCw, FileCheck, ArrowUpDown, Briefcase, FolderOpen, TrendingUp, Clock, X, Pin, User, Truck, Package, Edit, History, FileSpreadsheet, Repeat, ChevronsDown, ChevronsUp } from "lucide-react";
 import { format, isAfter, isBefore, differenceInDays } from "date-fns";
 import { Skeleton } from "../components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
 import { IfHasPermission } from "../components/auth/PermissionGuard";
 import { useUserRole } from "../hooks/useUserRole";
+import { toast } from "sonner";
 import CreateAwardedCspDialog from "../components/tariffs/CreateAwardedCspDialog";
 import EditTariffDialog from "../components/tariffs/EditTariffDialog";
 
 const OWNERSHIP_TYPES = [
-  { value: 'rocket_csp', label: 'Rocket CSP', color: 'bg-purple-50 border-l-4 border-l-purple-500' },
-  { value: 'customer_direct', label: 'Customer Direct', color: 'bg-blue-50 border-l-4 border-l-blue-500' },
-  { value: 'rocket_blanket', label: 'Rocket Blanket', color: 'bg-orange-50 border-l-4 border-l-orange-500' },
-  { value: 'priority1_blanket', label: 'Priority 1 CSP', color: 'bg-green-50 border-l-4 border-l-green-500' }
+  { value: 'rocket_csp', label: 'Rocket CSP', color: 'bg-purple-50 border-l-4 border-l-purple-500', tooltip: 'Tariffs negotiated and managed by Rocket on behalf of the customer' },
+  { value: 'customer_direct', label: 'Customer Direct', color: 'bg-blue-50 border-l-4 border-l-blue-500', tooltip: 'Tariffs managed directly between the customer and carrier, visible for reference' },
+  { value: 'rocket_blanket', label: 'Rocket Blanket', color: 'bg-orange-50 border-l-4 border-l-orange-500', tooltip: 'Rocket\'s blanket pricing programs available to multiple customers' },
+  { value: 'priority1_blanket', label: 'Priority 1 CSP', color: 'bg-green-50 border-l-4 border-l-green-500', tooltip: 'Preferred carrier programs with special terms or dedicated service levels' }
 ];
 
 const STATUS_FILTERS = [
-  { value: 'all', label: 'All' },
-  { value: 'active', label: 'Active' },
-  { value: 'proposed', label: 'Proposed' },
-  { value: 'expiring', label: 'Expiring < 90d' },
-  { value: 'expired', label: 'Expired' },
-  { value: 'superseded', label: 'Superseded' }
+  { value: 'all', label: 'All', tooltip: 'Show all tariffs regardless of status' },
+  { value: 'active', label: 'Active', tooltip: 'Currently active and in use for pricing' },
+  { value: 'proposed', label: 'Proposed', tooltip: 'Pending approval or implementation' },
+  { value: 'expiring', label: 'Expiring < 90d', tooltip: 'View tariffs expiring within 90 days — recommended for renewal action' },
+  { value: 'expired', label: 'Expired', tooltip: 'Past expiration date and no longer active' },
+  { value: 'superseded', label: 'Superseded', tooltip: 'Replaced by a newer version in the same family' }
 ];
 
 const SERVICE_TYPE_FILTERS = [
-  { value: 'all', label: 'All' },
-  { value: 'LTL', label: 'LTL' },
-  { value: 'Home Delivery', label: 'Home Delivery LTL' }
+  { value: 'all', label: 'All', tooltip: 'Show all service types' },
+  { value: 'LTL', label: 'LTL', tooltip: 'Less-Than-Truckload shipments' },
+  { value: 'Home Delivery', label: 'Home Delivery LTL', tooltip: 'Residential delivery services' }
 ];
 
 const SORT_OPTIONS = [
@@ -77,6 +78,9 @@ export default function TariffsPage() {
   const [myAccountsOnly, setMyAccountsOnly] = useState(false);
   const [selectedForCompare, setSelectedForCompare] = useState([]);
   const { userProfile } = useUserRole();
+  const [allExpanded, setAllExpanded] = useState(false);
+  const [showRenewalDialog, setShowRenewalDialog] = useState(false);
+  const [renewalFamilyData, setRenewalFamilyData] = useState(null);
 
   const handleSort = (column) => {
     if (sortColumn === column) {
@@ -499,6 +503,34 @@ export default function TariffsPage() {
     setCollapsedFamilies(newCollapsed);
   };
 
+  const handleExpandAll = () => {
+    setCollapsedFamilies(new Set());
+    setAllExpanded(true);
+  };
+
+  const handleCollapseAll = () => {
+    const allFamilyIds = groupedTariffs.flatMap(group =>
+      Object.values(group.families || {}).map(family => family.familyId)
+    );
+    setCollapsedFamilies(new Set(allFamilyIds));
+    setAllExpanded(false);
+  };
+
+  const handleCreateRenewalCSP = (family, customerName, carrierName) => {
+    const firstVersion = family.versions[0];
+    setRenewalFamilyData({
+      customerId: firstVersion.customer_id,
+      customerName: customerName,
+      carrierId: firstVersion.carrier_ids?.[0] || firstVersion.carrier_id,
+      carrierName: carrierName,
+      mode: firstVersion.mode,
+      ownershipType: firstVersion.ownership_type,
+      familyId: family.familyId,
+      expiryDate: firstVersion.expiry_date
+    });
+    setShowRenewalDialog(true);
+  };
+
   const getRowColorClass = (tariff) => {
     const today = new Date();
     const expiryDate = tariff.expiry_date ? new Date(tariff.expiry_date) : null;
@@ -756,16 +788,22 @@ export default function TariffsPage() {
           {OWNERSHIP_TYPES.map(type => {
             const count = getTabCounts[type.value] || 0;
             return (
-              <TabsTrigger
-                key={type.value}
-                value={type.value}
-                className="data-[state=active]:bg-white data-[state=active]:shadow-sm py-3 flex items-center gap-2"
-              >
-                <span>{type.label}</span>
-                <Badge variant="secondary" className="text-xs">
-                  {count}
-                </Badge>
-              </TabsTrigger>
+              <TooltipProvider key={type.value}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <TabsTrigger
+                      value={type.value}
+                      className="data-[state=active]:bg-white data-[state=active]:shadow-sm py-3 flex items-center gap-2"
+                    >
+                      <span>{type.label}</span>
+                      <Badge variant="secondary" className="text-xs">
+                        {count}
+                      </Badge>
+                    </TabsTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>{type.tooltip}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             );
           })}
         </TabsList>
@@ -774,15 +812,21 @@ export default function TariffsPage() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex gap-2 flex-wrap">
           {STATUS_FILTERS.map(filter => (
-            <Button
-              key={filter.value}
-              variant={statusFilter === filter.value ? "default" : "outline"}
-              size="sm"
-              onClick={() => handleStatusFilterChange(filter.value)}
-              className="h-8"
-            >
-              {filter.label}
-            </Button>
+            <TooltipProvider key={filter.value}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant={statusFilter === filter.value ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => handleStatusFilterChange(filter.value)}
+                    className="h-8"
+                  >
+                    {filter.label}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>{filter.tooltip}</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           ))}
         </div>
         <div className="flex items-center gap-2">
@@ -870,6 +914,38 @@ export default function TariffsPage() {
                   Clear ({selectedForCompare.length})
                 </Button>
               )}
+              <div className="flex items-center gap-1 border-l pl-2 ml-2">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleExpandAll}
+                        className="h-8 px-2"
+                      >
+                        <ChevronsDown className="w-3.5 h-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Expand All</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleCollapseAll}
+                        className="h-8 px-2"
+                      >
+                        <ChevronsUp className="w-3.5 h-3.5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Collapse All</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -1186,6 +1262,36 @@ export default function TariffsPage() {
                                             <ChevronDown className="w-4 h-4 text-slate-600" />
                                           </button>
                                           <FolderOpen className="w-4 h-4 text-slate-600" />
+                                          {(() => {
+                                            const displayName = cspEvent?.owner_name || firstVersion?.updated_by_name || 'System';
+                                            const initials = displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+                                            const bgColor = cspEvent ? 'bg-purple-300' : 'bg-slate-300';
+                                            const textColor = cspEvent ? 'text-purple-800' : 'text-slate-700';
+                                            return (
+                                              <TooltipProvider>
+                                                <Tooltip>
+                                                  <TooltipTrigger asChild>
+                                                    <div className={`w-6 h-6 rounded-full ${bgColor} flex items-center justify-center text-xs font-semibold ${textColor}`}>
+                                                      {initials}
+                                                    </div>
+                                                  </TooltipTrigger>
+                                                  <TooltipContent>
+                                                    <div className="text-xs">
+                                                      <div className="font-semibold">{displayName}</div>
+                                                      <div className="text-slate-500">
+                                                        {cspEvent ? 'CSP Owner' : 'Last Updated'}
+                                                      </div>
+                                                      {mostRecentUpdate && (
+                                                        <div className="text-slate-400 mt-1">
+                                                          Updated {format(new Date(mostRecentUpdate), 'MMM d, yyyy')}
+                                                        </div>
+                                                      )}
+                                                    </div>
+                                                  </TooltipContent>
+                                                </Tooltip>
+                                              </TooltipProvider>
+                                            );
+                                          })()}
                                           <span className="font-semibold text-sm text-slate-900">
                                             Tariff Family: {group.name} × {family.carrierName}
                                           </span>
@@ -1229,6 +1335,27 @@ export default function TariffsPage() {
                                               }
                                               return null;
                                             })()}
+                                            {expiringVersion && !isArchived && (
+                                              <TooltipProvider>
+                                                <Tooltip>
+                                                  <TooltipTrigger asChild>
+                                                    <button
+                                                      className="text-xs text-purple-600 hover:text-purple-700 hover:underline flex items-center gap-1 font-medium"
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleCreateRenewalCSP(family, group.name, family.carrierName);
+                                                      }}
+                                                    >
+                                                      <Repeat className="w-3 h-3" />
+                                                      Create Renewal CSP
+                                                    </button>
+                                                  </TooltipTrigger>
+                                                  <TooltipContent>
+                                                    Start a renewal negotiation for this expiring tariff
+                                                  </TooltipContent>
+                                                </Tooltip>
+                                              </TooltipProvider>
+                                            )}
                                           </div>
                                         </div>
                                         <div className="flex items-center gap-1 text-xs text-slate-500">
@@ -1566,6 +1693,20 @@ export default function TariffsPage() {
           onSuccess={() => {
             setShowNewTariffDialog(false);
             setNewTariffCspEvent(null);
+          }}
+        />
+      )}
+
+      {showRenewalDialog && renewalFamilyData && (
+        <CreateAwardedCspDialog
+          isOpen={showRenewalDialog}
+          onOpenChange={setShowRenewalDialog}
+          preselectedCustomerId={renewalFamilyData.customerId}
+          onCspCreated={(cspEvent) => {
+            toast.success(`Renewal CSP created: ${cspEvent.title}`);
+            navigate(createPageUrl(`CspEventDetail?id=${cspEvent.id}`));
+            setShowRenewalDialog(false);
+            setRenewalFamilyData(null);
           }}
         />
       )}
