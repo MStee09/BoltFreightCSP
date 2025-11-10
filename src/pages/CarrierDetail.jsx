@@ -2,6 +2,7 @@
 import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Customer, Carrier, Tariff, CSPEvent, Task, Interaction, Alert, Shipment, LostOpportunity, ReportSnapshot } from '../api/entities';
+import { supabase } from '../api/supabaseClient';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
@@ -355,12 +356,20 @@ const CarrierCommitments = ({ carrier }) => {
 };
 
 const CarrierTariffs = ({ carrierId, highlightId }) => {
-    // This query now looks for tariffs where the carrierId is in the carrier_ids array.
     const { data: tariffs = [], isLoading: isLoadingTariffs } = useQuery({
         queryKey: ['tariffs', { carrierForTariffs: carrierId }],
-        queryFn: () => Tariff.filter({ 'carrier_ids.icontains': carrierId }),
+        queryFn: async () => {
+            const { data, error } = await supabase
+                .from('tariffs')
+                .select('*')
+                .or(`carrier_id.eq.${carrierId},carrier_ids.cs.{${carrierId}}`)
+                .eq('user_id', '00000000-0000-0000-0000-000000000000');
+
+            if (error) throw error;
+            return data || [];
+        },
         enabled: !!carrierId,
-        initialData: [] // Ensure it starts as an array
+        initialData: []
     });
     
     const { data: customers = [], isLoading: isLoadingCustomers } = useQuery({
