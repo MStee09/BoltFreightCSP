@@ -417,7 +417,7 @@ const CarrierTariffs = ({ carrierId, highlightId }) => {
                                 <TableRow
                                     key={tariff.id}
                                     className={`cursor-pointer hover:bg-slate-50 ${tariff.id === highlightId ? 'bg-blue-50' : ''}`}
-                                    onClick={() => window.location.href = createPageUrl('TariffDetail', { id: tariff.id })}
+                                    onClick={() => window.location.href = createPageUrl(`TariffDetail?id=${tariff.id}`)}
                                 >
                                     <TableCell className="font-medium">{customer?.name || (tariff.is_blanket_tariff ? 'Blanket' : 'N/A')}</TableCell>
                                     <TableCell>{tariff.version}</TableCell>
