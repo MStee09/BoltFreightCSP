@@ -123,11 +123,10 @@ export default function TariffDetailPage() {
         enabled: !!tariff?.customer_id,
     });
 
-    const { data: carriers = [], isLoading: isLoadingCarriers } = useQuery({
-        queryKey: ['carriers'],
-        queryFn: () => Carrier.list(),
-        enabled: !!tariff?.carrier_ids,
-        initialData: []
+    const { data: carrier, isLoading: isLoadingCarrier } = useQuery({
+        queryKey: ['carrier', tariff?.carrier_id],
+        queryFn: () => Carrier.get(tariff.carrier_id),
+        enabled: !!tariff?.carrier_id,
     });
 
     const { data: cspEvent, isLoading: isLoadingCspEvent } = useQuery({
@@ -136,7 +135,7 @@ export default function TariffDetailPage() {
         enabled: !!tariff?.csp_event_id,
     });
 
-    const isLoading = isLoadingTariff || isLoadingCustomer || isLoadingCarriers || isLoadingCspEvent;
+    const isLoading = isLoadingTariff || isLoadingCustomer || isLoadingCarrier || isLoadingCspEvent;
 
     useEffect(() => {
         if (location.hash === '#documents' && tariff) {
@@ -150,7 +149,11 @@ export default function TariffDetailPage() {
         }
     }, [location.hash, tariff]);
 
-    const tariffCarriers = tariff?.carrier_ids?.map(cid => carriers.find(c => c.id === cid)).filter(Boolean) || [];
+    const ownershipTypeLabel = {
+        rocket_csp: 'Rocket CSP',
+        customer_direct: 'Customer Direct',
+        customer_csp: 'Customer CSP'
+    }[tariff?.ownership_type] || tariff?.ownership_type || 'N/A';
     
     if (isLoading) {
         return (
@@ -167,9 +170,9 @@ export default function TariffDetailPage() {
         return <div className="p-8 text-center">Tariff not found.</div>;
     }
 
-    const headerDescription = tariff.is_blanket_tariff 
-        ? `Blanket tariff applicable to ${tariffCarriers.length} carrier(s)`
-        : `For ${customer?.name || '...'} with ${tariffCarriers.map(c=>c.name).join(', ')}`;
+    const headerDescription = tariff.is_blanket_tariff
+        ? `Blanket tariff${carrier ? ` with ${carrier.name}` : ''}`
+        : `For ${customer?.name || '...'}${carrier ? ` with ${carrier.name}` : ''}`;
 
     return (
         <div className="p-6 lg:p-8 max-w-4xl mx-auto">
@@ -234,7 +237,7 @@ export default function TariffDetailPage() {
                             <InfoItem label="Status">
                                 <span className={`px-2 py-1 text-xs font-medium rounded-full ${ {active: 'bg-green-100 text-green-800', proposed: 'bg-blue-100 text-blue-800', expired: 'bg-slate-100 text-slate-700', superseded: 'bg-purple-100 text-purple-700'}[tariff.status] || 'bg-gray-100'}`}>{tariff.status}</span>
                             </InfoItem>
-                            <InfoItem label="Ownership" value={tariff.ownership_type} />
+                            <InfoItem label="Type" value={ownershipTypeLabel} />
                             <InfoItem label="Service Type" value={tariff.mode || 'N/A'} />
                             <InfoItem label="Blanket Tariff">
                                 <Badge variant={tariff.is_blanket_tariff ? "default" : "outline"}>
@@ -249,25 +252,30 @@ export default function TariffDetailPage() {
                         </CardContent>
                     </Card>
 
-                    {tariffCarriers.length > 0 && (
+                    {carrier && (
                         <Card>
-                            <CardHeader><CardTitle>Applicable Carriers</CardTitle></CardHeader>
+                            <CardHeader><CardTitle>Carrier Information</CardTitle></CardHeader>
                             <CardContent>
-                                <div className="flex flex-wrap gap-2">
-                                    {tariffCarriers.map(c => <Badge key={c.id} variant="secondary">{c.name}</Badge>)}
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                                    <InfoItem label="Carrier" value={carrier.name} />
+                                    <InfoItem label="Username" value={tariff.credential_username} />
+                                    <InfoItem label="Password" value={tariff.credential_password} />
+                                    <InfoItem label="Shipper Number/Code" value={tariff.shipper_number} />
                                 </div>
                             </CardContent>
                         </Card>
                     )}
 
-                    <Card>
-                        <CardHeader><CardTitle>Credential Notes</CardTitle></CardHeader>
-                        <CardContent>
-                            <p className="text-sm text-slate-700 whitespace-pre-wrap font-mono bg-slate-50 p-4 rounded-lg">
-                                {tariff.credential_notes || 'No credential notes provided.'}
-                            </p>
-                        </CardContent>
-                    </Card>
+                    {tariff.notes && (
+                        <Card>
+                            <CardHeader><CardTitle>Notes</CardTitle></CardHeader>
+                            <CardContent>
+                                <p className="text-sm text-slate-700 whitespace-pre-wrap bg-slate-50 p-4 rounded-lg">
+                                    {tariff.notes}
+                                </p>
+                            </CardContent>
+                        </Card>
+                    )}
                 </TabsContent>
 
                 <TabsContent value="documents" className="space-y-6">
@@ -278,7 +286,7 @@ export default function TariffDetailPage() {
                     <TariffSopsTab
                         tariffId={tariffId}
                         tariffFamilyId={tariff.tariff_family_id}
-                        carrierName={tariffCarriers.map(c => c.name).join(', ') || 'N/A'}
+                        carrierName={carrier?.name || 'N/A'}
                         customerName={customer?.name || 'N/A'}
                     />
                 </TabsContent>

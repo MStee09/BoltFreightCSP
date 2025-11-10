@@ -29,8 +29,11 @@ export default function EditTariffDialog({
     const [expiryDate, setExpiryDate] = useState('');
     const [customerId, setCustomerId] = useState('');
     const [customerIds, setCustomerIds] = useState([]);
-    const [carrierIds, setCarrierIds] = useState([]);
+    const [carrierId, setCarrierId] = useState('');
     const [isBlanketTariff, setIsBlanketTariff] = useState(false);
+    const [credentialUsername, setCredentialUsername] = useState('');
+    const [credentialPassword, setCredentialPassword] = useState('');
+    const [shipperNumber, setShipperNumber] = useState('');
 
     const { data: customers = [] } = useQuery({
         queryKey: ['customers'],
@@ -56,8 +59,11 @@ export default function EditTariffDialog({
             setExpiryDate(tariff.expiry_date || '');
             setCustomerId(tariff.customer_id || '');
             setCustomerIds(tariff.customer_ids || []);
-            setCarrierIds(tariff.carrier_ids || []);
+            setCarrierId(tariff.carrier_id || '');
             setIsBlanketTariff(tariff.is_blanket_tariff || false);
+            setCredentialUsername(tariff.credential_username || '');
+            setCredentialPassword(tariff.credential_password || '');
+            setShipperNumber(tariff.shipper_number || '');
         } else {
             setVersion('');
             setStatus('active');
@@ -67,8 +73,11 @@ export default function EditTariffDialog({
             setExpiryDate('');
             setCustomerId(preselectedCustomerId || '');
             setCustomerIds([]);
-            setCarrierIds(preselectedCarrierIds || []);
+            setCarrierId(preselectedCarrierIds?.[0] || '');
             setIsBlanketTariff(false);
+            setCredentialUsername('');
+            setCredentialPassword('');
+            setShipperNumber('');
         }
     }, [open]);
 
@@ -99,19 +108,14 @@ export default function EditTariffDialog({
             expiry_date: expiryDate,
             customer_id: customerId,
             customer_ids: customerIds,
-            carrier_ids: carrierIds,
+            carrier_id: carrierId,
             csp_event_id: preselectedCspEventId || tariff?.csp_event_id || '',
             is_blanket_tariff: isBlanketTariff,
+            credential_username: credentialUsername,
+            credential_password: credentialPassword,
+            shipper_number: shipperNumber,
         };
         updateMutation.mutate(data);
-    };
-
-    const handleCarrierToggle = (carrierId) => {
-        setCarrierIds(prev =>
-            prev.includes(carrierId)
-                ? prev.filter(id => id !== carrierId)
-                : [...prev, carrierId]
-        );
     };
 
     const handleCustomerToggle = (customerId) => {
@@ -168,16 +172,15 @@ export default function EditTariffDialog({
                         </div>
 
                         <div className="space-y-2">
-                            <Label htmlFor="ownership_type">Ownership *</Label>
+                            <Label htmlFor="ownership_type">Type *</Label>
                             <Select value={ownershipType} onValueChange={setOwnershipType}>
                                 <SelectTrigger>
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="customer_direct">Direct</SelectItem>
+                                    <SelectItem value="customer_direct">Customer Direct</SelectItem>
                                     <SelectItem value="rocket_csp">Rocket CSP</SelectItem>
-                                    <SelectItem value="rocket_blanket">Rocket Blanket</SelectItem>
-                                    <SelectItem value="priority1_blanket">Priority 1 Blanket</SelectItem>
+                                    <SelectItem value="customer_csp">Customer CSP</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -278,20 +281,52 @@ export default function EditTariffDialog({
                     )}
 
                     <div className="space-y-2">
-                        <Label>Carriers *</Label>
-                        <div className="border rounded-lg p-4 space-y-2 max-h-48 overflow-y-auto">
-                            {carriers.map(carrier => (
-                                <div key={carrier.id} className="flex items-center gap-2">
-                                    <Checkbox
-                                        id={`carrier-${carrier.id}`}
-                                        checked={carrierIds.includes(carrier.id)}
-                                        onCheckedChange={() => handleCarrierToggle(carrier.id)}
-                                    />
-                                    <Label htmlFor={`carrier-${carrier.id}`} className="cursor-pointer flex-1">
+                        <Label htmlFor="carrier_id">Carrier *</Label>
+                        <Select value={carrierId} onValueChange={setCarrierId}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select a carrier" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {carriers.map(carrier => (
+                                    <SelectItem key={carrier.id} value={carrier.id}>
                                         {carrier.name}
-                                    </Label>
-                                </div>
-                            ))}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <div className="space-y-4 border-t pt-4">
+                        <h3 className="font-semibold text-sm text-slate-700">Carrier Portal Credentials</h3>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="credential_username">Username</Label>
+                                <Input
+                                    id="credential_username"
+                                    value={credentialUsername}
+                                    onChange={(e) => setCredentialUsername(e.target.value)}
+                                    placeholder="Portal login username"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="credential_password">Password</Label>
+                                <Input
+                                    id="credential_password"
+                                    type="password"
+                                    value={credentialPassword}
+                                    onChange={(e) => setCredentialPassword(e.target.value)}
+                                    placeholder="Portal password"
+                                />
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="shipper_number">Shipper Number/Code</Label>
+                            <Input
+                                id="shipper_number"
+                                value={shipperNumber}
+                                onChange={(e) => setShipperNumber(e.target.value)}
+                                placeholder="Shipper identification number"
+                            />
                         </div>
                     </div>
 
