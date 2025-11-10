@@ -113,16 +113,29 @@ const CarrierContacts = ({ carrier }) => {
                 </CardContent>
             </Card>
 
-            {carrier.website && (
+            {(carrier.website || carrier.portal_login_url) && (
                 <Card>
                     <CardHeader>
-                        <CardTitle>Website</CardTitle>
-                        <CardDescription>Carrier online resources</CardDescription>
+                        <CardTitle>Online Resources</CardTitle>
+                        <CardDescription>Carrier websites and portals</CardDescription>
                     </CardHeader>
-                    <CardContent>
-                        <a href={carrier.website} target="_blank" rel="noopener noreferrer" className="text-base text-blue-600 hover:underline">
-                            {carrier.website}
-                        </a>
+                    <CardContent className="space-y-4">
+                        {carrier.website && (
+                            <div>
+                                <p className="text-sm text-slate-500 mb-1">Website</p>
+                                <a href={carrier.website} target="_blank" rel="noopener noreferrer" className="text-base text-blue-600 hover:underline break-all">
+                                    {carrier.website}
+                                </a>
+                            </div>
+                        )}
+                        {carrier.portal_login_url && (
+                            <div>
+                                <p className="text-sm text-slate-500 mb-1">Portal Login</p>
+                                <a href={carrier.portal_login_url} target="_blank" rel="noopener noreferrer" className="text-base text-blue-600 hover:underline break-all">
+                                    {carrier.portal_login_url}
+                                </a>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             )}
