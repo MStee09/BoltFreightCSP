@@ -17,6 +17,7 @@ import { EmailTemplatesManagement } from '@/components/settings/EmailTemplatesMa
 import { AlertSettings } from '@/components/settings/AlertSettings';
 import { UserProfile } from '@/components/settings/UserProfile';
 import KnowledgeBaseSettings from '@/components/settings/KnowledgeBase';
+import AutomationManagement from '@/components/settings/AutomationManagement';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/api/supabaseClient';
@@ -173,6 +174,7 @@ export default function Settings() {
           <TabsTrigger value="integrations">Integrations</TabsTrigger>
           <TabsTrigger value="ai">AI Assistant</TabsTrigger>
           <TabsTrigger value="knowledge">Knowledge Base</TabsTrigger>
+          {(isAdmin || isElite) && <TabsTrigger value="automations">Automations</TabsTrigger>}
           {(isAdmin || isElite) && <TabsTrigger value="email-templates">Email Templates</TabsTrigger>}
           {(isAdmin || isElite) && <TabsTrigger value="notifications">Notifications</TabsTrigger>}
           <TabsTrigger value="account">Account</TabsTrigger>
@@ -210,6 +212,12 @@ export default function Settings() {
         <TabsContent value="knowledge" className="space-y-4 mt-6">
           <div className="max-w-6xl">
             <KnowledgeBaseSettings />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="automations" className="space-y-4 mt-6">
+          <div className="max-w-6xl">
+            <AutomationManagement />
           </div>
         </TabsContent>
 

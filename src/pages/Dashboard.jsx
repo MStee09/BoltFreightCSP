@@ -11,7 +11,9 @@ import ReportUploadPrompt from "../components/dashboard/ReportUploadPrompt";
 import MetricCard from "../components/dashboard/MetricCard";
 import DailyFocusBanner from "../components/dashboard/DailyFocusBanner";
 import { PredictiveInsightsPanel } from "../components/dashboard/PredictiveInsights";
+import DailyDigest from "../components/dashboard/DailyDigest";
 import { Users, Truck, FileText, Trash2, RefreshCw } from "lucide-react";
+import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
 import { useToast } from "../components/ui/use-toast";
 import { clearMockData } from "../utils/mockData";
@@ -29,6 +31,7 @@ export default function Dashboard() {
   const [lastSyncTime, setLastSyncTime] = useState(new Date());
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { userProfile } = useAuth();
 
   const { data: rawCustomers, isLoading: loadingCustomers, dataUpdatedAt: customersUpdatedAt } = useQuery({ queryKey: ['customers'], queryFn: () => Customer.list() });
   const { data: rawCarriers } = useQuery({ queryKey: ['carriers'], queryFn: () => Carrier.list() });
@@ -182,6 +185,10 @@ export default function Dashboard() {
           customers={customers}
           cspEvents={cspEvents}
         />
+
+        <div className="mb-3">
+          <DailyDigest userId={userProfile?.id} />
+        </div>
 
         <div className="flex items-center gap-2 text-xs text-slate-500 mb-3">
           <RefreshCw className="w-3.5 h-3.5" />
