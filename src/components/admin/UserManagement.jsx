@@ -37,7 +37,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Users, Plus, Edit, Trash2, Shield, User, CheckCircle, XCircle, Star, FileText, Eye, Mail, Clock, X } from 'lucide-react';
+import { Users, Plus, Edit, Trash2, Shield, User, CheckCircle, XCircle, Star, FileText, Eye, Mail, Clock, X, Link2 } from 'lucide-react';
 import { supabase } from '@/api/supabaseClient';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
@@ -178,6 +178,18 @@ export function UserManagement() {
       console.error('Error cancelling invitation:', error);
       toast.error('Failed to cancel invitation');
     }
+  };
+
+  const handleCopyInviteLink = (invitation) => {
+    const origin = window.location.origin.replace(/^http:/, 'https:');
+    const inviteUrl = `${origin}/register?token=${invitation.token}`;
+
+    navigator.clipboard.writeText(inviteUrl).then(() => {
+      toast.success('Invitation link copied to clipboard');
+    }).catch((err) => {
+      console.error('Failed to copy link:', err);
+      toast.error('Failed to copy link');
+    });
   };
 
   const handleResendInvitation = async (invitation) => {
@@ -406,6 +418,14 @@ export function UserManagement() {
                         </TableCell>
                         <TableCell className="text-right">
                           <div className="flex items-center justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleCopyInviteLink(invitation)}
+                              title="Copy invitation link"
+                            >
+                              <Link2 className="h-4 w-4" />
+                            </Button>
                             <Button
                               variant="ghost"
                               size="sm"
