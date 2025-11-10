@@ -1002,17 +1002,18 @@ export default function TariffsPage() {
                               View Carrier
                             </Button>
                           ) : (
-                            <Link to={createPageUrl(`Customers?detailId=${group.key}`)}>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 text-xs"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <FileText className="w-3 h-3 mr-1" />
-                                View Customer
-                              </Button>
-                            </Link>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 text-xs"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(createPageUrl(`CustomerDetail?id=${group.key}`));
+                              }}
+                            >
+                              <FileText className="w-3 h-3 mr-1" />
+                              View Customer
+                            </Button>
                           )}
                           <Button
                             variant="ghost"
@@ -1200,14 +1201,16 @@ export default function TariffsPage() {
                                           )}
                                           <div className="flex items-center gap-1 ml-2">
                                             {ownershipTab !== 'rocket_blanket' && ownershipTab !== 'priority1_blanket' && (
-                                              <Link
-                                                to={createPageUrl(`Customers?detailId=${group.key}`)}
+                                              <button
                                                 className="text-xs text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1"
-                                                onClick={(e) => e.stopPropagation()}
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  navigate(createPageUrl(`CustomerDetail?id=${group.key}`));
+                                                }}
                                               >
                                                 <ArrowUpDown className="w-3 h-3 rotate-90" />
                                                 Jump to Customer
-                                              </Link>
+                                              </button>
                                             )}
                                             {(() => {
                                               const firstVersion = family.versions[0];
