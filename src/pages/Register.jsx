@@ -160,7 +160,7 @@ export default function Register() {
               {invitation ? 'Complete Your Invitation' : 'Create Account'}
             </CardTitle>
             <CardDescription>
-              {invitation ? `You've been invited as a ${invitation.role}` : 'Get started with FreightCSP today'}
+              {invitation ? `You've been invited as ${invitation.role === 'admin' ? 'an Administrator' : invitation.role === 'elite' ? 'an Elite User' : 'a Basic User'}` : 'Get started with FreightCSP today'}
             </CardDescription>
           </div>
           {invitation && (

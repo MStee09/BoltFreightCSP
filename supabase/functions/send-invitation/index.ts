@@ -217,11 +217,11 @@ Deno.serve(async (req: Request) => {
     .invite-button {
       display: inline-block;
       background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
-      color: white;
+      color: #ffffff !important;
       text-decoration: none;
       padding: 14px 32px;
       border-radius: 8px;
-      font-weight: 600;
+      font-weight: 700;
       margin: 20px 0;
       text-align: center;
       box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
@@ -336,7 +336,6 @@ Deno.serve(async (req: Request) => {
     console.log('Role:', roleLabel);
     console.log('Invited by:', invitedBy);
 
-    // Log email activity for tracking
     try {
       await supabaseClient
         .from('email_activities')
