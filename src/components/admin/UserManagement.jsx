@@ -165,12 +165,22 @@ export function UserManagement() {
 
   const handleCancelInvitation = async (invitationId) => {
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('user_invitations')
         .update({ status: 'cancelled' })
-        .eq('id', invitationId);
+        .eq('id', invitationId)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error cancelling invitation:', error);
+        toast.error(`Failed to cancel invitation: ${error.message}`);
+        return;
+      }
+
+      if (!data || data.length === 0) {
+        toast.error('Failed to cancel invitation: No rows updated. Check permissions.');
+        return;
+      }
 
       toast.success('Invitation cancelled');
       fetchInvitations();
