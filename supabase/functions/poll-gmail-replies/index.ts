@@ -110,7 +110,7 @@ Deno.serve(async (req: Request) => {
       const profileData = await profileResponse.json();
 
       const messagesResponse = await fetch(
-        `https://www.googleapis.com/gmail/v1/users/me/messages?maxResults=50&q=in:inbox -from:me newer_than:7d`,
+        `https://www.googleapis.com/gmail/v1/users/me/messages?maxResults=50&q=newer_than:7d`,
         {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
@@ -280,10 +280,7 @@ async function processMessage(
     const message: GmailMessage = await messageResponse.json();
     const parsed = parseMessage(message);
 
-    if (parsed.fromEmail.toLowerCase() === userEmail.toLowerCase()) {
-      console.log('Skipping email from self:', messageId);
-      return false;
-    }
+    const isOutbound = parsed.fromEmail.toLowerCase() === userEmail.toLowerCase();
 
     const { data: matchedEntities } = await supabaseClient.rpc(
       'match_inbound_email_to_entities',
@@ -307,7 +304,7 @@ async function processMessage(
       return false;
     }
 
-    const trackingCode = parsed.trackingCode || `INBOUND-${Date.now().toString(36).toUpperCase()}`;
+    const trackingCode = parsed.trackingCode || (isOutbound ? `OUTBOUND-${Date.now().toString(36).toUpperCase()}` : `INBOUND-${Date.now().toString(36).toUpperCase()}`);
 
     let ownerId = null;
     if (matchedThreadId) {
@@ -335,10 +332,10 @@ async function processMessage(
       to_emails: parsed.to,
       cc_emails: parsed.cc,
       body_text: parsed.body,
-      direction: 'inbound',
+      direction: isOutbound ? 'outbound' : 'inbound',
       sent_at: parsed.date,
       freightops_thread_token: foToken,
-      owner_id: ownerId,
+      owner_id: isOutbound ? null : ownerId,
       is_thread_starter: false,
       visible_to_team: true,
     });
