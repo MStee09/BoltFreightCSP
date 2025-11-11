@@ -308,7 +308,7 @@ Deno.serve(async (req: Request) => {
 
     const generatedThreadId = threadId || generateThreadId(subject);
 
-    const { error: dbError } = await supabaseClient
+    const { data: insertedEmail, error: dbError } = await supabaseClient
       .from('email_activities')
       .insert({
         tracking_code: trackingCode,
@@ -331,7 +331,9 @@ Deno.serve(async (req: Request) => {
         freightops_thread_token: foToken,
         owner_id: user.id,
         visible_to_team: true,
-      });
+      })
+      .select()
+      .single();
 
     if (dbError) {
       console.error('Database error:', dbError);
@@ -339,7 +341,13 @@ Deno.serve(async (req: Request) => {
     }
 
     return new Response(
-      JSON.stringify({ success: true, messageId }),
+      JSON.stringify({
+        success: true,
+        messageId,
+        threadId: generatedThreadId,
+        emailActivityId: insertedEmail?.id,
+        foToken
+      }),
       {
         headers: {
           ...corsHeaders,

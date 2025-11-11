@@ -7,7 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Send, X, FileText, Reply } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Send, X, FileText, Reply, Calendar, CheckSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/api/supabaseClient';
 
@@ -38,6 +39,8 @@ export function EmailComposeDialog({
   const [templates, setTemplates] = useState([]);
   const [userEmail, setUserEmail] = useState('');
   const [userProfile, setUserProfile] = useState(null);
+  const [createFollowUp, setCreateFollowUp] = useState(false);
+  const [followUpDays, setFollowUpDays] = useState(3);
 
   useEffect(() => {
     if (open) {
@@ -429,11 +432,41 @@ export function EmailComposeDialog({
         throw new Error(errorData.error || 'Failed to send email');
       }
 
-      toast.success('Email sent successfully');
+      const result = await response.json();
+
+      // Create follow-up task if requested
+      if (createFollowUp && result.success) {
+        try {
+          const dueDate = new Date();
+          dueDate.setDate(dueDate.getDate() + followUpDays);
+
+          await supabase.from('email_follow_up_tasks').insert({
+            thread_id: result.threadId || trackingCode,
+            email_activity_id: result.emailActivityId,
+            csp_event_id: cspEvent?.id,
+            customer_id: customer?.id,
+            carrier_id: carrier?.id,
+            assigned_to: user.id,
+            created_by: user.id,
+            title: `Follow up: ${subject}`,
+            description: `Follow up on email sent to ${toEmails.join(', ')}`,
+            due_date: dueDate.toISOString(),
+            auto_close_on_reply: true
+          });
+
+          toast.success(`Email sent with follow-up task due in ${followUpDays} ${followUpDays === 1 ? 'day' : 'days'}`);
+        } catch (taskError) {
+          console.error('Error creating follow-up task:', taskError);
+          toast.success('Email sent (follow-up task creation failed)');
+        }
+      } else {
+        toast.success('Email sent successfully');
+      }
 
       queryClient.invalidateQueries({ queryKey: ['email_activities'] });
       queryClient.invalidateQueries({ queryKey: ['interactions'] });
       queryClient.invalidateQueries({ queryKey: ['timeline'] });
+      queryClient.invalidateQueries({ queryKey: ['email_follow_up_tasks'] });
 
       onOpenChange(false);
 
@@ -600,6 +633,75 @@ export function EmailComposeDialog({
               className="resize-none"
             />
           </div>
+
+          {!inReplyTo && (
+            <div className="border-t pt-4 space-y-3">
+              <div className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  id="create-followup"
+                  checked={createFollowUp}
+                  onChange={(e) => setCreateFollowUp(e.target.checked)}
+                  className="mt-1"
+                />
+                <div className="flex-1">
+                  <Label htmlFor="create-followup" className="flex items-center gap-2 cursor-pointer">
+                    <CheckSquare className="h-4 w-4" />
+                    Create follow-up task
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Auto-creates a reminder task that closes when they reply
+                  </p>
+                </div>
+              </div>
+
+              {createFollowUp && (
+                <div className="ml-7 space-y-2">
+                  <Label htmlFor="followup-days" className="flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    Follow up in
+                  </Label>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={followUpDays === 1 ? 'default' : 'outline'}
+                      onClick={() => setFollowUpDays(1)}
+                    >
+                      1 day
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={followUpDays === 3 ? 'default' : 'outline'}
+                      onClick={() => setFollowUpDays(3)}
+                    >
+                      3 days
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={followUpDays === 5 ? 'default' : 'outline'}
+                      onClick={() => setFollowUpDays(5)}
+                    >
+                      5 days
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={followUpDays === 7 ? 'default' : 'outline'}
+                      onClick={() => setFollowUpDays(7)}
+                    >
+                      7 days
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Task will auto-complete when recipient replies
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="flex justify-end gap-2">
@@ -612,7 +714,7 @@ export function EmailComposeDialog({
           </Button>
           <Button onClick={handleSend} disabled={sending}>
             <Send className="h-4 w-4 mr-2" />
-            {sending ? 'Sending...' : 'Send Email'}
+            {sending ? 'Sending...' : (createFollowUp ? 'Send + Create Task' : 'Send Email')}
           </Button>
         </div>
       </DialogContent>
