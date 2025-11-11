@@ -165,64 +165,55 @@ async function processMessage(
     const message: GmailMessage = await messageResponse.json();
     const parsed = parseMessage(message);
 
-    let existingActivity = null;
-
-    if (parsed.trackingCode) {
-      const { data } = await supabaseClient
-        .from('email_activities')
-        .select('customer_id, carrier_id, csp_event_id, tracking_code')
-        .eq('tracking_code', parsed.trackingCode)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      existingActivity = data;
-    }
-
-    if (!existingActivity && parsed.threadId) {
-      const { data } = await supabaseClient
-        .from('email_activities')
-        .select('customer_id, carrier_id, csp_event_id, tracking_code')
-        .eq('thread_id', parsed.threadId)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      existingActivity = data;
-    }
-
-    if (!existingActivity) {
-      const cleanSubject = parsed.subject.replace(/^(Re:|Fwd?:|RE:|FWD?:)\s*/gi, '').trim();
-
-      const { data } = await supabaseClient
-        .from('email_activities')
-        .select('customer_id, carrier_id, csp_event_id, tracking_code, subject')
-        .order('created_at', { ascending: false })
-        .limit(100);
-
-      if (data && data.length > 0) {
-        for (const activity of data) {
-          const activitySubject = activity.subject.replace(/^(Re:|Fwd?:|RE:|FWD?:)\s*/gi, '').trim();
-          if (activitySubject === cleanSubject) {
-            existingActivity = activity;
-            break;
-          }
-        }
+    // Use enhanced matching function
+    const { data: matchedEntities } = await supabaseClient.rpc(
+      'match_inbound_email_to_entities',
+      {
+        p_subject: parsed.subject,
+        p_from_email: parsed.fromEmail,
+        p_to_emails: parsed.to,
+        p_thread_id: parsed.threadId,
+        p_in_reply_to: parsed.inReplyTo
       }
-    }
+    );
 
-    if (!existingActivity) {
-      console.log('No related conversation found for message:', messageId);
+    // If no match found, try to match by sender email only
+    let cspEventId = matchedEntities?.[0]?.csp_event_id;
+    let customerId = matchedEntities?.[0]?.customer_id;
+    let carrierId = matchedEntities?.[0]?.carrier_id;
+    let matchedThreadId = matchedEntities?.[0]?.matched_thread_id || parsed.threadId;
+    let foToken = matchedEntities?.[0]?.fo_token;
+
+    // If still no match, don't log the email (not related to our system)
+    if (!cspEventId && !customerId && !carrierId) {
+      console.log('No related entity found for message:', messageId);
       return;
     }
 
+    // Generate tracking code if not found
+    const trackingCode = parsed.trackingCode || `INBOUND-${Date.now().toString(36).toUpperCase()}`;
+
+    // Get owner from matched thread
+    let ownerId = null;
+    if (matchedThreadId) {
+      const { data: threadOwner } = await supabaseClient
+        .from('email_activities')
+        .select('owner_id')
+        .eq('thread_id', matchedThreadId)
+        .eq('is_thread_starter', true)
+        .maybeSingle();
+
+      ownerId = threadOwner?.owner_id;
+    }
+
     await supabaseClient.from('email_activities').insert({
-      tracking_code: existingActivity.tracking_code,
-      csp_event_id: existingActivity.csp_event_id,
-      customer_id: existingActivity.customer_id,
-      carrier_id: existingActivity.carrier_id,
-      thread_id: parsed.threadId,
+      tracking_code: trackingCode,
+      csp_event_id: cspEventId,
+      customer_id: customerId,
+      carrier_id: carrierId,
+      thread_id: matchedThreadId,
       message_id: parsed.messageId,
+      in_reply_to_message_id: parsed.inReplyTo,
       subject: parsed.subject,
       from_email: parsed.fromEmail,
       from_name: parsed.fromName,
@@ -231,6 +222,10 @@ async function processMessage(
       body_text: parsed.body,
       direction: 'inbound',
       sent_at: parsed.date,
+      freightops_thread_token: foToken,
+      owner_id: ownerId,
+      is_thread_starter: false,
+      visible_to_team: true,
     });
 
     console.log('Processed inbound email:', messageId);
@@ -252,12 +247,17 @@ function parseMessage(message: GmailMessage) {
   const cc = getHeader('Cc');
   const date = getHeader('Date');
 
-  // Look for tracking code in custom header first, then fall back to subject line
+  // Look for tracking codes in headers and subject
   let trackingCode = getHeader('X-CSP-Tracking-Code');
+  const foToken = getHeader('X-FreightOps-Token');
 
   // Also check In-Reply-To and References headers for thread tracking
   const inReplyTo = getHeader('In-Reply-To');
   const references = getHeader('References');
+
+  // Extract FreightOps token from subject line [FO-CSP-####-######]
+  const foTokenMatch = subject.match(/\[?(FO-[A-Z0-9\-]+)\]?/i);
+  const extractedFoToken = foTokenMatch ? foTokenMatch[1] : null;
 
   // If no custom header, try to extract from subject line (legacy support)
   if (!trackingCode) {
@@ -292,5 +292,7 @@ function parseMessage(message: GmailMessage) {
     body,
     date: new Date(date).toISOString(),
     trackingCode,
+    foToken: extractedFoToken || foToken,
+    inReplyTo,
   };
 }

@@ -61,6 +61,7 @@ async function sendViaGmailAPI(
   subject: string,
   body: string,
   trackingCode: string,
+  foToken: string,
   inReplyTo?: string
 ): Promise<string> {
   const messageParts = [
@@ -74,6 +75,8 @@ async function sendViaGmailAPI(
 
   messageParts.push(`Subject: ${subject}`);
   messageParts.push(`X-CSP-Tracking-Code: ${trackingCode}`);
+  messageParts.push(`X-FreightOps-Token: ${foToken}`);
+  messageParts.push(`Message-ID: <${foToken}@freightops.local>`);
 
   if (inReplyTo) {
     messageParts.push(`In-Reply-To: ${inReplyTo}`);
@@ -215,14 +218,28 @@ Deno.serve(async (req: Request) => {
           .eq('user_id', user.id);
       }
 
+      // Generate FreightOps token before sending
+      const { data: foTokenData } = await supabaseClient.rpc(
+        'generate_fo_thread_token',
+        { p_csp_event_id: cspEventId || null }
+      );
+      const foToken = foTokenData || trackingCode;
+
+      // Add FO token to subject if new thread
+      let enhancedSubject = subject;
+      if (!inReplyTo && foToken) {
+        enhancedSubject = `[${foToken}] ${subject}`;
+      }
+
       messageId = await sendViaGmailAPI(
         accessToken,
         fromEmail,
         to,
         cc,
-        subject,
+        enhancedSubject,
         body,
         trackingCode,
+        foToken,
         inReplyTo
       );
     } else {
@@ -240,15 +257,30 @@ Deno.serve(async (req: Request) => {
         },
       });
 
+      // Generate FreightOps token before sending
+      const { data: foTokenData } = await supabaseClient.rpc(
+        'generate_fo_thread_token',
+        { p_csp_event_id: cspEventId || null }
+      );
+      const foToken = foTokenData || trackingCode;
+
+      // Add FO token to subject if new thread
+      let enhancedSubject = subject;
+      if (!inReplyTo && foToken) {
+        enhancedSubject = `[${foToken}] ${subject}`;
+      }
+
       const mailOptions: any = {
         from: appPasswordCreds.email_address,
         to: to.join(', '),
         cc: cc && cc.length > 0 ? cc.join(', ') : undefined,
-        subject: subject,
+        subject: enhancedSubject,
         text: body,
         headers: {
           'X-CSP-Tracking-Code': trackingCode,
+          'X-FreightOps-Token': foToken,
         },
+        messageId: `<${foToken}@freightops.local>`,
       };
 
       if (inReplyTo) {
@@ -259,6 +291,19 @@ Deno.serve(async (req: Request) => {
 
       const info = await transporter.sendMail(mailOptions);
       messageId = info.messageId;
+    }
+
+    // Generate FreightOps token for thread tracking
+    const { data: foTokenData } = await supabaseClient.rpc(
+      'generate_fo_thread_token',
+      { p_csp_event_id: cspEventId || null }
+    );
+    const foToken = foTokenData || trackingCode;
+
+    // Add FO token to subject if it's a new thread
+    let enhancedSubject = subject;
+    if (!inReplyTo && foToken) {
+      enhancedSubject = `[${foToken}] ${subject}`;
     }
 
     const generatedThreadId = threadId || generateThreadId(subject);
@@ -273,7 +318,7 @@ Deno.serve(async (req: Request) => {
         csp_event_id: cspEventId || null,
         customer_id: customerId || null,
         carrier_id: carrierId || null,
-        subject,
+        subject: enhancedSubject,
         from_email: fromEmail,
         from_name: user.user_metadata?.full_name || fromEmail,
         to_emails: to,
@@ -283,6 +328,9 @@ Deno.serve(async (req: Request) => {
         sent_at: new Date().toISOString(),
         created_by: user.id,
         is_thread_starter: !inReplyTo,
+        freightops_thread_token: foToken,
+        owner_id: user.id,
+        visible_to_team: true,
       });
 
     if (dbError) {
