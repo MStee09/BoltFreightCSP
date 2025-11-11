@@ -228,6 +228,7 @@ export default function PipelinePage() {
   const queryClient = useQueryClient();
   const location = useLocation();
   const [isNewEventSheetOpen, setIsNewEventSheetOpen] = useState(false);
+  const [isDetailSheetOpen, setIsDetailSheetOpen] = useState(false);
 
   useEffect(() => {
     const returnToNewEvent = sessionStorage.getItem('returnToNewEvent');
