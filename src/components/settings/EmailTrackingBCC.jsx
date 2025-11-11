@@ -31,7 +31,8 @@ export default function EmailTrackingBCC() {
         setUserDomain(domain);
       }
 
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      // Get Supabase URL from the client
+      const supabaseUrl = supabase.supabaseUrl || import.meta.env.VITE_SUPABASE_URL || 'https://siujmppdeumvwwvyqcsq.supabase.co';
       setWebhookUrl(`${supabaseUrl}/functions/v1/receive-email`);
     } catch (error) {
       console.error('Error loading user domain:', error);
