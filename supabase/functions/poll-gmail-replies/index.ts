@@ -324,6 +324,7 @@ async function processMessage(
       customer_id: customerId,
       carrier_id: carrierId,
       thread_id: matchedThreadId,
+      gmail_thread_id: parsed.threadId,
       message_id: parsed.messageId,
       in_reply_to_message_id: parsed.inReplyTo,
       subject: parsed.subject,
