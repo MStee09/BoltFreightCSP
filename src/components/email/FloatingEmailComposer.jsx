@@ -111,13 +111,13 @@ export function FloatingEmailComposer({
     }
   }, [suggestedContacts.length]);
 
-  // Auto-CC CSP owner
+  // Auto-CC current user
   useEffect(() => {
-    if (fullCspEvent?.assigned_to && !ccEmails.includes(fullCspEvent.assigned_to)) {
-      setCcEmails([fullCspEvent.assigned_to]);
+    if (userEmail && !ccEmails.includes(userEmail)) {
+      setCcEmails([userEmail]);
       setShowCc(true);
     }
-  }, [fullCspEvent?.assigned_to]);
+  }, [userEmail]);
 
   // Autosave draft every 10 seconds
   useEffect(() => {
@@ -239,6 +239,11 @@ export function FloatingEmailComposer({
         setUserProfile(profile);
         if (profile.email) {
           setUserEmail(profile.email);
+        }
+
+        // Add signature to body if exists and body is empty
+        if (profile.email_signature && !body && !draftId) {
+          setBody('\n\n' + profile.email_signature);
         }
       }
 
