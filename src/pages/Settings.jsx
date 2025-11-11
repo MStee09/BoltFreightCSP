@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { GmailSetupSimple } from '@/components/email/GmailSetupSimple';
+import { GmailWebhookSetup } from '@/components/email/GmailWebhookSetup';
 import EmailSetupGuide from '@/components/settings/EmailSetupGuide';
 import { OAuthCredentials } from '@/components/settings/OAuthCredentials';
 import { UserManagement } from '@/components/admin/UserManagement';
@@ -197,9 +198,10 @@ export default function Settings() {
               <EmailSetupGuide />
             </>
           )}
-          <div className="max-w-2xl">
+          <div className="max-w-2xl space-y-4">
             {!isAdmin && <h3 className="text-lg font-semibold mb-4">Connect Your Gmail Account</h3>}
             <GmailSetupSimple />
+            <GmailWebhookSetup />
           </div>
         </TabsContent>
 
