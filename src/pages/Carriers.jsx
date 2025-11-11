@@ -9,22 +9,23 @@ import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
 import { PlusCircle, Search, ArrowRight, Filter, X, ArrowUpDown, Star } from "lucide-react";
 import { Skeleton } from "../components/ui/skeleton";
-import { format, differenceInDays } from "date-fns";
+import { format } from "date-fns";
 import { Checkbox } from "../components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../components/ui/dropdown-menu";
 import { supabase } from "../api/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
+import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
 
 export default function CarriersPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [serviceTypeFilter, setServiceTypeFilter] = useState('all');
+  const [ownershipTypeFilter, setOwnershipTypeFilter] = useState([]);
   const [ownerFilter, setOwnerFilter] = useState('all');
-  const [sortColumn, setSortColumn] = useState('on_time');
+  const [sortColumn, setSortColumn] = useState('active_tariffs');
   const [sortDirection, setSortDirection] = useState('desc');
   const [userPins, setUserPins] = useState(new Set());
   const [hoveredRowId, setHoveredRowId] = useState(null);
@@ -109,20 +110,26 @@ export default function CarriersPage() {
         t.status === 'active'
       ).length;
 
+      const ownershipType = tariffs.find(t =>
+        (t.carrier_id === carrier.id || (t.carrier_ids && t.carrier_ids.includes(carrier.id))) &&
+        t.ownership_type
+      )?.ownership_type || null;
+
       return {
         ...carrier,
-        activeTariffsCount
+        activeTariffsCount,
+        ownershipType
       };
     });
   }, [carriers, tariffs]);
 
-  const uniqueServiceTypes = useMemo(() => {
+  const uniqueOwnershipTypes = useMemo(() => {
     const types = new Set();
-    carriers.forEach(c => {
-      if (c.carrier_type) types.add(c.carrier_type);
+    carrierData.forEach(c => {
+      if (c.ownershipType) types.add(c.ownershipType);
     });
     return Array.from(types);
-  }, [carriers]);
+  }, [carrierData]);
 
   const uniqueOwners = useMemo(() => {
     const owners = new Set();
@@ -138,30 +145,18 @@ export default function CarriersPage() {
       c.scac_code?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    if (serviceTypeFilter !== 'all') {
-      filtered = filtered.filter(c => c.carrier_type === serviceTypeFilter);
+    if (ownershipTypeFilter.length > 0) {
+      filtered = filtered.filter(c => c.ownershipType && ownershipTypeFilter.includes(c.ownershipType));
     }
 
     if (ownerFilter !== 'all') {
       filtered = filtered.filter(c => c.account_owner === ownerFilter);
     }
 
-    if (sortColumn) {
+    if (sortColumn === 'active_tariffs') {
       filtered = [...filtered].sort((a, b) => {
-        let valueA, valueB;
-
-        if (sortColumn === 'on_time') {
-          valueA = a.on_time_pct || 0;
-          valueB = b.on_time_pct || 0;
-        } else if (sortColumn === 'claims') {
-          valueA = a.claims_pct || 0;
-          valueB = b.claims_pct || 0;
-        } else if (sortColumn === 'invoice_variance') {
-          valueA = a.invoice_variance_pct || 0;
-          valueB = b.invoice_variance_pct || 0;
-        } else {
-          return 0;
-        }
+        const valueA = a.activeTariffsCount || 0;
+        const valueB = b.activeTariffsCount || 0;
 
         if (sortDirection === 'asc') {
           return valueA > valueB ? 1 : valueA < valueB ? -1 : 0;
@@ -175,31 +170,19 @@ export default function CarriersPage() {
     const unpinned = filtered.filter(c => !userPins.has(c.id));
 
     return [...pinned, ...unpinned];
-  }, [carrierData, searchTerm, userPins, serviceTypeFilter, ownerFilter, sortColumn, sortDirection]);
+  }, [carrierData, searchTerm, userPins, ownershipTypeFilter, ownerFilter, sortColumn, sortDirection]);
 
   const summaryStats = useMemo(() => {
     const active = filteredCarriers.filter(c => c.status === 'active');
-    const avgOnTime = active.length > 0
-      ? active.reduce((sum, c) => sum + (c.on_time_pct || 0), 0) / active.length
-      : 0;
-    const avgClaims = active.length > 0
-      ? active.reduce((sum, c) => sum + (c.claims_pct || 0), 0) / active.length
-      : 0;
-
-    const today = new Date();
-    const qbrsDue = active.filter(c => {
-      if (!c.next_qbr_date) return false;
-      const daysUntil = differenceInDays(new Date(c.next_qbr_date), today);
-      return daysUntil >= 0 && daysUntil <= 30;
-    }).length;
+    const blanket = carrierData.filter(c => c.ownershipType === 'rocket_blanket').length;
+    const customerDirect = carrierData.filter(c => c.ownershipType === 'customer_direct').length;
 
     return {
       activeCount: active.length,
-      avgOnTime: avgOnTime.toFixed(1),
-      avgClaims: avgClaims.toFixed(1),
-      qbrsDue
+      blanket,
+      customerDirect
     };
-  }, [filteredCarriers]);
+  }, [filteredCarriers, carrierData]);
 
   const handleSort = (column) => {
     if (sortColumn === column) {
@@ -210,34 +193,37 @@ export default function CarriersPage() {
     }
   };
 
-  const getPerformanceBadgeColor = (value, type) => {
-    if (type === 'onTime') {
-      if (value > 95) return 'bg-green-100 text-green-700 border-green-200';
-      if (value >= 90) return 'bg-yellow-100 text-yellow-700 border-yellow-200';
-      return 'bg-red-100 text-red-700 border-red-200';
-    } else {
-      if (value < 1) return 'bg-green-100 text-green-700 border-green-200';
-      if (value <= 2) return 'bg-yellow-100 text-yellow-700 border-yellow-200';
-      return 'bg-red-100 text-red-700 border-red-200';
-    }
+  const toggleOwnershipType = (type) => {
+    setOwnershipTypeFilter(prev =>
+      prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
+    );
   };
 
-  const getQbrBadge = (date) => {
-    if (!date) return null;
-    const today = new Date();
-    const daysUntil = differenceInDays(new Date(date), today);
-
-    if (daysUntil < 0) {
-      return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-xs">Overdue</Badge>;
-    } else if (daysUntil <= 30) {
-      return <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 text-xs">Due Soon</Badge>;
-    } else {
-      return <span className="text-sm text-slate-600">{format(new Date(date), 'MMM d, yyyy')}</span>;
-    }
+  const getInitials = (name) => {
+    return name
+      .split(' ')
+      .map(word => word[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
   };
 
   const handleRowClick = (carrierId) => {
     navigate(createPageUrl(`CarrierDetail?id=${carrierId}`));
+  };
+
+  const ownershipTypeLabels = {
+    'rocket_blanket': 'Rocket Blanket',
+    'rocket_csp': 'Rocket CSP',
+    'customer_blanket': 'Customer Blanket',
+    'customer_direct': 'Customer Direct'
+  };
+
+  const ownershipTypeColors = {
+    'rocket_blanket': 'bg-blue-100 text-blue-700 border-blue-200',
+    'rocket_csp': 'bg-purple-100 text-purple-700 border-purple-200',
+    'customer_blanket': 'bg-green-100 text-green-700 border-green-200',
+    'customer_direct': 'bg-orange-100 text-orange-700 border-orange-200'
   };
 
   return (
@@ -246,7 +232,7 @@ export default function CarriersPage() {
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Carriers</h1>
           <p className="text-slate-600 mt-1">
-            Active {summaryStats.activeCount} • Avg On-Time {summaryStats.avgOnTime}% • Avg Claims {summaryStats.avgClaims}% • QBRs Due {summaryStats.qbrsDue}
+            Active {summaryStats.activeCount} • Blanket {summaryStats.blanket} • Customer Direct {summaryStats.customerDirect}
           </p>
         </div>
         <Button
@@ -263,20 +249,29 @@ export default function CarriersPage() {
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant={serviceTypeFilter !== 'all' ? 'default' : 'outline'} size="sm" className="h-8">
+            <Button variant={ownershipTypeFilter.length > 0 ? 'default' : 'outline'} size="sm" className="h-8">
               <Filter className="w-3.5 h-3.5 mr-1" />
-              Service Type: {serviceTypeFilter === 'all' ? 'All' : serviceTypeFilter.replace('_', ' ')}
-              {serviceTypeFilter !== 'all' && <X className="w-3 h-3 ml-1" onClick={(e) => { e.stopPropagation(); setServiceTypeFilter('all'); }} />}
+              Ownership: {ownershipTypeFilter.length === 0 ? 'All' : `${ownershipTypeFilter.length} selected`}
+              {ownershipTypeFilter.length > 0 && (
+                <X className="w-3 h-3 ml-1" onClick={(e) => { e.stopPropagation(); setOwnershipTypeFilter([]); }} />
+              )}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            <DropdownMenuItem onClick={() => setServiceTypeFilter('all')}>All Types</DropdownMenuItem>
-            <DropdownMenuSeparator />
-            {uniqueServiceTypes.map(type => (
-              <DropdownMenuItem key={type} onClick={() => setServiceTypeFilter(type)} className="capitalize">
-                {type.replace('_', ' ')}
-              </DropdownMenuItem>
-            ))}
+            <div className="p-2 space-y-2">
+              {uniqueOwnershipTypes.map(type => (
+                <div key={type} className="flex items-center space-x-2">
+                  <Checkbox
+                    id={`ownership-${type}`}
+                    checked={ownershipTypeFilter.includes(type)}
+                    onCheckedChange={() => toggleOwnershipType(type)}
+                  />
+                  <label htmlFor={`ownership-${type}`} className="text-sm cursor-pointer">
+                    {ownershipTypeLabels[type] || type}
+                  </label>
+                </div>
+              ))}
+            </div>
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -303,18 +298,15 @@ export default function CarriersPage() {
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="h-8">
               <ArrowUpDown className="w-3.5 h-3.5 mr-1" />
-              Sort: {sortColumn === 'on_time' ? 'On-Time %' : sortColumn === 'claims' ? 'Claims %' : 'Invoice Var %'} {sortDirection === 'desc' ? '↓' : '↑'}
+              Sort: Active Tariffs {sortDirection === 'desc' ? '↓' : '↑'}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            <DropdownMenuItem onClick={() => { setSortColumn('on_time'); setSortDirection('desc'); }}>
-              On-Time % ↓
+            <DropdownMenuItem onClick={() => { setSortColumn('active_tariffs'); setSortDirection('desc'); }}>
+              Active Tariffs ↓
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => { setSortColumn('claims'); setSortDirection('asc'); }}>
-              Claims % ↑
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => { setSortColumn('invoice_variance'); setSortDirection('asc'); }}>
-              Invoice Variance % ↑
+            <DropdownMenuItem onClick={() => { setSortColumn('active_tariffs'); setSortDirection('asc'); }}>
+              Active Tariffs ↑
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -339,58 +331,27 @@ export default function CarriersPage() {
                 <TableHead className="p-4"><Checkbox /></TableHead>
                 <TableHead className="w-8"></TableHead>
                 <TableHead>Carrier</TableHead>
-                <TableHead>Service Type</TableHead>
-                <TableHead>Active Tariffs</TableHead>
-                <TableHead>Next QBR</TableHead>
+                <TableHead>Ownership Type</TableHead>
                 <TableHead>
                   <button
-                    onClick={() => handleSort('on_time')}
+                    onClick={() => handleSort('active_tariffs')}
                     className="flex items-center gap-1 hover:text-slate-900 transition-colors"
                   >
-                    On-Time %
-                    {sortColumn === 'on_time' && (
+                    Active Tariffs
+                    {sortColumn === 'active_tariffs' && (
                       <ArrowUpDown className={`w-3 h-3 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
                     )}
                   </button>
                 </TableHead>
-                <TableHead>
-                  <button
-                    onClick={() => handleSort('claims')}
-                    className="flex items-center gap-1 hover:text-slate-900 transition-colors"
-                  >
-                    Claims %
-                    {sortColumn === 'claims' && (
-                      <ArrowUpDown className={`w-3 h-3 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
-                    )}
-                  </button>
-                </TableHead>
-                <TableHead>
-                  <button
-                    onClick={() => handleSort('invoice_variance')}
-                    className="flex items-center gap-1 hover:text-slate-900 transition-colors"
-                  >
-                    Invoice Var %
-                    {sortColumn === 'invoice_variance' && (
-                      <ArrowUpDown className={`w-3 h-3 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
-                    )}
-                  </button>
-                </TableHead>
-                <TableHead>Owner</TableHead>
                 <TableHead>Last Updated</TableHead>
+                <TableHead>Owner</TableHead>
                 <TableHead className="w-32">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? Array(8).fill(0).map((_, i) => (
-                <TableRow key={i}><TableCell colSpan={12}><Skeleton className="h-6 w-full" /></TableCell></TableRow>
+                <TableRow key={i}><TableCell colSpan={8}><Skeleton className="h-6 w-full" /></TableCell></TableRow>
               )) : filteredCarriers.map(carrier => {
-                const serviceTypeColors = {
-                  'asset': 'bg-blue-100 text-blue-700 border-blue-200',
-                  'brokerage': 'bg-purple-100 text-purple-700 border-purple-200',
-                  'ltl': 'bg-green-100 text-green-700 border-green-200',
-                  'home_delivery_ltl': 'bg-orange-100 text-orange-700 border-orange-200'
-                };
-
                 return (
                   <TableRow
                     key={carrier.id}
@@ -421,17 +382,25 @@ export default function CarriersPage() {
                       </TooltipProvider>
                     </TableCell>
                     <TableCell>
-                      <div>
-                        <div className="font-medium text-slate-900">{carrier.name}</div>
-                        {carrier.service_type && (
-                          <div className="text-xs text-slate-500 mt-0.5">{carrier.service_type}</div>
-                        )}
+                      <div className="flex items-center gap-3">
+                        <Avatar className="h-8 w-8">
+                          {carrier.logo_url && <AvatarImage src={carrier.logo_url} alt={carrier.name} />}
+                          <AvatarFallback className="bg-slate-100 text-slate-700 text-xs font-semibold">
+                            {getInitials(carrier.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div>
+                          <div className="font-medium text-slate-900">{carrier.name}</div>
+                          {carrier.service_type && (
+                            <div className="text-xs text-slate-500 mt-0.5">{carrier.service_type}</div>
+                          )}
+                        </div>
                       </div>
                     </TableCell>
                     <TableCell>
-                      {carrier.carrier_type ? (
-                        <Badge variant="outline" className={`${serviceTypeColors[carrier.carrier_type] || 'bg-slate-100 text-slate-700'} font-medium capitalize`}>
-                          {carrier.carrier_type.replace('_', ' ')}
+                      {carrier.ownershipType ? (
+                        <Badge variant="outline" className={`${ownershipTypeColors[carrier.ownershipType] || 'bg-slate-100 text-slate-700'} font-medium`}>
+                          {ownershipTypeLabels[carrier.ownershipType] || carrier.ownershipType}
                         </Badge>
                       ) : (
                         <span className="text-slate-400">N/A</span>
@@ -450,61 +419,12 @@ export default function CarriersPage() {
                       )}
                     </TableCell>
                     <TableCell>
-                      {carrier.next_qbr_date ? (
-                        getQbrBadge(carrier.next_qbr_date)
-                      ) : (
-                        <span className="text-slate-400">N/A</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Badge variant="outline" className={`${getPerformanceBadgeColor(carrier.on_time_pct || 0, 'onTime')} font-medium cursor-help`}>
-                              {(carrier.on_time_pct || 0).toFixed(1)}%
-                            </Badge>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Data sourced from carrier performance feed</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </TableCell>
-                    <TableCell>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Badge variant="outline" className={`${getPerformanceBadgeColor(carrier.claims_pct || 0, 'claims')} font-medium cursor-help`}>
-                              {(carrier.claims_pct || 0).toFixed(1)}%
-                            </Badge>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Data sourced from carrier performance feed</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </TableCell>
-                    <TableCell>
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Badge variant="outline" className={`${getPerformanceBadgeColor(carrier.invoice_variance_pct || 0, 'claims')} font-medium cursor-help`}>
-                              {(carrier.invoice_variance_pct || 0).toFixed(1)}%
-                            </Badge>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p>Data sourced from carrier performance feed</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </TableCell>
-                    <TableCell>
-                      <span className="text-sm text-slate-700">{carrier.account_owner || 'N/A'}</span>
-                    </TableCell>
-                    <TableCell>
                       <span className="text-sm text-slate-600">
                         {carrier.updated_date ? format(new Date(carrier.updated_date), 'MMM d, yyyy') : 'N/A'}
                       </span>
+                    </TableCell>
+                    <TableCell>
+                      <span className="text-sm text-slate-700">{carrier.account_owner || 'N/A'}</span>
                     </TableCell>
                     <TableCell onClick={e => e.stopPropagation()}>
                       <Button
