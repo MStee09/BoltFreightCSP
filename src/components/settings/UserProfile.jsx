@@ -93,6 +93,8 @@ export function UserProfile() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      const signature = generateSignaturePreview();
+
       const { error } = await supabase
         .from('user_profiles')
         .update({
@@ -101,6 +103,7 @@ export function UserProfile() {
           phone: formData.phone,
           title: formData.title,
           company: formData.company,
+          email_signature: signature,
           updated_at: new Date().toISOString()
         })
         .eq('id', user.id);
