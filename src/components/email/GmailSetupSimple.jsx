@@ -120,7 +120,7 @@ export function GmailSetupSimple() {
 
     const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
     const redirectUri = `${appUrl}/gmail-callback`;
-    const scope = 'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/userinfo.email';
+    const scope = 'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.settings.basic https://www.googleapis.com/auth/userinfo.email';
 
     console.log('OAuth Debug:', {
       appUrl,
