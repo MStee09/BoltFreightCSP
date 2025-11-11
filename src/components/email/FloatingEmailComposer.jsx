@@ -14,7 +14,7 @@ import {
 import { toast } from 'sonner';
 import { supabase } from '@/api/supabaseClient';
 import { useQueryClient } from '@tanstack/react-query';
-import { Customer, Carrier, CSPEventCarrier, CarrierContact } from '@/api/entities';
+import { Customer, Carrier, CSPEventCarrier, CarrierContact, CSPEvent } from '@/api/entities';
 
 export function FloatingEmailComposer({
   draftId,
@@ -59,6 +59,7 @@ export function FloatingEmailComposer({
   const [showFollowUp, setShowFollowUp] = useState(false);
   const [suggestedContacts, setSuggestedContacts] = useState([]);
   const [showContactDropdown, setShowContactDropdown] = useState(false);
+  const [fullCspEvent, setFullCspEvent] = useState(null);
 
   const composerRef = useRef(null);
   const autosaveTimerRef = useRef(null);
@@ -89,20 +90,27 @@ export function FloatingEmailComposer({
     loadTemplates();
   }, []);
 
-  // Load suggested contacts from CSP event
+  // Load full CSP event data
   useEffect(() => {
     if (cspEvent?.id) {
-      loadSuggestedContacts();
+      loadFullCspEvent();
     }
   }, [cspEvent?.id]);
 
-  // Auto-add logged-in user to CC
+  // Load suggested contacts from CSP event
   useEffect(() => {
-    if (userEmail && !ccEmails.includes(userEmail)) {
-      setCcEmails([userEmail]);
+    if (fullCspEvent) {
+      loadSuggestedContacts();
+    }
+  }, [fullCspEvent]);
+
+  // Auto-CC CSP owner
+  useEffect(() => {
+    if (fullCspEvent?.assigned_to && !ccEmails.includes(fullCspEvent.assigned_to)) {
+      setCcEmails([fullCspEvent.assigned_to]);
       setShowCc(true);
     }
-  }, [userEmail]);
+  }, [fullCspEvent?.assigned_to]);
 
   // Autosave draft every 10 seconds
   useEffect(() => {
@@ -199,6 +207,16 @@ export function FloatingEmailComposer({
     }
   };
 
+  const loadFullCspEvent = async () => {
+    try {
+      if (!cspEvent?.id) return;
+      const eventData = await CSPEvent.get(cspEvent.id);
+      setFullCspEvent(eventData);
+    } catch (error) {
+      console.error('Error loading full CSP event:', error);
+    }
+  };
+
   const loadUserProfile = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -252,8 +270,8 @@ export function FloatingEmailComposer({
       }
 
       // Get carriers assigned to this CSP event
-      if (cspEvent?.id) {
-        const assignments = await CSPEventCarrier.filter({ csp_event_id: cspEvent.id });
+      if (fullCspEvent?.id) {
+        const assignments = await CSPEventCarrier.filter({ csp_event_id: fullCspEvent.id });
         const carrierIds = assignments.map(a => a.carrier_id);
 
         for (const carrierId of carrierIds) {
