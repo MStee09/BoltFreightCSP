@@ -9,6 +9,7 @@ import { GmailWebhookSetup } from '@/components/email/GmailWebhookSetup';
 import EmailSetupGuide from '@/components/settings/EmailSetupGuide';
 import EmailTrackingBCC from '@/components/settings/EmailTrackingBCC';
 import { OAuthCredentials } from '@/components/settings/OAuthCredentials';
+import { EmailPollingSettings } from '@/components/settings/EmailPollingSettings';
 import { UserManagement } from '@/components/admin/UserManagement';
 import { SystemSettings } from '@/components/admin/SystemSettings';
 import { DatabaseManagement } from '@/components/admin/DatabaseManagement';
@@ -205,7 +206,7 @@ export default function Settings() {
           <div className="max-w-2xl space-y-4">
             {!isAdmin && <h3 className="text-lg font-semibold mb-4">Connect Your Gmail Account</h3>}
             <GmailSetupSimple />
-            <GmailWebhookSetup />
+            <EmailPollingSettings />
           </div>
         </TabsContent>
 
