@@ -113,11 +113,20 @@ export function FloatingEmailComposer({
 
   // Add signature when profile loads (for new emails only)
   useEffect(() => {
+    console.log('🔍 Signature check:', {
+      hasSignature: !!userProfile?.email_signature,
+      signature: userProfile?.email_signature,
+      hasDraftId: !!draftId,
+      currentBody: body,
+      initialBody: initialBody,
+      bodyMatch: body === initialBody
+    });
+
     if (userProfile?.email_signature && !draftId && body === initialBody) {
-      console.log('✍️ Adding signature to body');
+      console.log('✍️ Adding signature to body:', userProfile.email_signature);
       setBody('\n\n' + userProfile.email_signature);
     }
-  }, [userProfile?.email_signature, draftId]);
+  }, [userProfile?.email_signature, draftId, body]);
 
   // Auto-CC current user
   useEffect(() => {
