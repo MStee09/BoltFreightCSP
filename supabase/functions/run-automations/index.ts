@@ -25,6 +25,9 @@ Deno.serve(async (req: Request) => {
       autoRenewalCsp: null as any,
       carrierFollowup: null as any,
       validationReminder: null as any,
+      stalledEmails: null as any,
+      overdueFollowups: null as any,
+      unansweredEmails: null as any,
     };
 
     // Run Auto-Renewal CSP automation
@@ -40,6 +43,21 @@ Deno.serve(async (req: Request) => {
     // Run Validation Reminder automation
     if (ruleType === 'all' || ruleType === 'validation_reminder') {
       results.validationReminder = await runValidationReminder(supabase);
+    }
+
+    // Run Stalled Email Detection
+    if (ruleType === 'all' || ruleType === 'stalled_email_detection') {
+      results.stalledEmails = await runStalledEmailDetection(supabase);
+    }
+
+    // Run Overdue Follow-up Tasks
+    if (ruleType === 'all' || ruleType === 'overdue_followup_tasks') {
+      results.overdueFollowups = await runOverdueFollowupTasks(supabase);
+    }
+
+    // Run Unanswered Email Reminder
+    if (ruleType === 'all' || ruleType === 'unanswered_email_reminder') {
+      results.unansweredEmails = await runUnansweredEmailReminder(supabase);
     }
 
     return new Response(
@@ -447,6 +465,184 @@ async function runValidationReminder(supabase: any) {
       })
       .eq('id', logId);
 
+    throw error;
+  }
+}
+
+async function runStalledEmailDetection(supabase: any) {
+  const startTime = Date.now();
+  const logId = crypto.randomUUID();
+
+  try {
+    const { data: rule } = await supabase
+      .from('automation_rules')
+      .select('*')
+      .eq('rule_type', 'stalled_email_detection')
+      .eq('is_enabled', true)
+      .single();
+
+    if (!rule) {
+      return { skipped: true, reason: 'Rule not enabled' };
+    }
+
+    await supabase.from('automation_logs').insert({
+      id: logId,
+      rule_id: rule.id,
+      rule_type: 'stalled_email_detection',
+      status: 'running',
+      trigger_data: { triggered_at: new Date().toISOString() },
+    });
+
+    const { data: stalledCount } = await supabase.rpc('mark_stalled_threads');
+
+    await supabase
+      .from('automation_logs')
+      .update({
+        status: 'success',
+        result_data: { threads_marked_stalled: stalledCount || 0 },
+        execution_time_ms: Date.now() - startTime,
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', logId);
+
+    return { threads_marked_stalled: stalledCount || 0 };
+  } catch (error) {
+    await supabase
+      .from('automation_logs')
+      .update({
+        status: 'failed',
+        error_message: error.message,
+        execution_time_ms: Date.now() - startTime,
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', logId);
+
+    throw error;
+  }
+}
+
+async function runOverdueFollowupTasks(supabase: any) {
+  const startTime = Date.now();
+  const logId = crypto.randomUUID();
+
+  try {
+    const { data: rule } = await supabase
+      .from('automation_rules')
+      .select('*')
+      .eq('rule_type', 'overdue_followup_tasks')
+      .eq('is_enabled', true)
+      .single();
+
+    if (!rule) {
+      return { skipped: true, reason: 'Rule not enabled' };
+    }
+
+    await supabase.from('automation_logs').insert({
+      id: logId,
+      rule_id: rule.id,
+      rule_type: 'overdue_followup_tasks',
+      status: 'running',
+      trigger_data: { triggered_at: new Date().toISOString() },
+    });
+
+    const { data: overdueTasks } = await supabase
+      .from('email_follow_up_tasks')
+      .select('id, thread_id, title, due_date, assigned_to, csp_event_id, customer_id, carrier_id')
+      .eq('status', 'pending')
+      .lt('due_date', new Date().toISOString());
+
+    if (!overdueTasks || overdueTasks.length === 0) {
+      await supabase
+        .from('automation_logs')
+        .update({
+          status: 'success',
+          result_data: { tasks_processed: 0, alerts_created: 0 },
+          execution_time_ms: Date.now() - startTime,
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', logId);
+
+      return { tasks_processed: 0, alerts_created: 0 };
+    }
+
+    const alertsCreated = [];
+
+    for (const task of overdueTasks) {
+      const daysOverdue = Math.floor((Date.now() - new Date(task.due_date).getTime()) / (1000 * 60 * 60 * 24));
+      const { data: existingAlert } = await supabase.from('alerts').select('id').eq('entity_type', 'followup_task').eq('entity_id', task.id).eq('type', 'overdue_task').neq('status', 'resolved').maybeSingle();
+
+      if (!existingAlert) {
+        const { data: alert, error } = await supabase.from('alerts').insert({
+          type: 'overdue_task',
+          severity: 'high',
+          message: `Overdue email follow-up: ${task.title}`,
+          entity_type: 'followup_task',
+          entity_id: task.id,
+          assigned_to: task.assigned_to,
+          metadata: { task_id: task.id, thread_id: task.thread_id, days_overdue: daysOverdue, csp_event_id: task.csp_event_id, customer_id: task.customer_id, carrier_id: task.carrier_id, automation: 'overdue_followup_tasks' },
+        }).select().single();
+
+        if (!error) alertsCreated.push(alert.id);
+      }
+    }
+
+    await supabase.from('automation_logs').update({ status: 'success', result_data: { tasks_processed: overdueTasks.length, alerts_created: alertsCreated.length }, execution_time_ms: Date.now() - startTime, completed_at: new Date().toISOString() }).eq('id', logId);
+
+    return { tasks_processed: overdueTasks.length, alerts_created: alertsCreated.length };
+  } catch (error) {
+    await supabase.from('automation_logs').update({ status: 'failed', error_message: error.message, execution_time_ms: Date.now() - startTime, completed_at: new Date().toISOString() }).eq('id', logId);
+    throw error;
+  }
+}
+
+async function runUnansweredEmailReminder(supabase: any) {
+  const startTime = Date.now();
+  const logId = crypto.randomUUID();
+
+  try {
+    const { data: rule } = await supabase.from('automation_rules').select('*').eq('rule_type', 'unanswered_email_reminder').eq('is_enabled', true).single();
+
+    if (!rule) return { skipped: true, reason: 'Rule not enabled' };
+
+    await supabase.from('automation_logs').insert({ id: logId, rule_id: rule.id, rule_type: 'unanswered_email_reminder', status: 'running', trigger_data: { triggered_at: new Date().toISOString() } });
+
+    const daysWaiting = rule.trigger_condition.days_waiting || 3;
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - daysWaiting);
+
+    const { data: unansweredEmails } = await supabase.from('email_activities').select('id, thread_id, subject, owner_id, last_activity_at, csp_event_id, customer_id, carrier_id, to_emails').eq('is_thread_starter', true).eq('thread_status', 'awaiting_reply').eq('stalled_notification_sent', false).lte('last_activity_at', cutoffDate.toISOString());
+
+    if (!unansweredEmails || unansweredEmails.length === 0) {
+      await supabase.from('automation_logs').update({ status: 'success', result_data: { emails_processed: 0, notifications_created: 0 }, execution_time_ms: Date.now() - startTime, completed_at: new Date().toISOString() }).eq('id', logId);
+      return { emails_processed: 0, notifications_created: 0 };
+    }
+
+    const notificationsCreated = [];
+
+    for (const email of unansweredEmails) {
+      const daysWaiting = Math.floor((Date.now() - new Date(email.last_activity_at).getTime()) / (1000 * 60 * 60 * 24));
+      const { data: notification, error } = await supabase.from('notifications').insert({
+        user_id: email.owner_id,
+        type: 'email_reminder',
+        title: 'No Reply Yet',
+        message: `No response after ${daysWaiting} days: ${email.subject}`,
+        entity_type: 'email_thread',
+        entity_id: email.thread_id,
+        action_url: email.csp_event_id ? `/pipeline/${email.csp_event_id}` : email.customer_id ? `/customers/${email.customer_id}` : '/dashboard',
+        metadata: { thread_id: email.thread_id, days_waiting: daysWaiting, to_emails: email.to_emails, automation: 'unanswered_email_reminder' },
+      }).select().single();
+
+      if (!error) {
+        notificationsCreated.push(notification.id);
+        await supabase.from('email_activities').update({ stalled_notification_sent: true }).eq('id', email.id);
+      }
+    }
+
+    await supabase.from('automation_logs').update({ status: 'success', result_data: { emails_processed: unansweredEmails.length, notifications_created: notificationsCreated.length }, execution_time_ms: Date.now() - startTime, completed_at: new Date().toISOString() }).eq('id', logId);
+
+    return { emails_processed: unansweredEmails.length, notifications_created: notificationsCreated.length };
+  } catch (error) {
+    await supabase.from('automation_logs').update({ status: 'failed', error_message: error.message, execution_time_ms: Date.now() - startTime, completed_at: new Date().toISOString() }).eq('id', logId);
     throw error;
   }
 }
