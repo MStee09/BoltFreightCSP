@@ -61,9 +61,9 @@ Deno.serve(async (req: Request) => {
     }
 
     const { data: appPasswordCreds } = await supabaseClient
-      .from('gmail_app_password_credentials')
+      .from('user_gmail_credentials')
       .select('*')
-      .eq('id', user.id)
+      .eq('user_id', user.id)
       .maybeSingle();
 
     if (!appPasswordCreds) {
@@ -75,12 +75,12 @@ Deno.serve(async (req: Request) => {
       port: 587,
       secure: false,
       auth: {
-        user: appPasswordCreds.gmail_address,
+        user: appPasswordCreds.email_address,
         pass: appPasswordCreds.app_password,
       },
     });
 
-    const fromEmail = appPasswordCreds.gmail_address;
+    const fromEmail = appPasswordCreds.email_address;
     const fromName = userProfile.full_name || fromEmail.split('@')[0];
 
     let bodyWithSignature = body;
