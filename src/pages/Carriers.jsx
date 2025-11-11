@@ -16,14 +16,12 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { supabase } from "../api/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
-import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar";
 
 export default function CarriersPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [ownershipTypeFilter, setOwnershipTypeFilter] = useState([]);
   const [ownerFilter, setOwnerFilter] = useState('all');
   const [sortColumn, setSortColumn] = useState('active_tariffs');
   const [sortDirection, setSortDirection] = useState('desc');
@@ -110,26 +108,12 @@ export default function CarriersPage() {
         t.status === 'active'
       ).length;
 
-      const ownershipType = tariffs.find(t =>
-        (t.carrier_id === carrier.id || (t.carrier_ids && t.carrier_ids.includes(carrier.id))) &&
-        t.ownership_type
-      )?.ownership_type || null;
-
       return {
         ...carrier,
-        activeTariffsCount,
-        ownershipType
+        activeTariffsCount
       };
     });
   }, [carriers, tariffs]);
-
-  const uniqueOwnershipTypes = useMemo(() => {
-    const types = new Set();
-    carrierData.forEach(c => {
-      if (c.ownershipType) types.add(c.ownershipType);
-    });
-    return Array.from(types);
-  }, [carrierData]);
 
   const uniqueOwners = useMemo(() => {
     const owners = new Set();
@@ -145,85 +129,55 @@ export default function CarriersPage() {
       c.scac_code?.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
-    if (ownershipTypeFilter.length > 0) {
-      filtered = filtered.filter(c => c.ownershipType && ownershipTypeFilter.includes(c.ownershipType));
-    }
-
     if (ownerFilter !== 'all') {
       filtered = filtered.filter(c => c.account_owner === ownerFilter);
     }
 
-    if (sortColumn === 'active_tariffs') {
-      filtered = [...filtered].sort((a, b) => {
+    filtered = [...filtered].sort((a, b) => {
+      if (sortColumn === 'active_tariffs') {
         const valueA = a.activeTariffsCount || 0;
         const valueB = b.activeTariffsCount || 0;
-
         if (sortDirection === 'asc') {
           return valueA > valueB ? 1 : valueA < valueB ? -1 : 0;
         } else {
           return valueA < valueB ? 1 : valueA > valueB ? -1 : 0;
         }
-      });
-    }
+      } else if (sortColumn === 'last_updated') {
+        const dateA = a.updated_date ? new Date(a.updated_date).getTime() : 0;
+        const dateB = b.updated_date ? new Date(b.updated_date).getTime() : 0;
+        if (sortDirection === 'asc') {
+          return dateA > dateB ? 1 : dateA < dateB ? -1 : 0;
+        } else {
+          return dateA < dateB ? 1 : dateA > dateB ? -1 : 0;
+        }
+      } else if (sortColumn === 'name') {
+        const nameA = a.name.toLowerCase();
+        const nameB = b.name.toLowerCase();
+        if (sortDirection === 'asc') {
+          return nameA > nameB ? 1 : nameA < nameB ? -1 : 0;
+        } else {
+          return nameA < nameB ? 1 : nameA > nameB ? -1 : 0;
+        }
+      }
+      return 0;
+    });
 
     const pinned = filtered.filter(c => userPins.has(c.id));
     const unpinned = filtered.filter(c => !userPins.has(c.id));
 
     return [...pinned, ...unpinned];
-  }, [carrierData, searchTerm, userPins, ownershipTypeFilter, ownerFilter, sortColumn, sortDirection]);
+  }, [carrierData, searchTerm, userPins, ownerFilter, sortColumn, sortDirection]);
 
   const summaryStats = useMemo(() => {
     const active = filteredCarriers.filter(c => c.status === 'active');
-    const blanket = carrierData.filter(c => c.ownershipType === 'rocket_blanket').length;
-    const customerDirect = carrierData.filter(c => c.ownershipType === 'customer_direct').length;
-
     return {
       activeCount: active.length,
-      blanket,
-      customerDirect
+      totalCount: filteredCarriers.length
     };
-  }, [filteredCarriers, carrierData]);
-
-  const handleSort = (column) => {
-    if (sortColumn === column) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortColumn(column);
-      setSortDirection('desc');
-    }
-  };
-
-  const toggleOwnershipType = (type) => {
-    setOwnershipTypeFilter(prev =>
-      prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
-    );
-  };
-
-  const getInitials = (name) => {
-    return name
-      .split(' ')
-      .map(word => word[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  };
+  }, [filteredCarriers]);
 
   const handleRowClick = (carrierId) => {
     navigate(createPageUrl(`CarrierDetail?id=${carrierId}`));
-  };
-
-  const ownershipTypeLabels = {
-    'rocket_blanket': 'Rocket Blanket',
-    'rocket_csp': 'Rocket CSP',
-    'customer_blanket': 'Customer Blanket',
-    'customer_direct': 'Customer Direct'
-  };
-
-  const ownershipTypeColors = {
-    'rocket_blanket': 'bg-blue-100 text-blue-700 border-blue-200',
-    'rocket_csp': 'bg-purple-100 text-purple-700 border-purple-200',
-    'customer_blanket': 'bg-green-100 text-green-700 border-green-200',
-    'customer_direct': 'bg-orange-100 text-orange-700 border-orange-200'
   };
 
   return (
@@ -232,7 +186,7 @@ export default function CarriersPage() {
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Carriers</h1>
           <p className="text-slate-600 mt-1">
-            Active {summaryStats.activeCount} • Blanket {summaryStats.blanket} • Customer Direct {summaryStats.customerDirect}
+            {summaryStats.totalCount} carriers • {summaryStats.activeCount} active
           </p>
         </div>
         <Button
@@ -246,34 +200,6 @@ export default function CarriersPage() {
 
       <div className="mb-4 flex items-center gap-2 flex-wrap">
         <span className="text-sm text-slate-600 font-medium">Filters:</span>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant={ownershipTypeFilter.length > 0 ? 'default' : 'outline'} size="sm" className="h-8">
-              <Filter className="w-3.5 h-3.5 mr-1" />
-              Ownership: {ownershipTypeFilter.length === 0 ? 'All' : `${ownershipTypeFilter.length} selected`}
-              {ownershipTypeFilter.length > 0 && (
-                <X className="w-3 h-3 ml-1" onClick={(e) => { e.stopPropagation(); setOwnershipTypeFilter([]); }} />
-              )}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <div className="p-2 space-y-2">
-              {uniqueOwnershipTypes.map(type => (
-                <div key={type} className="flex items-center space-x-2">
-                  <Checkbox
-                    id={`ownership-${type}`}
-                    checked={ownershipTypeFilter.includes(type)}
-                    onCheckedChange={() => toggleOwnershipType(type)}
-                  />
-                  <label htmlFor={`ownership-${type}`} className="text-sm cursor-pointer">
-                    {ownershipTypeLabels[type] || type}
-                  </label>
-                </div>
-              ))}
-            </div>
-          </DropdownMenuContent>
-        </DropdownMenu>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -298,15 +224,18 @@ export default function CarriersPage() {
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="h-8">
               <ArrowUpDown className="w-3.5 h-3.5 mr-1" />
-              Sort: Active Tariffs {sortDirection === 'desc' ? '↓' : '↑'}
+              Sort: {sortColumn === 'active_tariffs' ? 'Active Tariffs' : sortColumn === 'last_updated' ? 'Last Updated' : 'Carrier A-Z'} {sortDirection === 'desc' ? '↓' : '↑'}
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
             <DropdownMenuItem onClick={() => { setSortColumn('active_tariffs'); setSortDirection('desc'); }}>
               Active Tariffs ↓
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => { setSortColumn('active_tariffs'); setSortDirection('asc'); }}>
-              Active Tariffs ↑
+            <DropdownMenuItem onClick={() => { setSortColumn('last_updated'); setSortDirection('desc'); }}>
+              Last Updated ↓
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => { setSortColumn('name'); setSortDirection('asc'); }}>
+              Carrier A–Z
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -331,18 +260,8 @@ export default function CarriersPage() {
                 <TableHead className="p-4"><Checkbox /></TableHead>
                 <TableHead className="w-8"></TableHead>
                 <TableHead>Carrier</TableHead>
-                <TableHead>Ownership Type</TableHead>
-                <TableHead>
-                  <button
-                    onClick={() => handleSort('active_tariffs')}
-                    className="flex items-center gap-1 hover:text-slate-900 transition-colors"
-                  >
-                    Active Tariffs
-                    {sortColumn === 'active_tariffs' && (
-                      <ArrowUpDown className={`w-3 h-3 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
-                    )}
-                  </button>
-                </TableHead>
+                <TableHead>Active Tariffs</TableHead>
+                <TableHead>Coverage</TableHead>
                 <TableHead>Last Updated</TableHead>
                 <TableHead>Owner</TableHead>
                 <TableHead className="w-32">Actions</TableHead>
@@ -352,6 +271,14 @@ export default function CarriersPage() {
               {isLoading ? Array(8).fill(0).map((_, i) => (
                 <TableRow key={i}><TableCell colSpan={8}><Skeleton className="h-6 w-full" /></TableCell></TableRow>
               )) : filteredCarriers.map(carrier => {
+                const coverageLabels = {
+                  'national': 'National',
+                  'regional': 'Regional',
+                  'ocean': 'Ocean',
+                  'international': 'International',
+                  'local': 'Local'
+                };
+
                 return (
                   <TableRow
                     key={carrier.id}
@@ -382,29 +309,12 @@ export default function CarriersPage() {
                       </TooltipProvider>
                     </TableCell>
                     <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="h-8 w-8">
-                          {carrier.logo_url && <AvatarImage src={carrier.logo_url} alt={carrier.name} />}
-                          <AvatarFallback className="bg-slate-100 text-slate-700 text-xs font-semibold">
-                            {getInitials(carrier.name)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <div className="font-medium text-slate-900">{carrier.name}</div>
-                          {carrier.service_type && (
-                            <div className="text-xs text-slate-500 mt-0.5">{carrier.service_type}</div>
-                          )}
-                        </div>
+                      <div>
+                        <div className="font-medium text-slate-900">{carrier.name}</div>
+                        {carrier.service_type && (
+                          <div className="text-xs text-slate-500 mt-0.5 capitalize">{carrier.service_type}</div>
+                        )}
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      {carrier.ownershipType ? (
-                        <Badge variant="outline" className={`${ownershipTypeColors[carrier.ownershipType] || 'bg-slate-100 text-slate-700'} font-medium`}>
-                          {ownershipTypeLabels[carrier.ownershipType] || carrier.ownershipType}
-                        </Badge>
-                      ) : (
-                        <span className="text-slate-400">N/A</span>
-                      )}
                     </TableCell>
                     <TableCell onClick={e => e.stopPropagation()}>
                       {carrier.activeTariffsCount > 0 ? (
@@ -416,6 +326,15 @@ export default function CarriersPage() {
                         </button>
                       ) : (
                         <span className="text-slate-400">0</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {carrier.coverage_type ? (
+                        <span className="text-sm text-slate-700 capitalize">
+                          {coverageLabels[carrier.coverage_type] || carrier.coverage_type}
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">N/A</span>
                       )}
                     </TableCell>
                     <TableCell>
