@@ -18,7 +18,8 @@ export function GmailWebhookSetup() {
   const [settingUpWatch, setSettingUpWatch] = useState(false);
   const [hasTokens, setHasTokens] = useState(false);
 
-  const webhookUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/gmail-webhook`;
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://siujmppdeumvwwvyqcsq.supabase.co';
+  const webhookUrl = `${supabaseUrl}/functions/v1/gmail-webhook`;
 
   useEffect(() => {
     checkWatchStatus();
