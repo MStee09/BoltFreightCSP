@@ -104,6 +104,13 @@ export function FloatingEmailComposer({
     }
   }, [fullCspEvent]);
 
+  // Auto-show dropdown when contacts load
+  useEffect(() => {
+    if (suggestedContacts.length > 0) {
+      setShowContactDropdown(true);
+    }
+  }, [suggestedContacts.length]);
+
   // Auto-CC CSP owner
   useEffect(() => {
     if (fullCspEvent?.assigned_to && !ccEmails.includes(fullCspEvent.assigned_to)) {
@@ -724,7 +731,10 @@ export function FloatingEmailComposer({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  onClick={() => setShowContactDropdown(!showContactDropdown)}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    setShowContactDropdown(!showContactDropdown);
+                  }}
                   className="h-auto p-1 ml-1"
                 >
                   <ChevronDown className="h-3 w-3" />
@@ -734,7 +744,10 @@ export function FloatingEmailComposer({
 
             {/* Contact Dropdown */}
             {showContactDropdown && suggestedContacts.length > 0 && (
-              <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+              <div
+                className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto"
+                onMouseDown={(e) => e.preventDefault()}
+              >
                 <div className="p-2">
                   <p className="text-xs text-slate-500 font-medium mb-2 px-2">Suggested Contacts</p>
                   <div className="space-y-1">
