@@ -169,39 +169,31 @@ export function EmailPollingSettings() {
         <div className="flex items-center justify-between">
           <div className="space-y-1">
             <CardTitle className="flex items-center gap-2">
-              <Shield className="h-5 w-5" />
-              Email Reply Tracking (Admin)
+              <Mail className="h-5 w-5" />
+              Email Reply Tracking
             </CardTitle>
             <CardDescription>
-              System-wide control - Automatically checks for replies every 5 minutes
+              Automatically checks for replies every 5 minutes
             </CardDescription>
           </div>
           {pollingEnabled && (
             <Badge variant="default" className="gap-1">
               <CheckCircle2 className="h-3 w-3" />
-              Active for All Users
+              Active
             </Badge>
           )}
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Alert className="border-amber-200 bg-amber-50">
-          <Shield className="h-4 w-4 text-amber-600" />
-          <AlertDescription className="text-amber-800">
-            <strong>Admin Control:</strong> This setting applies to all users system-wide.
-            Email polling is currently <strong>{pollingEnabled ? 'enabled' : 'disabled'}</strong> for everyone.
-          </AlertDescription>
-        </Alert>
-
         <div className="flex items-center justify-between p-4 border rounded-lg">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <Label htmlFor="polling-enabled" className="text-sm font-medium">
-                Enable Automatic Reply Tracking (All Users)
+                Enable Automatic Reply Tracking
               </Label>
             </div>
             <p className="text-xs text-muted-foreground">
-              When enabled, all users with connected Gmail accounts will have their replies tracked automatically
+              System checks Gmail every 5 minutes for new replies
             </p>
           </div>
           <Switch
@@ -210,24 +202,6 @@ export function EmailPollingSettings() {
             onCheckedChange={togglePollingForAllUsers}
           />
         </div>
-
-        {pollingEnabled && (
-          <Alert className="bg-blue-50 border-blue-200">
-            <CheckCircle2 className="h-4 w-4 text-blue-600" />
-            <AlertDescription className="text-blue-800">
-              <div className="space-y-2">
-                <p className="font-medium">How it works for all users:</p>
-                <ul className="text-xs space-y-1 ml-4 list-disc">
-                  <li>Each user's Gmail is checked every 5 minutes automatically</li>
-                  <li>Replies are matched to CSP Events, Customers, and Carriers</li>
-                  <li>Shows up instantly in the Email Timeline for the relevant user</li>
-                  <li>Only tracks replies to emails sent from this app</li>
-                  <li>No user configuration needed - works automatically</li>
-                </ul>
-              </div>
-            </AlertDescription>
-          </Alert>
-        )}
 
         {lastChecked && (
           <div className="flex items-center justify-between text-sm text-muted-foreground">
@@ -238,65 +212,23 @@ export function EmailPollingSettings() {
           </div>
         )}
 
-        <div className="flex gap-2">
-          <Button
-            onClick={checkForReplies}
-            disabled={polling || !pollingEnabled}
-            className="flex-1"
-          >
-            {polling ? (
-              <>
-                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                Checking...
-              </>
-            ) : (
-              <>
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Check Now
-              </>
-            )}
-          </Button>
-        </div>
-
-        <div className="pt-4 border-t space-y-3">
-          <div>
-            <h4 className="text-sm font-semibold mb-2">What Gets Tracked:</h4>
-            <div className="space-y-2 text-xs text-muted-foreground">
-              <div className="bg-slate-50 border border-slate-200 rounded p-3">
-                <p className="font-medium text-slate-900 mb-1">Replies to Your Emails</p>
-                <p>
-                  When someone replies to an email you sent from a CSP Event, Customer, or Carrier,
-                  it's automatically captured and linked.
-                </p>
-              </div>
-
-              <div className="bg-slate-50 border border-slate-200 rounded p-3">
-                <p className="font-medium text-slate-900 mb-1">Thread Tracking</p>
-                <p>
-                  All emails in a conversation are grouped together, making it easy to see the
-                  complete communication history.
-                </p>
-              </div>
-
-              <div className="bg-slate-50 border border-slate-200 rounded p-3">
-                <p className="font-medium text-slate-900 mb-1">Smart Matching</p>
-                <p>
-                  Uses email headers, tracking codes, and sender information to automatically
-                  link replies to the right records.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription className="text-xs">
-              <strong>Note:</strong> Polling checks your inbox every 5 minutes when enabled.
-              If you need instant notifications, consider upgrading to webhook-based tracking
-              (requires Google Cloud Pub/Sub setup).
-            </AlertDescription>
-          </Alert>
-        </div>
+        <Button
+          onClick={checkForReplies}
+          disabled={polling || !pollingEnabled}
+          className="w-full"
+        >
+          {polling ? (
+            <>
+              <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+              Checking...
+            </>
+          ) : (
+            <>
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Check Now
+            </>
+          )}
+        </Button>
       </CardContent>
     </Card>
   );

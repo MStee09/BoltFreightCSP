@@ -5,10 +5,6 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { GmailSetupSimple } from '@/components/email/GmailSetupSimple';
-import { GmailWebhookSetup } from '@/components/email/GmailWebhookSetup';
-import EmailSetupGuide from '@/components/settings/EmailSetupGuide';
-import EmailTrackingBCC from '@/components/settings/EmailTrackingBCC';
-import { OAuthCredentials } from '@/components/settings/OAuthCredentials';
 import { EmailPollingSettings } from '@/components/settings/EmailPollingSettings';
 import { UserManagement } from '@/components/admin/UserManagement';
 import { SystemSettings } from '@/components/admin/SystemSettings';
@@ -192,21 +188,9 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="integrations" className="space-y-6 mt-6">
-          {isAdmin && (
-            <>
-              <div className="max-w-4xl">
-                <OAuthCredentials />
-              </div>
-              <EmailSetupGuide />
-              <div className="max-w-4xl">
-                <EmailTrackingBCC />
-              </div>
-            </>
-          )}
           <div className="max-w-2xl space-y-4">
-            {!isAdmin && <h3 className="text-lg font-semibold mb-4">Connect Your Gmail Account</h3>}
             <GmailSetupSimple />
-            <EmailPollingSettings />
+            {isAdmin && <EmailPollingSettings />}
           </div>
         </TabsContent>
 
