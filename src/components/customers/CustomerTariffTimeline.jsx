@@ -147,21 +147,35 @@ const CustomerTariffTimeline = ({ customerId }) => {
         const renewalCsp = getRenewalCspEvent(tariff);
         const hasRenewal = !!renewalCsp;
         const isHovered = hoveredTariffId === tariff.id;
+        const carrierName = carrier?.name || (carrierIds.length > 1 ? `${carrierIds.length} carriers` : 'Unknown Carrier');
 
         return (
             <div
                 key={tariff.id}
-                className="relative p-3 rounded-lg border hover:bg-slate-50 transition-colors"
+                className="relative min-h-[100px] p-5 rounded-lg border hover:bg-slate-50 transition-colors"
                 onMouseEnter={() => setHoveredTariffId(tariff.id)}
                 onMouseLeave={() => setHoveredTariffId(null)}
             >
-                <div className="flex justify-between items-start">
-                    <div className="flex-1">
-                        <p className="font-semibold">{tariff.tariff_reference_id || tariff.version}</p>
-                        <p className="text-sm text-slate-600">{carrier?.name || (carrierIds.length > 1 ? `${carrierIds.length} carriers` : 'Unknown Carrier')}</p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                        {tariff.status === 'active' && (
+                <div className="pr-32">
+                    <h3 className="text-lg font-bold text-slate-900 mb-1">
+                        {carrierName}
+                    </h3>
+                    <p className="text-sm text-slate-500 font-mono mb-1">
+                        {tariff.tariff_reference_id || tariff.version || 'No ID'}
+                    </p>
+                    {isExpiring && (
+                        <p className="text-xs text-yellow-700 mb-2">
+                            Expiring in {daysUntilExpiry} days
+                        </p>
+                    )}
+                    <p className="text-xs text-slate-500 mt-2">
+                        Effective: {format(new Date(tariff.effective_date), 'MMM d, yyyy')} • Expires: {format(new Date(tariff.expiry_date), 'MMM d, yyyy')}
+                    </p>
+                </div>
+
+                <div className="absolute right-5 top-5 flex flex-col items-end gap-3">
+                    <div className="flex items-center gap-2">
+                        {tariff.status === 'active' && !isExpiring && (
                             <Badge className="bg-green-100 text-green-800 border-green-200">Active</Badge>
                         )}
                         {tariff.status === 'proposed' && (
@@ -169,7 +183,7 @@ const CustomerTariffTimeline = ({ customerId }) => {
                         )}
                         {isExpiring && (
                             <Badge className="bg-yellow-100 text-yellow-800 border-yellow-200">
-                                Expiring ({daysUntilExpiry}d)
+                                Expiring
                             </Badge>
                         )}
                         {hasRenewal && (
@@ -195,51 +209,8 @@ const CustomerTariffTimeline = ({ customerId }) => {
                             </TooltipProvider>
                         )}
                     </div>
-                </div>
-                <p className="text-xs text-slate-500 mt-2">
-                    Effective: {format(new Date(tariff.effective_date), 'MMM d, yyyy')} • Expires: {format(new Date(tariff.expiry_date), 'MMM d, yyyy')}
-                </p>
 
-                <div className={`absolute right-3 top-3 flex items-center gap-1 transition-opacity ${isHovered ? 'opacity-100' : 'opacity-0'}`}>
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        navigate(createPageUrl(`TariffDetail?id=${tariff.id}`));
-                                    }}
-                                >
-                                    <Eye className="w-3.5 h-3.5" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>View Tariff</TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
-
-                    <TooltipProvider>
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-7 w-7"
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        navigate(createPageUrl(`TariffDetail?id=${tariff.id}&tab=documents`));
-                                    }}
-                                >
-                                    <FileText className="w-3.5 h-3.5" />
-                                </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>Docs</TooltipContent>
-                        </Tooltip>
-                    </TooltipProvider>
-
-                    {isExpiring && !hasRenewal && (
+                    <div className={`flex items-center gap-1 bg-white rounded-md shadow-sm border p-1 transition-opacity ${isHovered ? 'opacity-100' : 'opacity-0'}`}>
                         <TooltipProvider>
                             <Tooltip>
                                 <TooltipTrigger asChild>
@@ -249,17 +220,57 @@ const CustomerTariffTimeline = ({ customerId }) => {
                                         className="h-7 w-7"
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            setSelectedTariff(tariff);
-                                            setRenewalDialogOpen(true);
+                                            navigate(createPageUrl(`TariffDetail?id=${tariff.id}`));
                                         }}
                                     >
-                                        <RefreshCw className="w-3.5 h-3.5" />
+                                        <Eye className="w-3.5 h-3.5" />
                                     </Button>
                                 </TooltipTrigger>
-                                <TooltipContent>Renew</TooltipContent>
+                                <TooltipContent>View Tariff</TooltipContent>
                             </Tooltip>
                         </TooltipProvider>
-                    )}
+
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-7 w-7"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            navigate(createPageUrl(`TariffDetail?id=${tariff.id}&tab=documents`));
+                                        }}
+                                    >
+                                        <FileText className="w-3.5 h-3.5" />
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>Docs</TooltipContent>
+                            </Tooltip>
+                        </TooltipProvider>
+
+                        {isExpiring && !hasRenewal && (
+                            <TooltipProvider>
+                                <Tooltip>
+                                    <TooltipTrigger asChild>
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSelectedTariff(tariff);
+                                                setRenewalDialogOpen(true);
+                                            }}
+                                        >
+                                            <RefreshCw className="w-3.5 h-3.5" />
+                                        </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>Renew</TooltipContent>
+                                </Tooltip>
+                            </TooltipProvider>
+                        )}
+                    </div>
                 </div>
             </div>
         );
