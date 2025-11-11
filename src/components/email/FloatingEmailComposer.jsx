@@ -111,6 +111,14 @@ export function FloatingEmailComposer({
     }
   }, [suggestedContacts.length]);
 
+  // Add signature when profile loads (for new emails only)
+  useEffect(() => {
+    if (userProfile?.email_signature && !draftId && body === initialBody) {
+      console.log('✍️ Adding signature to body');
+      setBody('\n\n' + userProfile.email_signature);
+    }
+  }, [userProfile?.email_signature, draftId]);
+
   // Auto-CC current user
   useEffect(() => {
     if (userEmail && !ccEmails.includes(userEmail)) {
@@ -229,21 +237,23 @@ export function FloatingEmailComposer({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      console.log('📧 Loading user profile...');
+
       const { data: profile } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('id', user.id)
         .maybeSingle();
 
+      console.log('👤 Profile data:', profile);
+      console.log('✍️ Email signature:', profile?.email_signature);
+      console.log('📝 Current body:', body);
+      console.log('📄 Draft ID:', draftId);
+
       if (profile) {
         setUserProfile(profile);
         if (profile.email) {
           setUserEmail(profile.email);
-        }
-
-        // Add signature to body if exists and body is empty
-        if (profile.email_signature && !body && !draftId) {
-          setBody('\n\n' + profile.email_signature);
         }
       }
 
