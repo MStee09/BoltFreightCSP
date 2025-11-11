@@ -1,17 +1,18 @@
-import { createClient } from 'jsr:@supabase/supabase-js@2';
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import nodemailer from "npm:nodemailer@6.9.7";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-interface SendEmailRequest {
-  trackingCode: string;
+interface EmailRequest {
   to: string[];
-  cc: string[];
+  cc?: string[];
   subject: string;
   body: string;
+  trackReply?: boolean;
   cspEventId?: string;
   customerId?: string;
   carrierId?: string;
@@ -19,101 +20,30 @@ interface SendEmailRequest {
   threadId?: string;
 }
 
+function generateTrackingCode(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let code = 'FO-';
+  for (let i = 0; i < 8; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
 function generateThreadId(subject: string): string {
-  const normalizedSubject = subject
-    .toLowerCase()
-    .replace(/^(re:|fwd?:|fw:)\s*/gi, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .substring(0, 50);
-
-  const randomSuffix = crypto.randomUUID().split('-')[0];
-  return `${normalizedSubject}-${randomSuffix}`;
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 8);
+  const cleanSubject = subject.replace(/[^a-zA-Z0-9]/g, '').substring(0, 20);
+  return `${cleanSubject}-${timestamp}-${random}`;
 }
 
-async function refreshAccessToken(refreshToken: string, clientId: string, clientSecret: string): Promise<string> {
-  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-    },
-    body: new URLSearchParams({
-      client_id: clientId,
-      client_secret: clientSecret,
-      refresh_token: refreshToken,
-      grant_type: 'refresh_token',
-    }),
-  });
-
-  if (!tokenResponse.ok) {
-    throw new Error('Failed to refresh access token');
-  }
-
-  const tokens = await tokenResponse.json();
-  return tokens.access_token;
-}
-
-async function sendViaGmailAPI(
-  accessToken: string,
-  fromEmail: string,
-  to: string[],
-  cc: string[],
-  subject: string,
-  body: string,
-  trackingCode: string,
-  foToken: string,
-  inReplyTo?: string
-): Promise<string> {
-  const messageParts = [
-    `From: ${fromEmail}`,
-    `To: ${to.join(', ')}`,
-  ];
-
-  if (cc && cc.length > 0) {
-    messageParts.push(`Cc: ${cc.join(', ')}`);
-  }
-
-  messageParts.push(`Subject: ${subject}`);
-  messageParts.push(`X-CSP-Tracking-Code: ${trackingCode}`);
-  messageParts.push(`X-FreightOps-Token: ${foToken}`);
-  messageParts.push(`Message-ID: <${foToken}@freightops.local>`);
-
-  if (inReplyTo) {
-    messageParts.push(`In-Reply-To: ${inReplyTo}`);
-    messageParts.push(`References: ${inReplyTo}`);
-  }
-
-  messageParts.push('');
-  messageParts.push(body);
-
-  const message = messageParts.join('\r\n');
-  const encodedMessage = btoa(unescape(encodeURIComponent(message)))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
-
-  const response = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      raw: encodedMessage,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Gmail API error: ${errorText}`);
-  }
-
-  const result = await response.json();
-  return result.id;
+function generateMessageId(domain: string): string {
+  const timestamp = Date.now();
+  const random = Math.random().toString(36).substring(2, 15);
+  return `<${timestamp}.${random}@${domain}>`;
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     return new Response(null, {
       status: 200,
       headers: corsHeaders,
@@ -121,186 +51,168 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      }
-    );
+    const supabaseClient = Deno.env.get('SUPABASE_URL') && Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+      ? (await import('jsr:@supabase/supabase-js@2')).createClient(
+          Deno.env.get('SUPABASE_URL')!,
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+          {
+            auth: {
+              autoRefreshToken: false,
+              persistSession: false
+            }
+          }
+        )
+      : null;
 
-    const {
-      data: { user },
-    } = await supabaseClient.auth.getUser();
+    if (!supabaseClient) {
+      throw new Error('Supabase client not configured');
+    }
 
-    if (!user) {
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new Error('No authorization header');
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabaseClient.auth.getUser(token);
+
+    if (userError || !user) {
       throw new Error('Unauthorized');
     }
 
-    const { data: oauthTokens, error: oauthError } = await supabaseClient
-      .from('user_gmail_tokens')
-      .select('email_address, access_token, refresh_token, token_expiry')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    const { data: appPasswordCreds, error: appPasswordError } = await supabaseClient
-      .from('user_gmail_credentials')
-      .select('email_address, app_password')
-      .eq('user_id', user.id)
-      .maybeSingle();
-
-    if (!oauthTokens && !appPasswordCreds) {
-      throw new Error('Gmail not connected. Please connect in Settings.');
-    }
-
-    const requestData: SendEmailRequest = await req.json();
+    const emailRequest: EmailRequest = await req.json();
     const {
-      trackingCode,
       to,
       cc,
       subject,
       body,
+      trackReply = true,
       cspEventId,
       customerId,
       carrierId,
       inReplyTo,
       threadId,
-    } = requestData;
+    } = emailRequest;
 
-    let messageId: string;
-    let fromEmail: string;
+    const { data: credentials, error: credError } = await supabaseClient
+      .from('user_gmail_credentials')
+      .select('*')
+      .eq('user_id', user.id)
+      .maybeSingle();
 
-    if (oauthTokens) {
-      fromEmail = oauthTokens.email_address;
-
-      const tokenExpiry = new Date(oauthTokens.token_expiry);
-      const now = new Date();
-      let accessToken = oauthTokens.access_token;
-
-      if (now >= tokenExpiry) {
-        // Fetch OAuth credentials from database
-        const { data: settingsData, error: settingsError } = await supabaseClient
-          .from('system_settings')
-          .select('setting_value')
-          .eq('setting_key', 'gmail_oauth_credentials')
-          .maybeSingle();
-
-        if (settingsError || !settingsData?.setting_value) {
-          throw new Error('Gmail OAuth credentials not configured. Please configure in Settings → Integrations.');
-        }
-
-        const credentials = settingsData.setting_value;
-        const clientId = credentials.client_id ?? '';
-        const clientSecret = credentials.client_secret ?? '';
-
-        if (!clientId || !clientSecret) {
-          throw new Error('Invalid OAuth credentials. Please reconfigure in Settings → Integrations.');
-        }
-
-        accessToken = await refreshAccessToken(
-          oauthTokens.refresh_token,
-          clientId,
-          clientSecret
-        );
-
-        const newExpiry = new Date();
-        newExpiry.setHours(newExpiry.getHours() + 1);
-
-        await supabaseClient
-          .from('user_gmail_tokens')
-          .update({
-            access_token: accessToken,
-            token_expiry: newExpiry.toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq('user_id', user.id);
-      }
-
-      // Generate FreightOps token before sending
-      const { data: foTokenData } = await supabaseClient.rpc(
-        'generate_fo_thread_token',
-        { p_csp_event_id: cspEventId || null }
-      );
-      const foToken = foTokenData || trackingCode;
-
-      // Add FO token to subject if new thread
-      let enhancedSubject = subject;
-      if (!inReplyTo && foToken) {
-        enhancedSubject = `[${foToken}] ${subject}`;
-      }
-
-      messageId = await sendViaGmailAPI(
-        accessToken,
-        fromEmail,
-        to,
-        cc,
-        enhancedSubject,
-        body,
-        trackingCode,
-        foToken,
-        inReplyTo
-      );
-    } else {
-      fromEmail = appPasswordCreds.email_address;
-
-      const nodemailer = await import('npm:nodemailer@6.9.7');
-
-      const transporter = nodemailer.default.createTransport({
-        host: 'smtp.gmail.com',
-        port: 587,
-        secure: false,
-        auth: {
-          user: appPasswordCreds.email_address,
-          pass: appPasswordCreds.app_password,
-        },
-      });
-
-      // Generate FreightOps token before sending
-      const { data: foTokenData } = await supabaseClient.rpc(
-        'generate_fo_thread_token',
-        { p_csp_event_id: cspEventId || null }
-      );
-      const foToken = foTokenData || trackingCode;
-
-      // Add FO token to subject if new thread
-      let enhancedSubject = subject;
-      if (!inReplyTo && foToken) {
-        enhancedSubject = `[${foToken}] ${subject}`;
-      }
-
-      const mailOptions: any = {
-        from: appPasswordCreds.email_address,
-        to: to.join(', '),
-        cc: cc && cc.length > 0 ? cc.join(', ') : undefined,
-        subject: enhancedSubject,
-        text: body,
-        headers: {
-          'X-CSP-Tracking-Code': trackingCode,
-          'X-FreightOps-Token': foToken,
-        },
-        messageId: `<${foToken}@freightops.local>`,
-      };
-
-      if (inReplyTo) {
-        mailOptions.inReplyTo = inReplyTo;
-        mailOptions.headers['In-Reply-To'] = inReplyTo;
-        mailOptions.headers['References'] = inReplyTo;
-      }
-
-      const info = await transporter.sendMail(mailOptions);
-      messageId = info.messageId;
+    if (credError || !credentials) {
+      console.error('Gmail credentials error:', credError);
+      throw new Error('Gmail credentials not found. Please connect your Gmail account in Settings.');
     }
 
-    // Generate FreightOps token for thread tracking
-    const { data: foTokenData } = await supabaseClient.rpc(
-      'generate_fo_thread_token',
-      { p_csp_event_id: cspEventId || null }
-    );
-    const foToken = foTokenData || trackingCode;
+    const smtpHost = credentials.smtp_host || 'smtp.gmail.com';
+    const smtpPort = credentials.smtp_port || 587;
+    const smtpSecure = credentials.smtp_secure ?? false;
+    const fromEmail = credentials.email_address;
+    const smtpPassword = credentials.app_password;
 
-    // Add FO token to subject if it's a new thread
+    if (!smtpPassword) {
+      throw new Error('Gmail App Password not configured. Please set it up in Settings.');
+    }
+
+    const transporter = nodemailer.createTransport({
+      host: smtpHost,
+      port: smtpPort,
+      secure: smtpSecure,
+      auth: {
+        user: fromEmail,
+        pass: smtpPassword,
+      },
+    });
+
+    let trackingCode = generateTrackingCode();
+
+    const domain = fromEmail.split('@')[1] || 'gorocketshipping.com';
+    const messageId = generateMessageId(domain);
+
+    const mailOptions: any = {
+      from: fromEmail,
+      to: to.join(', '),
+      subject: subject,
+      text: body,
+      messageId: messageId,
+    };
+
+    if (cc && cc.length > 0) {
+      mailOptions.cc = cc.join(', ');
+    }
+
+    if (inReplyTo) {
+      mailOptions.inReplyTo = inReplyTo;
+      mailOptions.references = inReplyTo;
+
+      const { data: parentEmail } = await supabaseClient
+        .from('email_activities')
+        .select('tracking_code, thread_id')
+        .eq('message_id', inReplyTo)
+        .maybeSingle();
+
+      if (parentEmail) {
+        trackingCode = parentEmail.tracking_code;
+      }
+    }
+
+    await transporter.sendMail(mailOptions);
+
+    console.log('Email sent successfully');
+
+    let foTokenData = null;
+    if (trackReply && !inReplyTo) {
+      const { data: tokenData } = await supabaseClient
+        .from('freightops_thread_tokens')
+        .insert({
+          token: trackingCode,
+          thread_id: threadId || generateThreadId(subject),
+          csp_event_id: cspEventId || null,
+          customer_id: customerId || null,
+          carrier_id: carrierId || null,
+          created_by: user.id,
+        })
+        .select('token')
+        .maybeSingle();
+
+      foTokenData = tokenData?.token;
+    } else if (inReplyTo) {
+      const { data: parentEmail } = await supabaseClient
+        .from('email_activities')
+        .select('tracking_code, thread_id, metadata')
+        .eq('message_id', inReplyTo)
+        .maybeSingle();
+
+      if (parentEmail?.metadata?.freightops_thread_token) {
+        foTokenData = parentEmail.metadata.freightops_thread_token;
+      }
+    }
+
+    const { data: existingToken } = await supabaseClient
+      .from('freightops_thread_tokens')
+      .select('token')
+      .eq('token', trackingCode)
+      .maybeSingle();
+
+    const foToken = existingToken?.token || foTokenData || (
+      trackReply && !inReplyTo
+        ? (await supabaseClient
+            .from('freightops_thread_tokens')
+            .insert({
+              token: trackingCode,
+              thread_id: threadId || generateThreadId(subject),
+              csp_event_id: cspEventId || null,
+              customer_id: customerId || null,
+              carrier_id: carrierId || null,
+              created_by: user.id,
+            })
+            .select('token')
+            .maybeSingle()
+          ).data?.token
+        : null
+    );
+
     let enhancedSubject = subject;
     if (!inReplyTo && foToken) {
       enhancedSubject = `[${foToken}] ${subject}`;
@@ -328,9 +240,11 @@ Deno.serve(async (req: Request) => {
         sent_at: new Date().toISOString(),
         created_by: user.id,
         is_thread_starter: !inReplyTo,
-        freightops_thread_token: foToken,
-        owner_id: user.id,
-        visible_to_team: true,
+        metadata: {
+          freightops_thread_token: foToken,
+          owner_id: user.id,
+          visible_to_team: true,
+        },
       })
       .select()
       .single();
@@ -343,10 +257,11 @@ Deno.serve(async (req: Request) => {
     return new Response(
       JSON.stringify({
         success: true,
-        messageId,
+        message: 'Email sent successfully',
+        trackingCode: trackingCode,
+        messageId: messageId,
         threadId: generatedThreadId,
-        emailActivityId: insertedEmail?.id,
-        foToken
+        emailId: insertedEmail.id,
       }),
       {
         headers: {
@@ -358,7 +273,10 @@ Deno.serve(async (req: Request) => {
   } catch (error) {
     console.error('Error sending email:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({
+        success: false,
+        error: error.message || 'Failed to send email',
+      }),
       {
         status: 500,
         headers: {
