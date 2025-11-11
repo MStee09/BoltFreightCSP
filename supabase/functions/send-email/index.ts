@@ -129,23 +129,9 @@ Deno.serve(async (req: Request) => {
 
     const domain = fromEmail.split('@')[1] || 'gorocketshipping.com';
     const messageId = generateMessageId(domain);
-
-    const mailOptions: any = {
-      from: fromEmail,
-      to: to.join(', '),
-      subject: subject,
-      text: body,
-      messageId: messageId,
-    };
-
-    if (cc && cc.length > 0) {
-      mailOptions.cc = cc.join(', ');
-    }
+    const generatedThreadId = threadId || generateThreadId(subject);
 
     if (inReplyTo) {
-      mailOptions.inReplyTo = inReplyTo;
-      mailOptions.references = inReplyTo;
-
       const { data: parentEmail } = await supabaseClient
         .from('email_activities')
         .select('tracking_code, thread_id')
@@ -157,17 +143,13 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    await transporter.sendMail(mailOptions);
-
-    console.log('Email sent successfully');
-
-    let foTokenData = null;
+    let foToken = null;
     if (trackReply && !inReplyTo) {
-      const { data: tokenData } = await supabaseClient
+      const { data: tokenData, error: tokenError } = await supabaseClient
         .from('freightops_thread_tokens')
         .insert({
           token: trackingCode,
-          thread_id: threadId || generateThreadId(subject),
+          thread_id: generatedThreadId,
           csp_event_id: cspEventId || null,
           customer_id: customerId || null,
           carrier_id: carrierId || null,
@@ -176,7 +158,9 @@ Deno.serve(async (req: Request) => {
         .select('token')
         .maybeSingle();
 
-      foTokenData = tokenData?.token;
+      if (!tokenError && tokenData) {
+        foToken = tokenData.token;
+      }
     } else if (inReplyTo) {
       const { data: parentEmail } = await supabaseClient
         .from('email_activities')
@@ -185,40 +169,35 @@ Deno.serve(async (req: Request) => {
         .maybeSingle();
 
       if (parentEmail?.metadata?.freightops_thread_token) {
-        foTokenData = parentEmail.metadata.freightops_thread_token;
+        foToken = parentEmail.metadata.freightops_thread_token;
       }
     }
-
-    const { data: existingToken } = await supabaseClient
-      .from('freightops_thread_tokens')
-      .select('token')
-      .eq('token', trackingCode)
-      .maybeSingle();
-
-    const foToken = existingToken?.token || foTokenData || (
-      trackReply && !inReplyTo
-        ? (await supabaseClient
-            .from('freightops_thread_tokens')
-            .insert({
-              token: trackingCode,
-              thread_id: threadId || generateThreadId(subject),
-              csp_event_id: cspEventId || null,
-              customer_id: customerId || null,
-              carrier_id: carrierId || null,
-              created_by: user.id,
-            })
-            .select('token')
-            .maybeSingle()
-          ).data?.token
-        : null
-    );
 
     let enhancedSubject = subject;
     if (!inReplyTo && foToken) {
       enhancedSubject = `[${foToken}] ${subject}`;
     }
 
-    const generatedThreadId = threadId || generateThreadId(subject);
+    const mailOptions: any = {
+      from: fromEmail,
+      to: to.join(', '),
+      subject: enhancedSubject,
+      text: body,
+      messageId: messageId,
+    };
+
+    if (cc && cc.length > 0) {
+      mailOptions.cc = cc.join(', ');
+    }
+
+    if (inReplyTo) {
+      mailOptions.inReplyTo = inReplyTo;
+      mailOptions.references = inReplyTo;
+    }
+
+    await transporter.sendMail(mailOptions);
+
+    console.log('Email sent successfully');
 
     const { data: insertedEmail, error: dbError } = await supabaseClient
       .from('email_activities')
