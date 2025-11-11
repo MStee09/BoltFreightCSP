@@ -120,7 +120,7 @@ export function GmailSetupSimple() {
 
     const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
     const redirectUri = `${appUrl}/gmail-callback`;
-    const scope = 'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email';
+    const scope = 'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/userinfo.email';
 
     console.log('OAuth Debug:', {
       appUrl,
@@ -343,8 +343,9 @@ export function GmailSetupSimple() {
               <p className="text-xs font-semibold text-slate-800 mb-2">What you're authorizing:</p>
               <ul className="text-xs text-slate-700 space-y-1">
                 <li>• Send emails on your behalf from the CRM</li>
+                <li>• Receive real-time notifications when emails arrive (webhooks)</li>
                 <li>• Access to your email address</li>
-                <li>• No access to read your existing emails</li>
+                <li>• Read email metadata for tracking replies</li>
                 <li>• You can revoke access anytime from Google settings</li>
               </ul>
             </div>
