@@ -2,77 +2,39 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Mail, Copy, CheckCircle, AlertCircle, Info } from 'lucide-react';
+import { Mail, Copy, CheckCircle, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/api/supabaseClient';
 
 export default function EmailTrackingBCC() {
-  const [trackingDomain, setTrackingDomain] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [webhookUrl, setWebhookUrl] = useState('');
+  const [userDomain, setUserDomain] = useState('');
 
   useEffect(() => {
-    loadSettings();
+    loadUserDomain();
   }, []);
 
-  const loadSettings = async () => {
-    setLoading(true);
+  const loadUserDomain = async () => {
     try {
-      const { data, error } = await supabase
-        .from('system_settings')
-        .select('value')
-        .eq('key', 'email_tracking_domain')
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('email')
+        .eq('id', user.id)
         .maybeSingle();
 
-      if (error) throw error;
-
-      if (data?.value) {
-        setTrackingDomain(data.value);
+      if (profile?.email) {
+        const domain = profile.email.split('@')[1];
+        setUserDomain(domain);
       }
 
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       setWebhookUrl(`${supabaseUrl}/functions/v1/receive-email`);
     } catch (error) {
-      console.error('Error loading settings:', error);
-      toast.error('Failed to load settings');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSave = async () => {
-    if (!trackingDomain.trim()) {
-      toast.error('Please enter a tracking domain');
-      return;
-    }
-
-    const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9]?\.[a-zA-Z]{2,}$/;
-    if (!domainRegex.test(trackingDomain)) {
-      toast.error('Please enter a valid domain (e.g., yourdomain.com)');
-      return;
-    }
-
-    setSaving(true);
-    try {
-      const { error } = await supabase
-        .from('system_settings')
-        .upsert({
-          key: 'email_tracking_domain',
-          value: trackingDomain,
-          description: 'Domain for Reply-To email tracking addresses (e.g., replies+CODE@domain.com)',
-        });
-
-      if (error) throw error;
-
-      toast.success('Tracking domain saved successfully');
-    } catch (error) {
-      console.error('Error saving settings:', error);
-      toast.error('Failed to save settings');
-    } finally {
-      setSaving(false);
+      console.error('Error loading user domain:', error);
     }
   };
 
@@ -93,88 +55,75 @@ export default function EmailTrackingBCC() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        <Alert className="bg-green-50 border-green-200">
+          <CheckCircle className="h-4 w-4 text-green-600" />
+          <AlertDescription className="text-sm">
+            <div className="space-y-2">
+              <p className="font-semibold text-green-900">Auto-Enabled!</p>
+              <p className="text-green-800">
+                Email tracking is automatically configured. Each email you send will have a unique Reply-To address like:
+              </p>
+              <div className="bg-white/50 p-2 rounded font-mono text-sm border border-green-300">
+                replies+FO-ABC12345@{userDomain || 'yourdomain.com'}
+              </div>
+            </div>
+          </AlertDescription>
+        </Alert>
+
         <Alert className="bg-blue-50 border-blue-200">
           <Info className="h-4 w-4 text-blue-600" />
           <AlertDescription className="text-sm">
             <div className="space-y-2">
-              <p className="font-semibold text-blue-900">How it works - Simple & Reliable</p>
+              <p className="font-semibold text-blue-900">How it works</p>
               <ol className="list-decimal list-inside space-y-1 text-blue-800">
-                <li>Enter your domain (e.g., yourdomain.com)</li>
-                <li>Each email gets a unique Reply-To like replies+FO-ABC12345@yourdomain.com</li>
-                <li>Set up catch-all forwarding for replies+*@yourdomain.com to the webhook</li>
-                <li>All replies are captured automatically, even if they click "Reply" (not "Reply All")</li>
+                <li>Each email automatically gets a unique Reply-To address</li>
+                <li>When recipients reply, it goes to that address</li>
+                <li>Set up catch-all forwarding (one-time setup below)</li>
+                <li>All replies are captured automatically</li>
               </ol>
             </div>
           </AlertDescription>
         </Alert>
 
         <div className="space-y-2">
-          <Label htmlFor="tracking-domain">Your Email Domain</Label>
-          <div className="flex gap-2">
-            <Input
-              id="tracking-domain"
-              type="text"
-              placeholder="yourdomain.com"
-              value={trackingDomain}
-              onChange={(e) => setTrackingDomain(e.target.value)}
-              disabled={loading}
-            />
-            <Button onClick={handleSave} disabled={saving || loading}>
-              {saving ? 'Saving...' : 'Save'}
-            </Button>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            All replies will be sent to replies+CODE@{trackingDomain || 'yourdomain.com'}
-          </p>
-        </div>
-
-        <div className="space-y-2">
-          <Label>Webhook URL</Label>
-          <div className="flex gap-2">
-            <Input
-              value={webhookUrl}
-              readOnly
-              className="font-mono text-xs bg-gray-50"
-            />
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium">Webhook URL</span>
             <Button
               variant="outline"
-              size="icon"
+              size="sm"
               onClick={() => copyToClipboard(webhookUrl)}
             >
-              <Copy className="h-4 w-4" />
+              <Copy className="h-3 w-3 mr-1" />
+              Copy
             </Button>
           </div>
+          <Input
+            value={webhookUrl}
+            readOnly
+            className="font-mono text-xs bg-gray-50"
+          />
           <p className="text-xs text-muted-foreground">
-            Set up catch-all forwarding for replies+*@{trackingDomain || 'yourdomain.com'} to this webhook
+            Set up catch-all forwarding for <code className="bg-gray-100 px-1 rounded">replies+*@{userDomain || 'yourdomain.com'}</code> to this webhook URL
           </p>
         </div>
 
         <Alert>
-          <AlertCircle className="h-4 w-4" />
+          <Info className="h-4 w-4" />
           <AlertDescription className="text-xs">
             <div className="space-y-2">
-              <p className="font-semibold">Quick Setup Options:</p>
+              <p className="font-semibold">One-Time Setup Options:</p>
               <ul className="list-disc list-inside space-y-1">
-                <li><strong>SendGrid Inbound Parse:</strong> Add catch-all rule for replies+* (easiest)</li>
-                <li><strong>Mailgun Routes:</strong> Create route matching replies+* pattern</li>
-                <li><strong>Cloudflare Email Routing:</strong> Free catch-all forwarding to webhook</li>
-                <li><strong>Zapier/Make:</strong> Email parser automation for any inbox</li>
+                <li><strong>Cloudflare Email Routing:</strong> Free, unlimited (recommended)</li>
+                <li><strong>SendGrid Inbound Parse:</strong> Free tier: 100 emails/day</li>
+                <li><strong>Mailgun Routes:</strong> Free trial available</li>
+                <li><strong>Zapier/Make:</strong> Works with any email provider</li>
               </ul>
               <p className="mt-2 text-muted-foreground">
-                Webhook format: {`{ from, to, cc, subject, body, messageId, inReplyTo, date }`}
+                See EMAIL_TRACKING_SETUP.md for detailed instructions
               </p>
             </div>
           </AlertDescription>
         </Alert>
-
-        {trackingDomain && (
-          <Alert className="bg-green-50 border-green-200">
-            <CheckCircle className="h-4 w-4 text-green-600" />
-            <AlertDescription className="text-sm text-green-800">
-              <strong>Tracking enabled!</strong> Replies will go to replies+CODE@{trackingDomain}
-            </AlertDescription>
-          </Alert>
-        )}
       </CardContent>
     </Card>
   );

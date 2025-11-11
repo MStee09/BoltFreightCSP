@@ -178,19 +178,13 @@ Deno.serve(async (req: Request) => {
       enhancedSubject = `[${foToken}] ${subject}`;
     }
 
-    // Get tracking email domain from settings
-    const { data: settings } = await supabaseClient
-      .from('system_settings')
-      .select('value')
-      .eq('key', 'email_tracking_domain')
-      .maybeSingle();
-
-    const trackingDomain = settings?.value;
+    // Auto-detect tracking domain from user's email
+    const emailDomain = fromEmail.split('@')[1];
     let replyToAddress = fromEmail;
 
-    // Use Reply-To with tracking code if domain is configured
-    if (trackingDomain && foToken) {
-      replyToAddress = `replies+${foToken}@${trackingDomain}`;
+    // Use Reply-To with tracking code for thread tracking
+    if (emailDomain && foToken) {
+      replyToAddress = `replies+${foToken}@${emailDomain}`;
     }
 
     const mailOptions: any = {
