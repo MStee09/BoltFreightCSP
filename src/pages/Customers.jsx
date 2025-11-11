@@ -8,15 +8,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
-import { PlusCircle, Search, TrendingUp, TrendingDown } from "lucide-react";
+import { PlusCircle, Search, TrendingUp, TrendingDown, Star } from "lucide-react";
 import { Skeleton } from "../components/ui/skeleton";
 import { format, formatDistanceToNow } from "date-fns";
 import { Checkbox } from "../components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
+import { supabase } from "../api/supabaseClient";
+import { useUserRole } from "../hooks/useUserRole";
+import { toast } from "sonner";
 
 export default function CustomersPage() {
   const navigate = useNavigate();
   const [searchTerm, setSearchTerm] = useState("");
+  const { userProfile } = useUserRole();
+  const [userPins, setUserPins] = useState(new Set());
 
   const { data: customers = [], isLoading: isLoadingCustomers } = useQuery({ queryKey: ["customers"], queryFn: () => Customer.list("-created_date"), initialData: [] });
   const { data: tariffs = [], isLoading: isLoadingTariffs } = useQuery({ queryKey: ["tariffs"], queryFn: () => Tariff.list(), initialData: [] });
@@ -27,6 +32,65 @@ export default function CustomersPage() {
   const isLoading = isLoadingCustomers || isLoadingTariffs || isLoadingEvents || isLoadingTasks || isLoadingInteractions;
 
   const { data: carriers = [] } = useQuery({ queryKey: ["carriers"], queryFn: () => Carrier.list(), initialData: [] });
+
+  const { data: userPinsData = [] } = useQuery({
+    queryKey: ["user_pins_customers", userProfile?.id],
+    queryFn: async () => {
+      if (!userProfile?.id) return [];
+      const { data, error } = await supabase
+        .from('user_pins')
+        .select('*')
+        .eq('user_id', userProfile.id)
+        .eq('pin_type', 'customer');
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!userProfile?.id,
+    initialData: []
+  });
+
+  React.useEffect(() => {
+    if (userPinsData) {
+      const pins = new Set(userPinsData.map(p => p.ref_id));
+      setUserPins(pins);
+    }
+  }, [userPinsData]);
+
+  const togglePin = async (customerId) => {
+    if (!userProfile?.id) return;
+
+    const isPinned = userPins.has(customerId);
+
+    try {
+      if (isPinned) {
+        const { error } = await supabase
+          .from('user_pins')
+          .delete()
+          .eq('user_id', userProfile.id)
+          .eq('pin_type', 'customer')
+          .eq('ref_id', customerId);
+        if (error) throw error;
+        toast.success('Customer unpinned');
+      } else {
+        const { error } = await supabase
+          .from('user_pins')
+          .insert({ user_id: userProfile.id, pin_type: 'customer', ref_id: customerId });
+        if (error) throw error;
+        toast.success('Customer pinned to top');
+      }
+
+      const updatedPins = new Set(userPins);
+      if (isPinned) {
+        updatedPins.delete(customerId);
+      } else {
+        updatedPins.add(customerId);
+      }
+      setUserPins(updatedPins);
+    } catch (error) {
+      console.error('Error toggling pin:', error);
+      toast.error('Failed to update pin');
+    }
+  };
 
   const customerData = useMemo(() => {
     return customers.map(customer => {
@@ -49,9 +113,16 @@ export default function CustomersPage() {
     });
   }, [customers, tariffs, cspEvents, tasks, interactions]);
 
-  const filteredCustomers = customerData.filter(c =>
-    c.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredCustomers = useMemo(() => {
+    const filtered = customerData.filter(c =>
+      c.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    const pinned = filtered.filter(c => userPins.has(c.id));
+    const unpinned = filtered.filter(c => !userPins.has(c.id));
+
+    return [...pinned, ...unpinned];
+  }, [customerData, searchTerm, userPins]);
   
   const handleRowClick = (customerId) => {
       navigate(createPageUrl(`CustomerDetail?id=${customerId}`));
@@ -91,6 +162,7 @@ export default function CustomersPage() {
               <TableHeader>
                 <TableRow className="bg-slate-50/50 text-xs uppercase tracking-wider text-slate-500 hover:bg-slate-50/50">
                   <TableHead className="p-4"><Checkbox /></TableHead>
+                  <TableHead className="w-8"></TableHead>
                   <TableHead>Customer</TableHead>
                   <TableHead>Segment</TableHead>
                   <TableHead>Active Tariff</TableHead>
@@ -114,8 +186,28 @@ export default function CustomersPage() {
                   const carrier = tariff ? carriers.find(c => c.id === tariff.carrier_id) : null;
 
                   return (
-                    <TableRow key={customer.id} onClick={() => handleRowClick(customer.id)} className="cursor-pointer hover:bg-slate-50">
+                    <TableRow key={customer.id} onClick={() => handleRowClick(customer.id)} className={`cursor-pointer hover:bg-slate-50 ${userPins.has(customer.id) ? 'bg-blue-50/30' : ''}`}>
                       <TableCell className="p-4" onClick={e => e.stopPropagation()}><Checkbox /></TableCell>
+                      <TableCell className="p-4" onClick={e => e.stopPropagation()}>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  togglePin(customer.id);
+                                }}
+                                className="text-slate-400 hover:text-blue-600 transition-colors"
+                              >
+                                <Star className={`w-4 h-4 ${userPins.has(customer.id) ? 'fill-blue-600 text-blue-600' : ''}`} />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              {userPins.has(customer.id) ? 'Unpin customer' : 'Pin customer to top'}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </TableCell>
                       <TableCell className="font-medium text-slate-900">{customer.name}</TableCell>
                       <TableCell>
                         <Badge variant="outline" className={`${segmentColors[customer.segment] || 'bg-slate-100 text-slate-700'} font-medium`}>

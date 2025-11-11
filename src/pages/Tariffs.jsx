@@ -10,7 +10,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../components/ui/dropdown-menu";
-import { PlusCircle, Search, Upload, ChevronDown, ChevronRight, AlertCircle, Eye, GitCompare, Download, FileText, Plus, Calendar, Link2, UploadCloud, RefreshCw, FileCheck, ArrowUpDown, Briefcase, FolderOpen, TrendingUp, Clock, X, Pin, User, Truck, Package, Edit, History, FileSpreadsheet, Repeat, ChevronsDown, ChevronsUp } from "lucide-react";
+import { PlusCircle, Search, Upload, ChevronDown, ChevronRight, AlertCircle, Eye, GitCompare, Download, FileText, Plus, Calendar, Link2, UploadCloud, RefreshCw, FileCheck, ArrowUpDown, Briefcase, FolderOpen, TrendingUp, Clock, X, Pin, User, Truck, Package, Edit, History, FileSpreadsheet, Repeat, ChevronsDown, ChevronsUp, Star } from "lucide-react";
 import { format, isAfter, isBefore, differenceInDays } from "date-fns";
 import { Skeleton } from "../components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
@@ -82,6 +82,8 @@ export default function TariffsPage() {
   const [allExpanded, setAllExpanded] = useState(false);
   const [showRenewalDialog, setShowRenewalDialog] = useState(false);
   const [renewalFamilyData, setRenewalFamilyData] = useState(null);
+  const [pinnedFamilies, setPinnedFamilies] = useState(new Set());
+  const [userPins, setUserPins] = useState({ customers: new Set(), families: new Set() });
 
   const handleSort = (column) => {
     if (sortColumn === column) {
@@ -158,6 +160,31 @@ export default function TariffsPage() {
     },
     initialData: {}
   });
+
+  const { data: userPinsData = [] } = useQuery({
+    queryKey: ["user_pins", userProfile?.id],
+    queryFn: async () => {
+      if (!userProfile?.id) return [];
+      const { data, error } = await supabase
+        .from('user_pins')
+        .select('*')
+        .eq('user_id', userProfile.id);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!userProfile?.id,
+    initialData: []
+  });
+
+  React.useEffect(() => {
+    if (userPinsData) {
+      const customerPins = new Set(userPinsData.filter(p => p.pin_type === 'customer').map(p => p.ref_id));
+      const familyPins = new Set(userPinsData.filter(p => p.pin_type === 'tariff_family').map(p => p.ref_id));
+      setUserPins({ customers: customerPins, families: familyPins });
+      setPinnedCustomers(customerPins);
+      setPinnedFamilies(familyPins);
+    }
+  }, [userPinsData]);
 
   const isLoading = isTariffsLoading || isCustomersLoading || isCarriersLoading || isCspEventsLoading;
 
@@ -335,6 +362,19 @@ export default function TariffsPage() {
           } else if (sortColumn === 'version' || sortColumn === 'version_number') {
             valueA = a.version_number || a.version || '';
             valueB = b.version_number || b.version || '';
+          } else if (sortColumn === 'status') {
+            const statusOrder = { 'active': 1, 'expiring': 2, 'proposed': 3, 'expired': 4, 'superseded': 5 };
+            const getStatusRank = (tariff) => {
+              const expiryDate = tariff.expiry_date ? new Date(tariff.expiry_date) : null;
+              const daysUntilExpiry = expiryDate ? differenceInDays(expiryDate, today) : null;
+              if (tariff.status === 'expired' || (expiryDate && isBefore(expiryDate, today))) return statusOrder.expired;
+              if (tariff.status === 'superseded') return statusOrder.superseded;
+              if (tariff.status === 'proposed') return statusOrder.proposed;
+              if (daysUntilExpiry !== null && daysUntilExpiry <= 90 && daysUntilExpiry > 0) return statusOrder.expiring;
+              return statusOrder.active;
+            };
+            valueA = getStatusRank(a);
+            valueB = getStatusRank(b);
           } else {
             return 0;
           }
@@ -364,20 +404,27 @@ export default function TariffsPage() {
 
         if (statusFilter === 'all' || statusFilter === 'active' || statusFilter === 'proposed' || statusFilter === 'expiring') {
           if (family.hasLiveVersions || searchTerm) {
-            liveFamilies[key] = { ...family, isArchived: false };
+            liveFamilies[key] = { ...family, isArchived: false, isPinned: userPins.families.has(family.familyId) };
           } else if (showHistory) {
-            archivedFamilies[key] = { ...family, isArchived: true };
+            archivedFamilies[key] = { ...family, isArchived: true, isPinned: userPins.families.has(family.familyId) };
           }
         } else {
           if (isArchived && showHistory) {
-            archivedFamilies[key] = { ...family, isArchived: true };
+            archivedFamilies[key] = { ...family, isArchived: true, isPinned: userPins.families.has(family.familyId) };
           } else {
-            liveFamilies[key] = { ...family, isArchived: false };
+            liveFamilies[key] = { ...family, isArchived: false, isPinned: userPins.families.has(family.familyId) };
           }
         }
       });
 
-      return { ...group, families: { ...liveFamilies, ...archivedFamilies } };
+      const sortFamilies = (familiesObj) => {
+        const familyArray = Object.entries(familiesObj);
+        const pinnedFams = familyArray.filter(([_, fam]) => fam.isPinned);
+        const unpinnedFams = familyArray.filter(([_, fam]) => !fam.isPinned);
+        return Object.fromEntries([...pinnedFams, ...unpinnedFams]);
+      };
+
+      return { ...group, families: { ...sortFamilies(liveFamilies), ...sortFamilies(archivedFamilies) } };
     }).filter(group => Object.keys(group.families).length > 0);
 
     const pinnedGroups = filteredGroups.filter(g => pinnedCustomers.has(g.key));
@@ -517,6 +564,48 @@ export default function TariffsPage() {
     setAllExpanded(false);
   };
 
+  const togglePin = async (type, refId) => {
+    if (!userProfile?.id) return;
+
+    const isPinned = type === 'customer' ? userPins.customers.has(refId) : userPins.families.has(refId);
+
+    try {
+      if (isPinned) {
+        const { error } = await supabase
+          .from('user_pins')
+          .delete()
+          .eq('user_id', userProfile.id)
+          .eq('pin_type', type)
+          .eq('ref_id', refId);
+        if (error) throw error;
+        toast.success(`${type === 'customer' ? 'Customer' : 'Family'} unpinned`);
+      } else {
+        const { error } = await supabase
+          .from('user_pins')
+          .insert({ user_id: userProfile.id, pin_type: type, ref_id: refId });
+        if (error) throw error;
+        toast.success(`${type === 'customer' ? 'Customer' : 'Family'} pinned to top`);
+      }
+
+      const updatedPins = { ...userPins };
+      if (isPinned) {
+        updatedPins[type === 'customer' ? 'customers' : 'families'].delete(refId);
+      } else {
+        updatedPins[type === 'customer' ? 'customers' : 'families'].add(refId);
+      }
+      setUserPins(updatedPins);
+
+      if (type === 'customer') {
+        setPinnedCustomers(updatedPins.customers);
+      } else {
+        setPinnedFamilies(updatedPins.families);
+      }
+    } catch (error) {
+      console.error('Error toggling pin:', error);
+      toast.error('Failed to update pin');
+    }
+  };
+
   const handleCreateRenewalCSP = (family, customerName, carrierName) => {
     const firstVersion = family.versions[0];
     setRenewalFamilyData({
@@ -583,7 +672,7 @@ export default function TariffsPage() {
             </Badge>
           </TooltipTrigger>
           <TooltipContent>
-            <p>Uploaded directly by user (not API-synced)</p>
+            <p>Created outside a CSP Event</p>
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -1050,16 +1139,10 @@ export default function TariffsPage() {
                             className={`h-7 text-xs ${isPinned ? 'text-blue-600' : ''}`}
                             onClick={(e) => {
                               e.stopPropagation();
-                              const newPinned = new Set(pinnedCustomers);
-                              if (isPinned) {
-                                newPinned.delete(group.key);
-                              } else {
-                                newPinned.add(group.key);
-                              }
-                              setPinnedCustomers(newPinned);
+                              togglePin('customer', group.key);
                             }}
                           >
-                            <Pin className={`w-3 h-3 mr-1 ${isPinned ? 'fill-blue-600' : ''}`} />
+                            <Star className={`w-3 h-3 mr-1 ${isPinned ? 'fill-blue-600' : ''}`} />
                             {isPinned ? 'Unpin' : 'Pin'}
                           </Button>
                           {ownershipTab === 'rocket_blanket' || ownershipTab === 'priority1_blanket' ? (
@@ -1126,7 +1209,17 @@ export default function TariffsPage() {
                                     )}
                                   </button>
                                 </th>
-                                <th className="text-left p-3 text-xs font-semibold text-slate-600">Status</th>
+                                <th className="text-left p-3 text-xs font-semibold text-slate-600">
+                                  <button
+                                    onClick={() => handleSort('status')}
+                                    className="flex items-center gap-1 hover:text-slate-900 transition-colors"
+                                  >
+                                    Status
+                                    {sortColumn === 'status' && (
+                                      <ArrowUpDown className={`w-3 h-3 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                                    )}
+                                  </button>
+                                </th>
                                 <th className="text-left p-3 text-xs font-semibold text-slate-600">Source</th>
                                 <th className="text-left p-3 text-xs font-semibold text-slate-600">Carrier</th>
                                 <th className="text-right p-3 text-xs font-semibold text-slate-600">
@@ -1154,7 +1247,7 @@ export default function TariffsPage() {
                                 <th className="text-right p-3 text-xs font-semibold text-slate-600 w-32">Actions</th>
                               </tr>
                             </thead>
-                            <tbody>
+                            <tbody className="divide-y divide-slate-100">
                         {(() => {
                           const families = Object.values(group.families || {});
                           const liveFamily = families.filter(f => !f.isArchived);
@@ -1194,8 +1287,8 @@ export default function TariffsPage() {
                                 </tr>
                               )}
                               {family.versions.length >= 1 && (
-                                <tr className={`border-b-2 border-slate-200 border-l-4 ${getOwnershipBorderColor(ownershipTab)} ${isArchived ? 'bg-slate-50/50' : ''} ${isFamilyCollapsed ? 'hover:bg-slate-50' : isArchived ? 'bg-slate-100/60' : 'bg-gradient-to-r from-slate-50 to-slate-100'}`}>
-                                <td colSpan="8" className={`${isFamilyCollapsed ? 'p-2' : 'p-4'}`}>
+                                <tr className={`border-b border-slate-200 border-l-4 ${getOwnershipBorderColor(ownershipTab)} ${isArchived ? 'bg-slate-50/50' : ''} ${isFamilyCollapsed ? 'hover:bg-slate-50' : isArchived ? 'bg-slate-100/60' : 'bg-gradient-to-r from-slate-50 to-slate-100'}`}>
+                                <td colSpan="8" className={`${isFamilyCollapsed ? 'py-1.5 px-3' : 'py-3 px-4'}`}>
                                   {isFamilyCollapsed ? (
                                     <TooltipProvider>
                                       <Tooltip>
@@ -1262,29 +1355,46 @@ export default function TariffsPage() {
                                           >
                                             <ChevronDown className="w-4 h-4 text-slate-600" />
                                           </button>
+                                          {family.isPinned && <Star className="w-3.5 h-3.5 text-blue-600 fill-blue-600" />}
                                           <FolderOpen className="w-4 h-4 text-slate-600" />
                                           {(() => {
-                                            const displayName = cspEvent?.owner_name || firstVersion?.updated_by_name || 'System';
-                                            const initials = displayName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
-                                            const bgColor = cspEvent ? 'bg-purple-300' : 'bg-slate-300';
-                                            const textColor = cspEvent ? 'text-purple-800' : 'text-slate-700';
+                                            let ownerProfile = null;
+                                            let ownerName = 'System';
+                                            let ownerRole = 'System';
+
+                                            if (cspEvent?.csp_owner_id) {
+                                              ownerProfile = userProfiles.find(u => u.id === cspEvent.csp_owner_id);
+                                              if (ownerProfile) {
+                                                ownerName = `${ownerProfile.first_name} ${ownerProfile.last_name}`;
+                                                ownerRole = 'CSP Owner';
+                                              }
+                                            } else if (firstVersion?.updated_by) {
+                                              ownerProfile = userProfiles.find(u => u.id === firstVersion.updated_by);
+                                              if (ownerProfile) {
+                                                ownerName = `${ownerProfile.first_name} ${ownerProfile.last_name}`;
+                                                ownerRole = 'Last Updated By';
+                                              }
+                                            }
+
+                                            const initials = ownerName.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+                                            const bgColor = cspEvent ? 'bg-purple-500' : 'bg-slate-400';
+                                            const textColor = 'text-white';
+
                                             return (
                                               <TooltipProvider>
                                                 <Tooltip>
                                                   <TooltipTrigger asChild>
-                                                    <div className={`w-6 h-6 rounded-full ${bgColor} flex items-center justify-center text-xs font-semibold ${textColor}`}>
+                                                    <div className={`w-7 h-7 rounded-full ${bgColor} flex items-center justify-center text-xs font-semibold ${textColor} shadow-sm`}>
                                                       {initials}
                                                     </div>
                                                   </TooltipTrigger>
                                                   <TooltipContent>
-                                                    <div className="text-xs">
-                                                      <div className="font-semibold">{displayName}</div>
-                                                      <div className="text-slate-500">
-                                                        {cspEvent ? 'CSP Owner' : 'Last Updated'}
-                                                      </div>
+                                                    <div className="text-xs space-y-1">
+                                                      <div className="font-semibold">Owner: {ownerName}</div>
+                                                      <div className="text-slate-500">Role: {ownerRole}</div>
                                                       {mostRecentUpdate && (
-                                                        <div className="text-slate-400 mt-1">
-                                                          Updated {format(new Date(mostRecentUpdate), 'MMM d, yyyy')}
+                                                        <div className="text-slate-400">
+                                                          Last Updated: {format(new Date(mostRecentUpdate), 'MMM d, yyyy')}
                                                         </div>
                                                       )}
                                                     </div>
@@ -1339,40 +1449,70 @@ export default function TariffsPage() {
                                             {(() => {
                                               const renewalCspId = firstVersion?.renewal_csp_event_id;
                                               const renewalCsp = renewalCspId ? cspEvents.find(e => e.id === renewalCspId) : null;
+                                              const isFamilyPinned = userPins.families.has(family.familyId);
 
-                                              if (renewalCsp) {
-                                                return <RenewalStatusBadge renewalCspEvent={renewalCsp} />;
-                                              } else if (expiringVersion && !isArchived) {
-                                                return (
+                                              return (
+                                                <>
                                                   <TooltipProvider>
                                                     <Tooltip>
                                                       <TooltipTrigger asChild>
                                                         <button
-                                                          className="text-xs text-purple-600 hover:text-purple-700 hover:underline flex items-center gap-1 font-medium"
+                                                          className={`text-xs hover:underline flex items-center gap-1 ${isFamilyPinned ? 'text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
                                                           onClick={(e) => {
                                                             e.stopPropagation();
-                                                            handleCreateRenewalCSP(family, group.name, family.carrierName);
+                                                            togglePin('tariff_family', family.familyId);
                                                           }}
                                                         >
-                                                          <Repeat className="w-3 h-3" />
-                                                          Create Renewal CSP
+                                                          <Star className={`w-3 h-3 ${isFamilyPinned ? 'fill-blue-600' : ''}`} />
+                                                          {isFamilyPinned ? 'Pinned' : 'Pin Family'}
                                                         </button>
                                                       </TooltipTrigger>
                                                       <TooltipContent>
-                                                        Start a renewal negotiation for this expiring tariff
+                                                        {isFamilyPinned ? 'Unpin this family' : 'Pin this family to the top'}
                                                       </TooltipContent>
                                                     </Tooltip>
                                                   </TooltipProvider>
-                                                );
-                                              }
-                                              return null;
+                                                  {renewalCsp ? (
+                                                    <RenewalStatusBadge renewalCspEvent={renewalCsp} />
+                                                  ) : expiringVersion && !isArchived ? (
+                                                    <TooltipProvider>
+                                                      <Tooltip>
+                                                        <TooltipTrigger asChild>
+                                                          <button
+                                                            className="text-xs text-purple-600 hover:text-purple-700 hover:underline flex items-center gap-1 font-medium"
+                                                            onClick={(e) => {
+                                                              e.stopPropagation();
+                                                              handleCreateRenewalCSP(family, group.name, family.carrierName);
+                                                            }}
+                                                          >
+                                                            <Repeat className="w-3 h-3" />
+                                                            Create Renewal CSP
+                                                          </button>
+                                                        </TooltipTrigger>
+                                                        <TooltipContent>
+                                                          Start a renewal negotiation for this expiring tariff
+                                                        </TooltipContent>
+                                                      </Tooltip>
+                                                    </TooltipProvider>
+                                                  ) : null}
+                                                </>
+                                              );
                                             })()}
                                           </div>
                                         </div>
-                                        <div className="flex items-center gap-1 text-xs text-slate-500">
-                                          <Briefcase className="w-3 h-3" />
-                                          <span>Family ID: {family.familyId.slice(0, 8).toUpperCase()}</span>
-                                        </div>
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <div className="flex items-center gap-1 text-xs text-slate-500 opacity-60 hover:opacity-100 transition-opacity cursor-help">
+                                                <Briefcase className="w-3 h-3" />
+                                                <span>Family ID: {family.familyId.slice(0, 8).toUpperCase()}</span>
+                                              </div>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                              <p>Family ID: {family.familyId}</p>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
                                       </div>
                                     <div className="flex gap-6 text-xs">
                                       <div className="flex flex-col gap-1">
@@ -1556,7 +1696,41 @@ export default function TariffsPage() {
                                   {tariff.expiry_date ? format(new Date(tariff.expiry_date), 'MMM dd, yyyy') : '—'}
                                 </td>
                                 <td className="p-3 text-right">
-                                  <div className={`flex items-center justify-end gap-1 transition-opacity ${hoveredRowId === tariff.id ? 'opacity-100' : 'opacity-0'}`}>
+                                  <div className={`flex items-center justify-end gap-0.5 transition-opacity ${hoveredRowId === tariff.id ? 'opacity-100' : 'opacity-0'}`}>
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7"
+                                            asChild
+                                          >
+                                            <Link to={createPageUrl(`TariffDetail?id=${tariff.id}`)}>
+                                              <Eye className="w-3.5 h-3.5" />
+                                            </Link>
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>View Details</TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="h-7 w-7"
+                                            asChild
+                                          >
+                                            <Link to={createPageUrl(`TariffDetail?id=${tariff.id}#documents`)}>
+                                              <FileText className="w-3.5 h-3.5" />
+                                            </Link>
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>Docs</TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
                                     <TooltipProvider>
                                       <Tooltip>
                                         <TooltipTrigger asChild>
@@ -1575,43 +1749,41 @@ export default function TariffsPage() {
                                             <GitCompare className="w-3.5 h-3.5" />
                                           </Button>
                                         </TooltipTrigger>
-                                        <TooltipContent>Compare versions</TooltipContent>
+                                        <TooltipContent>Compare</TooltipContent>
                                       </Tooltip>
                                     </TooltipProvider>
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-7 w-7"
-                                            asChild
-                                          >
-                                            <Link to={createPageUrl(`TariffDetail?id=${tariff.id}`)}>
-                                              <Edit className="w-3.5 h-3.5" />
-                                            </Link>
-                                          </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>Edit details</TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Button
-                                            variant="ghost"
-                                            size="icon"
-                                            className="h-7 w-7"
-                                            asChild
-                                          >
-                                            <Link to={createPageUrl(`TariffDetail?id=${tariff.id}#documents`)}>
-                                              <Download className="w-3.5 h-3.5" />
-                                            </Link>
-                                          </Button>
-                                        </TooltipTrigger>
-                                        <TooltipContent>Download documents</TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
+                                    {(() => {
+                                      const renewalCspId = tariff.renewal_csp_event_id;
+                                      const hasRenewalCsp = renewalCspId && cspEvents.find(e => e.id === renewalCspId);
+                                      const today = new Date();
+                                      const expiryDate = tariff.expiry_date ? new Date(tariff.expiry_date) : null;
+                                      const daysUntilExpiry = expiryDate ? differenceInDays(expiryDate, today) : null;
+                                      const isExpiring = expiryDate && daysUntilExpiry !== null && daysUntilExpiry <= 90 && daysUntilExpiry > 0;
+
+                                      if (!hasRenewalCsp && isExpiring) {
+                                        return (
+                                          <TooltipProvider>
+                                            <Tooltip>
+                                              <TooltipTrigger asChild>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="icon"
+                                                  className="h-7 w-7 text-purple-600 hover:text-purple-700"
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleCreateRenewalCSP(family, group.name, family.carrierName);
+                                                  }}
+                                                >
+                                                  <Repeat className="w-3.5 h-3.5" />
+                                                </Button>
+                                              </TooltipTrigger>
+                                              <TooltipContent>Renew</TooltipContent>
+                                            </Tooltip>
+                                          </TooltipProvider>
+                                        );
+                                      }
+                                      return null;
+                                    })()}
                                   </div>
                                 </td>
                               </tr>
