@@ -178,8 +178,24 @@ Deno.serve(async (req: Request) => {
       enhancedSubject = `[${foToken}] ${subject}`;
     }
 
+    // Get tracking email domain from settings
+    const { data: settings } = await supabaseClient
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'email_tracking_domain')
+      .maybeSingle();
+
+    const trackingDomain = settings?.value;
+    let replyToAddress = fromEmail;
+
+    // Use Reply-To with tracking code if domain is configured
+    if (trackingDomain && foToken) {
+      replyToAddress = `replies+${foToken}@${trackingDomain}`;
+    }
+
     const mailOptions: any = {
       from: fromEmail,
+      replyTo: replyToAddress,
       to: to.join(', '),
       subject: enhancedSubject,
       text: body,
@@ -188,17 +204,6 @@ Deno.serve(async (req: Request) => {
 
     if (cc && cc.length > 0) {
       mailOptions.cc = cc.join(', ');
-    }
-
-    // Auto-BCC tracking email for reply detection
-    const { data: settings } = await supabaseClient
-      .from('system_settings')
-      .select('value')
-      .eq('key', 'email_tracking_bcc')
-      .maybeSingle();
-
-    if (settings?.value) {
-      mailOptions.bcc = settings.value;
     }
 
     if (inReplyTo) {

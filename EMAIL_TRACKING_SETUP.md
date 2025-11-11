@@ -1,125 +1,115 @@
-# Email Reply Tracking with Auto-BCC
+# Email Reply Tracking with Reply-To Addresses
 
 ## Overview
 
-The app now automatically tracks email replies using a BCC (Blind Carbon Copy) approach. This is simpler than Google's webhook system and doesn't require domain verification.
+The app automatically tracks email replies using unique Reply-To addresses. This is the **simplest and most reliable method** - it works even when recipients click "Reply" instead of "Reply All".
 
 ## How It Works
 
-1. **Auto-BCC**: Every email sent through the app automatically BCCs a tracking email address you configure
-2. **Email Forwarding**: You set up email forwarding to send those BCCs to a webhook
-3. **Automatic Capture**: When recipients reply (and include the tracking email in the thread), the app automatically captures their responses
-4. **Thread Linking**: Replies are automatically linked to the original email thread using the tracking code in the subject line
+1. **Unique Reply-To**: Each email gets a unique Reply-To address like `replies+FO-ABC12345@yourdomain.com`
+2. **Catch-All Forwarding**: You set up catch-all email forwarding for `replies+*@yourdomain.com` to a webhook
+3. **100% Capture**: ALL replies are captured automatically, regardless of "Reply" vs "Reply All"
+4. **Thread Linking**: Replies are automatically linked to the original email thread using the tracking code embedded in the Reply-To address
 
-## Setup Steps
+## Quick Setup (3 Steps)
 
-### 1. Configure Tracking Email (Admin Only)
+### Step 1: Configure Your Domain
+- Go to **Settings → Integrations**
+- Enter your domain (e.g., `yourdomain.com`)
+- Click Save
 
-1. Go to **Settings → Integrations** tab
-2. Find the "Auto-BCC Email Tracking" section
-3. Enter a dedicated tracking email (e.g., `tracker@yourdomain.com`)
-4. Click **Save**
+### Step 2: Set Up Catch-All Forwarding
+Choose the easiest option for you:
+- **Cloudflare Email Routing** (free, unlimited)
+- **SendGrid Inbound Parse** (free tier: 100/day)
+- **Mailgun Routes** (free trial)
 
-### 2. Set Up Email Forwarding
+### Step 3: Test
+- Send an email through the app
+- Reply to it (regular Reply, not Reply All)
+- Watch it appear in the app automatically!
 
-You have several options to forward emails to the webhook:
+## Why This Works Better
 
-#### Option A: SendGrid Inbound Parse (Recommended)
+**Reply-To vs BCC Comparison:**
 
-1. Sign up for SendGrid (free tier available)
+| Method | Works with "Reply"? | Works with "Reply All"? |
+|--------|--------------------|-----------------------|
+| Reply-To | ✅ Yes | ✅ Yes |
+| BCC | ❌ No | ✅ Yes |
+
+**The Problem with BCC:**
+- You send email with BCC to `tracker@yourdomain.com`
+- Recipient clicks "Reply" → BCC is lost
+- Only "Reply All" keeps the BCC in thread
+- Most people just click "Reply"
+
+**The Reply-To Solution:**
+- Email shows Reply-To: `replies+FO-ABC12345@yourdomain.com`
+- Recipient clicks "Reply" → Goes to Reply-To address
+- Catch-all forwarding sends to webhook
+- 100% capture rate!
+
+## Detailed Setup Instructions
+
+### Option A: Cloudflare Email Routing (Recommended - FREE!)
+
+1. Add domain to Cloudflare (free account)
+2. Enable **Email Routing**
+3. Create custom address: `replies+*`
+4. Forward to webhook (create Worker or use HTTP forwarding)
+5. Done! Cloudflare handles DNS automatically
+
+### Option B: SendGrid Inbound Parse
+
+1. Sign up at sendgrid.com
 2. Go to Settings → Inbound Parse
-3. Add your tracking email domain
-4. Set the webhook URL to: `https://your-supabase-url.supabase.co/functions/v1/receive-email`
-5. Configure MX records to point to SendGrid
+3. Add domain: `yourdomain.com`
+4. Webhook URL: `https://your-project.supabase.co/functions/v1/receive-email`
+5. Configure MX records:
+   ```
+   MX  replies.yourdomain.com  mx.sendgrid.net  10
+   ```
 
-#### Option B: Mailgun Routes
+### Option C: Zapier (No Domain Control Needed)
 
-1. Sign up for Mailgun (free tier available)
-2. Add and verify your domain
-3. Create a route for your tracking email
-4. Forward to the webhook URL
-5. Configure DNS records
-
-#### Option C: Zapier/Make Automation
-
-1. Create a new automation triggered by incoming email
-2. Use Email Parser to extract email data
-3. Format as JSON: `{ from, to, cc, subject, body, messageId, inReplyTo, date }`
+1. Create Zap: Email Received → Webhook
+2. Filter for `replies+*@yourdomain.com`
+3. Parse email data
 4. POST to webhook URL
 
-#### Option D: Gmail + Zapier
+## Webhook Format
 
-1. Set up Gmail filter to auto-forward tracking emails
-2. Use Zapier to catch forwarded emails
-3. Parse and POST to webhook
-
-### 3. Test the Setup
-
-1. Send a test email through the app
-2. Check that the tracking email receives the BCC
-3. Reply to the test email
-4. Verify the reply appears in the app's email timeline
-
-## Webhook Endpoint
-
-**URL**: `https://your-supabase-url.supabase.co/functions/v1/receive-email`
-
-**Method**: POST
-
-**Expected JSON Format**:
+The webhook expects this JSON:
 ```json
 {
-  "from": "sender@example.com",
-  "to": ["recipient@example.com"],
-  "cc": ["cc@example.com"],
-  "subject": "[FO-ABC12345] Original Subject",
-  "body": "Email body text",
-  "messageId": "<unique-message-id@domain.com>",
-  "inReplyTo": "<previous-message-id@domain.com>",
+  "from": "customer@example.com",
+  "to": ["replies+FO-ABC12345@yourdomain.com"],
+  "subject": "Re: Your email",
+  "body": "Email content",
+  "messageId": "<msg-id@domain>",
+  "inReplyTo": "<parent-msg-id>",
   "date": "2025-01-15T10:30:00Z"
 }
 ```
 
-## Benefits
-
-- **No domain verification required** - Unlike Google's webhook system
-- **Works with any email client** - Recipients can reply from Gmail, Outlook, etc.
-- **Automatic thread tracking** - Replies are automatically linked to original emails
-- **Follow-up task automation** - Pending follow-up tasks are auto-closed when replies arrive
-- **Simple setup** - Just configure email forwarding once
-
-## How Tracking Codes Work
-
-Each outgoing email gets a unique tracking code like `[FO-ABC12345]` added to the subject line. When recipients reply:
-
-1. The tracking code stays in the subject (email clients preserve this in replies)
-2. The reply is BCCed to your tracking email
-3. Email forwarding sends it to the webhook
-4. The webhook extracts the tracking code
-5. The app links the reply to the original thread
-
 ## Troubleshooting
 
-**Replies not showing up?**
-- Check your email forwarding is working
-- Verify the tracking email is receiving BCCs
-- Ensure the webhook URL is correct
-- Check Supabase function logs for errors
+**Replies not appearing?**
+- Test forwarding: Send email to `replies+test@yourdomain.com`
+- Check Supabase function logs
+- Verify webhook URL in forwarding service
 
-**Tracking code missing?**
-- The app automatically adds tracking codes
-- Codes look like `[FO-ABC12345]` in the subject line
-- Don't manually remove or modify them
+**Reply-To not set?**
+- Check domain is saved in Settings
+- Look for errors in browser console
 
-**Want to stop tracking?**
-- Simply remove the tracking email address in Settings
-- Existing threads will still work
-- New emails won't be BCC'd
+## Cost
 
-## Privacy & Security
+All options have free tiers:
+- **Cloudflare**: Unlimited, forever free
+- **SendGrid**: 100 emails/day free
+- **Mailgun**: 5,000/month free trial
+- **Zapier**: 100 tasks/month free
 
-- The tracking email only receives copies of YOUR sent emails and their replies
-- No access to your entire inbox
-- Only emails with tracking codes are processed
-- All data is stored securely in your Supabase database
-- You control the tracking email and forwarding setup
+Start with Cloudflare for unlimited free tracking!
