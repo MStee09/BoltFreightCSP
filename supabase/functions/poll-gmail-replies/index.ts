@@ -110,7 +110,7 @@ Deno.serve(async (req: Request) => {
       const profileData = await profileResponse.json();
 
       const messagesResponse = await fetch(
-        `https://www.googleapis.com/gmail/v1/users/me/messages?maxResults=50&q=is:inbox newer_than:7d`,
+        `https://www.googleapis.com/gmail/v1/users/me/messages?maxResults=50&q=in:inbox -from:me newer_than:7d`,
         {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
@@ -129,7 +129,8 @@ Deno.serve(async (req: Request) => {
           const processed = await processMessage(
             supabaseClient,
             accessToken,
-            message.id
+            message.id,
+            gmailTokens.email_address
           );
           if (processed) newMessagesCount++;
         }
@@ -152,7 +153,8 @@ Deno.serve(async (req: Request) => {
               const processed = await processMessage(
                 supabaseClient,
                 accessToken,
-                messageAdded.message.id
+                messageAdded.message.id,
+                gmailTokens.email_address
               );
               if (processed) newMessagesCount++;
             }
@@ -248,7 +250,8 @@ async function refreshAccessToken(
 async function processMessage(
   supabaseClient: any,
   accessToken: string,
-  messageId: string
+  messageId: string,
+  userEmail: string
 ): Promise<boolean> {
   try {
     const { data: existing } = await supabaseClient
@@ -277,6 +280,11 @@ async function processMessage(
     const message: GmailMessage = await messageResponse.json();
     const parsed = parseMessage(message);
 
+    if (parsed.fromEmail.toLowerCase() === userEmail.toLowerCase()) {
+      console.log('Skipping email from self:', messageId);
+      return false;
+    }
+
     const { data: matchedEntities } = await supabaseClient.rpc(
       'match_inbound_email_to_entities',
       {
@@ -295,6 +303,7 @@ async function processMessage(
     let foToken = matchedEntities?.[0]?.fo_token;
 
     if (!cspEventId && !customerId && !carrierId) {
+      console.log('No matching entities found for:', parsed.subject);
       return false;
     }
 
