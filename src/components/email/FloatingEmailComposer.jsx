@@ -254,11 +254,17 @@ export function FloatingEmailComposer({
 
   const loadSuggestedContacts = async () => {
     try {
+      console.log('🔍 Loading suggested contacts...');
+      console.log('  Customer:', customer);
+      console.log('  Full CSP Event:', fullCspEvent);
+
       const contacts = [];
 
       // Get customer contact
       if (customer?.id) {
+        console.log('  📧 Fetching customer email...');
         const customerData = await Customer.get(customer.id);
+        console.log('  Customer data:', customerData);
         if (customerData?.email) {
           contacts.push({
             email: customerData.email,
@@ -266,16 +272,22 @@ export function FloatingEmailComposer({
             type: 'customer',
             label: `${customerData.name} (Customer)`
           });
+          console.log('  ✅ Added customer email:', customerData.email);
         }
       }
 
       // Get carriers assigned to this CSP event
       if (fullCspEvent?.id) {
+        console.log('  🚛 Fetching carriers for CSP event:', fullCspEvent.id);
         const assignments = await CSPEventCarrier.filter({ csp_event_id: fullCspEvent.id });
+        console.log('  Carrier assignments:', assignments);
         const carrierIds = assignments.map(a => a.carrier_id);
 
         for (const carrierId of carrierIds) {
+          console.log('    Fetching carrier:', carrierId);
           const carrierData = await Carrier.get(carrierId);
+          console.log('    Carrier data:', carrierData);
+
           if (carrierData?.contact_email) {
             contacts.push({
               email: carrierData.contact_email,
@@ -284,10 +296,25 @@ export function FloatingEmailComposer({
               label: `${carrierData.name} (Carrier)`,
               scac: carrierData.scac_code
             });
+            console.log('    ✅ Added carrier email:', carrierData.contact_email);
           }
 
-          // Get carrier contacts
+          // Also check carrier_rep_email
+          if (carrierData?.carrier_rep_email) {
+            contacts.push({
+              email: carrierData.carrier_rep_email,
+              name: carrierData.carrier_rep_name || carrierData.name,
+              type: 'carrier_rep',
+              label: `${carrierData.carrier_rep_name || 'Rep'} (${carrierData.name})`,
+              carrierName: carrierData.name
+            });
+            console.log('    ✅ Added carrier rep email:', carrierData.carrier_rep_email);
+          }
+
+          // Get carrier contacts from separate table
+          console.log('    Fetching carrier contacts...');
           const carrierContacts = await CarrierContact.filter({ carrier_id: carrierId });
+          console.log('    Carrier contacts:', carrierContacts);
           carrierContacts.forEach(contact => {
             if (contact.email) {
               contacts.push({
@@ -297,37 +324,10 @@ export function FloatingEmailComposer({
                 label: `${contact.name} (${carrierData.name})`,
                 carrierName: carrierData.name
               });
+              console.log('    ✅ Added carrier contact:', contact.email);
             }
           });
         }
-      }
-
-      // Single carrier mode
-      if (carrier?.id) {
-        const carrierData = await Carrier.get(carrier.id);
-        if (carrierData?.contact_email) {
-          contacts.push({
-            email: carrierData.contact_email,
-            name: carrierData.name,
-            type: 'carrier',
-            label: `${carrierData.name} (Carrier)`,
-            scac: carrierData.scac_code
-          });
-        }
-
-        // Get carrier contacts
-        const carrierContacts = await CarrierContact.filter({ carrier_id: carrier.id });
-        carrierContacts.forEach(contact => {
-          if (contact.email) {
-            contacts.push({
-              email: contact.email,
-              name: contact.name,
-              type: 'carrier_contact',
-              label: `${contact.name} (${carrierData.name})`,
-              carrierName: carrierData.name
-            });
-          }
-        });
       }
 
       // Remove duplicates
@@ -335,9 +335,10 @@ export function FloatingEmailComposer({
         index === self.findIndex(c => c.email === contact.email)
       );
 
+      console.log('📋 Final suggested contacts:', uniqueContacts);
       setSuggestedContacts(uniqueContacts);
     } catch (error) {
-      console.error('Error loading suggested contacts:', error);
+      console.error('❌ Error loading suggested contacts:', error);
     }
   };
 
