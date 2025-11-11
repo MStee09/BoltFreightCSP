@@ -190,6 +190,17 @@ Deno.serve(async (req: Request) => {
       mailOptions.cc = cc.join(', ');
     }
 
+    // Auto-BCC tracking email for reply detection
+    const { data: settings } = await supabaseClient
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'email_tracking_bcc')
+      .maybeSingle();
+
+    if (settings?.value) {
+      mailOptions.bcc = settings.value;
+    }
+
     if (inReplyTo) {
       mailOptions.inReplyTo = inReplyTo;
       mailOptions.references = inReplyTo;

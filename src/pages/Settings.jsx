@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { GmailSetupSimple } from '@/components/email/GmailSetupSimple';
 import { GmailWebhookSetup } from '@/components/email/GmailWebhookSetup';
 import EmailSetupGuide from '@/components/settings/EmailSetupGuide';
+import EmailTrackingBCC from '@/components/settings/EmailTrackingBCC';
 import { OAuthCredentials } from '@/components/settings/OAuthCredentials';
 import { UserManagement } from '@/components/admin/UserManagement';
 import { SystemSettings } from '@/components/admin/SystemSettings';
@@ -196,6 +197,9 @@ export default function Settings() {
                 <OAuthCredentials />
               </div>
               <EmailSetupGuide />
+              <div className="max-w-4xl">
+                <EmailTrackingBCC />
+              </div>
             </>
           )}
           <div className="max-w-2xl space-y-4">
