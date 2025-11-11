@@ -53,7 +53,7 @@ Deno.serve(async (req: Request) => {
     const { data: userProfile } = await supabaseClient
       .from('user_profiles')
       .select('email, full_name, email_signature')
-      .eq('user_id', user.id)
+      .eq('id', user.id)
       .maybeSingle();
 
     if (!userProfile) {
@@ -63,7 +63,7 @@ Deno.serve(async (req: Request) => {
     const { data: appPasswordCreds } = await supabaseClient
       .from('gmail_app_password_credentials')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('id', user.id)
       .maybeSingle();
 
     if (!appPasswordCreds) {
