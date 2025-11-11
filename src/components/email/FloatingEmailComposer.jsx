@@ -5,13 +5,16 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Command, CommandGroup, CommandItem, CommandList, CommandEmpty } from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Send, X, FileText, Minimize2, Maximize2, ExternalLink, Calendar,
-  CheckSquare, Settings, Eye, ChevronDown
+  CheckSquare, Settings, Eye, ChevronDown, Mail, Building2, User
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/api/supabaseClient';
 import { useQueryClient } from '@tanstack/react-query';
+import { Customer, Carrier, CSPEventCarrier, CarrierContact } from '@/api/entities';
 
 export function FloatingEmailComposer({
   draftId,
@@ -54,6 +57,8 @@ export function FloatingEmailComposer({
   const [showCc, setShowCc] = useState(false);
   const [showTemplates, setShowTemplates] = useState(false);
   const [showFollowUp, setShowFollowUp] = useState(false);
+  const [suggestedContacts, setSuggestedContacts] = useState([]);
+  const [showContactDropdown, setShowContactDropdown] = useState(false);
 
   const composerRef = useRef(null);
   const autosaveTimerRef = useRef(null);
@@ -83,6 +88,21 @@ export function FloatingEmailComposer({
     loadUserProfile();
     loadTemplates();
   }, []);
+
+  // Load suggested contacts from CSP event
+  useEffect(() => {
+    if (cspEvent?.id) {
+      loadSuggestedContacts();
+    }
+  }, [cspEvent?.id]);
+
+  // Auto-add logged-in user to CC
+  useEffect(() => {
+    if (userEmail && !ccEmails.includes(userEmail)) {
+      setCcEmails([userEmail]);
+      setShowCc(true);
+    }
+  }, [userEmail]);
 
   // Autosave draft every 10 seconds
   useEffect(() => {
@@ -184,27 +204,122 @@ export function FloatingEmailComposer({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: credentials } = await supabase
-        .from('user_gmail_credentials')
-        .select('email_address')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (credentials) {
-        setUserEmail(credentials.email_address);
-      }
-
       const { data: profile } = await supabase
         .from('user_profiles')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('id', user.id)
         .maybeSingle();
 
       if (profile) {
         setUserProfile(profile);
+        if (profile.email) {
+          setUserEmail(profile.email);
+        }
+      }
+
+      // Fallback to Gmail credentials if email not in profile
+      if (!profile?.email) {
+        const { data: credentials } = await supabase
+          .from('user_gmail_credentials')
+          .select('email_address')
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (credentials) {
+          setUserEmail(credentials.email_address);
+        }
       }
     } catch (error) {
       console.error('Error loading user profile:', error);
+    }
+  };
+
+  const loadSuggestedContacts = async () => {
+    try {
+      const contacts = [];
+
+      // Get customer contact
+      if (customer?.id) {
+        const customerData = await Customer.get(customer.id);
+        if (customerData?.email) {
+          contacts.push({
+            email: customerData.email,
+            name: customerData.name,
+            type: 'customer',
+            label: `${customerData.name} (Customer)`
+          });
+        }
+      }
+
+      // Get carriers assigned to this CSP event
+      if (cspEvent?.id) {
+        const assignments = await CSPEventCarrier.filter({ csp_event_id: cspEvent.id });
+        const carrierIds = assignments.map(a => a.carrier_id);
+
+        for (const carrierId of carrierIds) {
+          const carrierData = await Carrier.get(carrierId);
+          if (carrierData?.contact_email) {
+            contacts.push({
+              email: carrierData.contact_email,
+              name: carrierData.name,
+              type: 'carrier',
+              label: `${carrierData.name} (Carrier)`,
+              scac: carrierData.scac_code
+            });
+          }
+
+          // Get carrier contacts
+          const carrierContacts = await CarrierContact.filter({ carrier_id: carrierId });
+          carrierContacts.forEach(contact => {
+            if (contact.email) {
+              contacts.push({
+                email: contact.email,
+                name: contact.name,
+                type: 'carrier_contact',
+                label: `${contact.name} (${carrierData.name})`,
+                carrierName: carrierData.name
+              });
+            }
+          });
+        }
+      }
+
+      // Single carrier mode
+      if (carrier?.id) {
+        const carrierData = await Carrier.get(carrier.id);
+        if (carrierData?.contact_email) {
+          contacts.push({
+            email: carrierData.contact_email,
+            name: carrierData.name,
+            type: 'carrier',
+            label: `${carrierData.name} (Carrier)`,
+            scac: carrierData.scac_code
+          });
+        }
+
+        // Get carrier contacts
+        const carrierContacts = await CarrierContact.filter({ carrier_id: carrier.id });
+        carrierContacts.forEach(contact => {
+          if (contact.email) {
+            contacts.push({
+              email: contact.email,
+              name: contact.name,
+              type: 'carrier_contact',
+              label: `${contact.name} (${carrierData.name})`,
+              carrierName: carrierData.name
+            });
+          }
+        });
+      }
+
+      // Remove duplicates
+      const uniqueContacts = contacts.filter((contact, index, self) =>
+        index === self.findIndex(c => c.email === contact.email)
+      );
+
+      setSuggestedContacts(uniqueContacts);
+    } catch (error) {
+      console.error('Error loading suggested contacts:', error);
     }
   };
 
@@ -314,12 +429,17 @@ export function FloatingEmailComposer({
         setToEmails([...toEmails, trimmedEmail]);
       }
       setToInput('');
+      setShowContactDropdown(false);
     } else {
       if (!ccEmails.includes(trimmedEmail)) {
         setCcEmails([...ccEmails, trimmedEmail]);
       }
       setCcInput('');
     }
+  };
+
+  const addContactFromSuggestion = (contact) => {
+    addEmail(contact.email, 'to');
   };
 
   const removeEmail = (email, type) => {
@@ -547,32 +667,91 @@ export function FloatingEmailComposer({
 
       {/* Body */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {/* To Field */}
+        {/* To Field with Contact Suggestions */}
         <div className="space-y-1">
           <Label htmlFor="to-emails" className="text-xs">To</Label>
-          <div className="flex flex-wrap gap-1 p-2 border rounded-md min-h-[36px]">
-            {toEmails.map((email) => (
-              <Badge key={email} variant="secondary" className="gap-1 text-xs">
-                {email}
-                <button
+          <div className="relative">
+            <div className="flex flex-wrap gap-1 p-2 border rounded-md min-h-[36px]">
+              {toEmails.map((email) => (
+                <Badge key={email} variant="secondary" className="gap-1 text-xs">
+                  {email}
+                  <button
+                    type="button"
+                    onClick={() => removeEmail(email, 'to')}
+                    className="ml-1 hover:text-destructive"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </Badge>
+              ))}
+              <input
+                id="to-emails"
+                type="text"
+                value={toInput}
+                onChange={(e) => setToInput(e.target.value)}
+                onKeyDown={(e) => handleKeyDown(e, 'to')}
+                onBlur={() => {
+                  setTimeout(() => {
+                    if (toInput) addEmail(toInput, 'to');
+                    setShowContactDropdown(false);
+                  }, 200);
+                }}
+                onFocus={() => suggestedContacts.length > 0 && setShowContactDropdown(true)}
+                placeholder="Add recipient..."
+                className="flex-1 min-w-[120px] outline-none bg-transparent text-sm"
+              />
+              {suggestedContacts.length > 0 && (
+                <Button
                   type="button"
-                  onClick={() => removeEmail(email, 'to')}
-                  className="ml-1 hover:text-destructive"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowContactDropdown(!showContactDropdown)}
+                  className="h-auto p-1 ml-1"
                 >
-                  <X className="h-3 w-3" />
-                </button>
-              </Badge>
-            ))}
-            <input
-              id="to-emails"
-              type="text"
-              value={toInput}
-              onChange={(e) => setToInput(e.target.value)}
-              onKeyDown={(e) => handleKeyDown(e, 'to')}
-              onBlur={() => toInput && addEmail(toInput, 'to')}
-              placeholder="Add recipient..."
-              className="flex-1 min-w-[120px] outline-none bg-transparent text-sm"
-            />
+                  <ChevronDown className="h-3 w-3" />
+                </Button>
+              )}
+            </div>
+
+            {/* Contact Dropdown */}
+            {showContactDropdown && suggestedContacts.length > 0 && (
+              <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-60 overflow-y-auto">
+                <div className="p-2">
+                  <p className="text-xs text-slate-500 font-medium mb-2 px-2">Suggested Contacts</p>
+                  <div className="space-y-1">
+                    {suggestedContacts.map((contact, index) => (
+                      <button
+                        key={`${contact.email}-${index}`}
+                        type="button"
+                        onClick={() => addContactFromSuggestion(contact)}
+                        disabled={toEmails.includes(contact.email)}
+                        className={`w-full text-left px-2 py-2 rounded-md text-sm hover:bg-slate-100 transition-colors flex items-center gap-2 ${
+                          toEmails.includes(contact.email) ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                      >
+                        {contact.type === 'customer' ? (
+                          <Building2 className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                        ) : (
+                          <User className="h-4 w-4 text-green-500 flex-shrink-0" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-slate-900 truncate">{contact.name}</div>
+                          <div className="text-xs text-slate-500 truncate">{contact.email}</div>
+                        </div>
+                        {contact.scac && (
+                          <Badge variant="outline" className="text-xs flex-shrink-0">
+                            {contact.scac}
+                          </Badge>
+                        )}
+                        {toEmails.includes(contact.email) && (
+                          <span className="text-xs text-slate-400 flex-shrink-0">Added</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
