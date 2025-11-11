@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { Customer, Carrier, CSPEvent } from '../api/entities';
+import { Customer, Carrier, CSPEvent, CSPEventCarrier } from '../api/entities';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Button } from '../components/ui/button';
 import { Skeleton } from '../components/ui/skeleton';
 import { Badge } from '../components/ui/badge';
-import { ArrowLeft, Edit, Mail } from 'lucide-react';
+import { Card, CardContent } from '../components/ui/card';
+import { ArrowLeft, Edit, Mail, Phone, ExternalLink, Building2 } from 'lucide-react';
 import { createPageUrl } from '../utils';
 import { useEmailComposer } from '../contexts/EmailComposerContext';
 import { EmailTimeline } from '../components/email/EmailTimeline';
@@ -44,6 +45,19 @@ export default function CspEventDetail() {
         queryFn: () => Carrier.list(),
         initialData: []
     });
+
+    const { data: eventCarrierAssignments = [] } = useQuery({
+        queryKey: ['csp_event_carriers', eventId],
+        queryFn: () => CSPEventCarrier.filter({ csp_event_id: eventId }),
+        enabled: !!eventId
+    });
+
+    const assignedCarriers = eventCarrierAssignments
+        .map(assignment => ({
+            ...assignment,
+            carrier: carriers.find(c => c.id === assignment.carrier_id)
+        }))
+        .filter(assignment => assignment.carrier);
 
     if (isLoading) {
         return (
@@ -144,13 +158,113 @@ export default function CspEventDetail() {
                     </TabsContent>
                     <TabsContent value="carriers">
                         <div className="mt-4">
-                            <div className="flex justify-between items-center mb-4">
-                                <h3 className="text-lg font-semibold">Involved Carriers</h3>
+                            <div className="flex justify-between items-center mb-6">
+                                <div>
+                                    <h3 className="text-lg font-semibold">Involved Carriers</h3>
+                                    <p className="text-sm text-slate-500 mt-1">Carriers participating in this event</p>
+                                </div>
                                 <Button onClick={() => setIsManageCarriersOpen(true)}>
                                     Manage Carriers
                                 </Button>
                             </div>
-                            <p className="text-slate-500">Carriers participating in this event</p>
+
+                            {assignedCarriers.length === 0 ? (
+                                <Card>
+                                    <CardContent className="py-12">
+                                        <div className="text-center">
+                                            <Building2 className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                                            <p className="text-slate-500 mb-4">No carriers assigned to this CSP event yet</p>
+                                            <Button
+                                                variant="outline"
+                                                onClick={() => setIsManageCarriersOpen(true)}
+                                            >
+                                                Add Carriers
+                                            </Button>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    {assignedCarriers.map((assignment) => (
+                                        <Card key={assignment.id} className="hover:shadow-md transition-shadow">
+                                            <CardContent className="p-5">
+                                                <div className="flex items-start justify-between mb-3">
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-2 mb-2">
+                                                            <h4 className="font-semibold text-slate-900">
+                                                                {assignment.carrier.name}
+                                                            </h4>
+                                                            {assignment.carrier.scac_code && (
+                                                                <Badge variant="outline" className="text-xs">
+                                                                    {assignment.carrier.scac_code}
+                                                                </Badge>
+                                                            )}
+                                                        </div>
+                                                        <Badge
+                                                            variant={assignment.status === 'awarded' ? 'default' : 'outline'}
+                                                            className="text-xs capitalize"
+                                                        >
+                                                            {assignment.status}
+                                                        </Badge>
+                                                    </div>
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={() => navigate(createPageUrl(`CarrierDetail?id=${assignment.carrier.id}`))}
+                                                    >
+                                                        <ExternalLink className="w-4 h-4" />
+                                                    </Button>
+                                                </div>
+
+                                                <div className="space-y-2 mt-3">
+                                                    {assignment.carrier.service_type && (
+                                                        <div className="text-sm text-slate-600 capitalize">
+                                                            {assignment.carrier.service_type}
+                                                        </div>
+                                                    )}
+
+                                                    {assignment.carrier.contact_email && (
+                                                        <div className="flex items-center gap-2 text-sm text-slate-600">
+                                                            <Mail className="w-4 h-4 text-slate-400" />
+                                                            <a
+                                                                href={`mailto:${assignment.carrier.contact_email}`}
+                                                                className="hover:text-blue-600 transition-colors"
+                                                            >
+                                                                {assignment.carrier.contact_email}
+                                                            </a>
+                                                        </div>
+                                                    )}
+
+                                                    {assignment.carrier.contact_phone && (
+                                                        <div className="flex items-center gap-2 text-sm text-slate-600">
+                                                            <Phone className="w-4 h-4 text-slate-400" />
+                                                            <a
+                                                                href={`tel:${assignment.carrier.contact_phone}`}
+                                                                className="hover:text-blue-600 transition-colors"
+                                                            >
+                                                                {assignment.carrier.contact_phone}
+                                                            </a>
+                                                        </div>
+                                                    )}
+
+                                                    {assignment.invited_date && (
+                                                        <div className="text-xs text-slate-500 mt-3 pt-3 border-t">
+                                                            Invited: {new Date(assignment.invited_date).toLocaleDateString()}
+                                                        </div>
+                                                    )}
+
+                                                    {assignment.notes && (
+                                                        <div className="text-sm text-slate-600 mt-3 pt-3 border-t">
+                                                            <p className="font-medium text-slate-700 mb-1">Notes:</p>
+                                                            <p className="text-slate-600">{assignment.notes}</p>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </TabsContent>
                 </Tabs>
