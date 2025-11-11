@@ -14,7 +14,7 @@ import CustomerOverviewTab from '../components/customers/CustomerOverviewTab';
 import EditCustomerDialog from '../components/customers/EditCustomerDialog';
 import DocumentsTab from '../components/customers/DocumentsTab';
 import CustomerTariffTimeline from '../components/customers/CustomerTariffTimeline';
-import { EmailComposeDialog } from '../components/email/EmailComposeDialog';
+import { useEmailComposer } from '../contexts/EmailComposerContext';
 import { BackButton } from '../components/navigation/BackButton';
 import { useNavigation } from '../contexts/NavigationContext';
 
@@ -24,8 +24,8 @@ export default function CustomerDetail() {
     const isNew = searchParams.get('new') === 'true';
     const defaultTab = searchParams.get('tab') || 'overview';
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(isNew);
-    const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
     const { goBack } = useNavigation();
+    const { openComposer } = useEmailComposer();
 
     const { data: customer, isLoading } = useQuery({
         queryKey: ['customer', customerId],
@@ -82,7 +82,9 @@ export default function CustomerDetail() {
                         <h1 className="text-3xl font-bold text-slate-900">{customer.name}</h1>
                     </div>
                     <div className="flex gap-2">
-                        <Button variant="outline" onClick={() => setIsEmailDialogOpen(true)}>
+                        <Button variant="outline" onClick={() => openComposer({
+                            customer: { id: customer.id, name: customer.name }
+                        })}>
                             <Mail className="w-4 h-4 mr-2" /> Email
                         </Button>
                         <Button variant="outline" onClick={() => setIsEditDialogOpen(true)}>
@@ -148,12 +150,6 @@ export default function CustomerDetail() {
                 customer={customer}
                 isOpen={isEditDialogOpen}
                 onOpenChange={setIsEditDialogOpen}
-            />
-
-            <EmailComposeDialog
-                open={isEmailDialogOpen}
-                onOpenChange={setIsEmailDialogOpen}
-                customer={customer}
             />
         </>
     );

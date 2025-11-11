@@ -16,7 +16,7 @@ import { format, formatDistanceToNow, differenceInDays } from "date-fns";
 import EditCarrierSheet from '../components/carriers/EditCarrierSheet';
 import CarrierOverview from '../components/carriers/CarrierOverview';
 import ManageContactsDialog from '../components/carriers/ManageContactsDialog';
-import { EmailComposeDialog } from '../components/email/EmailComposeDialog';
+import { useEmailComposer } from '../contexts/EmailComposerContext';
 import InteractionTimeline from '../components/customers/InteractionTimeline';
 import { BackButton } from '../components/navigation/BackButton';
 
@@ -442,7 +442,7 @@ export default function CarrierDetailPage() {
     const defaultTab = searchParams.get('tab') || 'overview';
     const highlightId = searchParams.get('highlight');
     const [isEditSheetOpen, setIsEditSheetOpen] = useState(isNew);
-    const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
+    const { openComposer } = useEmailComposer();
 
     const { data: carrier, isLoading } = useQuery({
         queryKey: ['carrier', carrierId],
@@ -498,7 +498,9 @@ export default function CarrierDetailPage() {
                         <h1 className="text-3xl font-bold text-slate-900">{carrier.name}</h1>
                     </div>
                     <div className="flex gap-2">
-                        <Button variant="outline" onClick={() => setIsEmailDialogOpen(true)}>
+                        <Button variant="outline" onClick={() => openComposer({
+                            carrier: { id: carrier.id, name: carrier.name }
+                        })}>
                             <Mail className="w-4 h-4 mr-2" /> Email
                         </Button>
                         <Button variant="outline" onClick={() => setIsEditSheetOpen(true)}>
@@ -565,12 +567,6 @@ export default function CarrierDetailPage() {
                 carrierId={carrierId}
                 isOpen={isEditSheetOpen}
                 onOpenChange={setIsEditSheetOpen}
-            />
-            <EmailComposeDialog
-                open={isEmailDialogOpen}
-                onOpenChange={setIsEmailDialogOpen}
-                carrier={carrier}
-                defaultTemplate="general"
             />
         </>
     );

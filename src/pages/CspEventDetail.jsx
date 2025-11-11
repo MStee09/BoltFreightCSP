@@ -8,7 +8,7 @@ import { Skeleton } from '../components/ui/skeleton';
 import { Badge } from '../components/ui/badge';
 import { ArrowLeft, Edit, Mail } from 'lucide-react';
 import { createPageUrl } from '../utils';
-import { EmailComposeDialog } from '../components/email/EmailComposeDialog';
+import { useEmailComposer } from '../contexts/EmailComposerContext';
 import { EmailTimeline } from '../components/email/EmailTimeline';
 import CspStrategyTab from '../components/customers/CspStrategyTab';
 import CspEventOverview from '../components/pipeline/CspEventOverview';
@@ -24,8 +24,8 @@ export default function CspEventDetail() {
     const eventId = searchParams.get('id');
     const defaultTab = searchParams.get('tab') || 'overview';
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-    const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
     const [isManageCarriersOpen, setIsManageCarriersOpen] = useState(false);
+    const { openComposer } = useEmailComposer();
 
     const { data: event, isLoading } = useQuery({
         queryKey: ['csp_event', eventId],
@@ -71,7 +71,10 @@ export default function CspEventDetail() {
                         <h1 className="text-3xl font-bold text-slate-900">{event.title}</h1>
                     </div>
                     <div className="flex gap-2">
-                        <Button variant="outline" onClick={() => setIsEmailDialogOpen(true)}>
+                        <Button variant="outline" onClick={() => openComposer({
+                            cspEvent: { id: event.id, title: event.title },
+                            customer: customer ? { id: customer.id, name: customer.name } : null
+                        })}>
                             <Mail className="w-4 h-4 mr-2" /> Email
                         </Button>
                         <Button variant="outline" onClick={() => setIsEditDialogOpen(true)}>
@@ -157,13 +160,6 @@ export default function CspEventDetail() {
                 isOpen={isEditDialogOpen}
                 onOpenChange={setIsEditDialogOpen}
                 eventId={eventId}
-            />
-
-            <EmailComposeDialog
-                open={isEmailDialogOpen}
-                onOpenChange={setIsEmailDialogOpen}
-                cspEvent={event}
-                customer={customer}
             />
 
             <ManageCarriersDialog
