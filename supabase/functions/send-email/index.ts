@@ -219,6 +219,7 @@ Deno.serve(async (req: Request) => {
         sent_at: new Date().toISOString(),
         created_by: user.id,
         is_thread_starter: !inReplyTo,
+        freightops_thread_token: foToken,
         metadata: {
           freightops_thread_token: foToken,
           owner_id: user.id,
