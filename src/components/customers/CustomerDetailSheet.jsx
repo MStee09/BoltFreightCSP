@@ -15,7 +15,7 @@ import { format } from 'date-fns';
 import CustomerOverviewTab from './CustomerOverviewTab';
 import EditCustomerDialog from './EditCustomerDialog';
 import DocumentsTab from './DocumentsTab';
-import { EmailComposeDialog } from '../email/EmailComposeDialog';
+import { useEmailComposer } from '../../contexts/EmailComposerContext';
 
 const PlaceholderTab = ({ title }) => (
     <div className="py-8 text-center text-slate-500 border border-dashed rounded-lg mt-4">
@@ -79,7 +79,7 @@ const CustomerTariffTimeline = ({ customerId }) => {
 
 export default function CustomerDetailSheet({ customerId, isOpen, onOpenChange }) {
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-    const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
+    const { openComposer } = useEmailComposer();
 
     const { data: customer, isLoading: isLoadingCustomer } = useQuery({
         queryKey: ['customer', customerId],
@@ -126,7 +126,9 @@ export default function CustomerDetailSheet({ customerId, isOpen, onOpenChange }
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        onClick={() => setIsEmailDialogOpen(true)}
+                                        onClick={() => openComposer({
+                                            customer: { id: customer.id, name: customer.name }
+                                        })}
                                         className="gap-2"
                                     >
                                         <Mail className="w-4 h-4" />
@@ -175,12 +177,6 @@ export default function CustomerDetailSheet({ customerId, isOpen, onOpenChange }
                 customer={customer}
                 isOpen={isEditDialogOpen}
                 onOpenChange={setIsEditDialogOpen}
-            />
-            <EmailComposeDialog
-                open={isEmailDialogOpen}
-                onOpenChange={setIsEmailDialogOpen}
-                customer={customer}
-                defaultTemplate="general"
             />
         </Sheet>
     );

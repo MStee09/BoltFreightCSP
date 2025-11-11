@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/api/supabaseClient';
 import { Interaction } from '../../api/entities';
-import { EmailComposeDialog } from '@/components/email/EmailComposeDialog';
+import { useEmailComposer } from '@/contexts/EmailComposerContext';
 import { Skeleton } from '../ui/skeleton';
 import { format, formatDistanceToNow } from 'date-fns';
 import {
@@ -385,9 +385,9 @@ export default function InteractionTimeline({ customerId, entityType }) {
     }
   });
   const [replyToEmail, setReplyToEmail] = useState(null);
-  const [showComposeDialog, setShowComposeDialog] = useState(false);
   const [currentUserEmail, setCurrentUserEmail] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const { openComposer } = useEmailComposer();
 
   useEffect(() => {
     localStorage.setItem(filterStorageKey, JSON.stringify(filterTypes));
@@ -594,12 +594,15 @@ export default function InteractionTimeline({ customerId, entityType }) {
 
   const handleReply = (emailActivity) => {
     setReplyToEmail(emailActivity);
-    setShowComposeDialog(true);
-  };
-
-  const handleCloseCompose = () => {
-    setShowComposeDialog(false);
-    setReplyToEmail(null);
+    openComposer({
+      initialTo: [emailActivity.from_email],
+      initialSubject: emailActivity.subject.startsWith('Re:') ? emailActivity.subject : `Re: ${emailActivity.subject}`,
+      inReplyTo: emailActivity.message_id,
+      threadId: emailActivity.thread_id,
+      cspEvent: emailActivity.csp_event_id ? { id: emailActivity.csp_event_id } : null,
+      customer: emailActivity.customer_id ? { id: emailActivity.customer_id } : null,
+      carrier: emailActivity.carrier_id ? { id: emailActivity.carrier_id } : null,
+    });
   };
 
   const isLoading = interactionsLoading || emailsLoading;
@@ -826,28 +829,6 @@ export default function InteractionTimeline({ customerId, entityType }) {
         </div>
       )}
 
-      {showComposeDialog && replyToEmail && (() => {
-        const isFollowUp = replyToEmail.direction === 'outbound' ||
-                          replyToEmail.from_email === currentUserEmail;
-
-        return (
-          <EmailComposeDialog
-            open={showComposeDialog}
-            onOpenChange={handleCloseCompose}
-            cspEvent={replyToEmail.csp_event_id ? { id: replyToEmail.csp_event_id } : null}
-            customer={replyToEmail.customer_id ? { id: replyToEmail.customer_id } : null}
-            carrier={replyToEmail.carrier_id ? { id: replyToEmail.carrier_id } : null}
-            defaultSubject={isFollowUp ? replyToEmail.subject : (
-              replyToEmail.subject?.startsWith('Re:') ? replyToEmail.subject : `Re: ${replyToEmail.subject}`
-            )}
-            defaultRecipients={isFollowUp ? replyToEmail.to_emails : [replyToEmail.from_email]}
-            defaultCc={isFollowUp ? (replyToEmail.cc_emails || []) : []}
-            inReplyTo={replyToEmail.message_id}
-            threadId={replyToEmail.thread_id}
-            isFollowUp={isFollowUp}
-          />
-        );
-      })()}
     </div>
   );
 }

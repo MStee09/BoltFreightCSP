@@ -12,7 +12,7 @@ import { format, formatDistanceToNow } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import EditCspEventDialog from './EditCspEventDialog';
 import ManageCarriersDialog from './ManageCarriersDialog';
-import { EmailComposeDialog } from '../email/EmailComposeDialog';
+import { useEmailComposer } from '../../contexts/EmailComposerContext';
 import { EmailTimeline } from '../email/EmailTimeline';
 import CspStrategyTab from '../customers/CspStrategyTab';
 import CustomerDetailSheet from '../customers/CustomerDetailSheet';
@@ -39,9 +39,9 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
     const queryClient = useQueryClient();
     const { toast } = useToast();
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-    const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
     const [isCustomerDetailOpen, setIsCustomerDetailOpen] = useState(false);
     const [isManageCarriersOpen, setIsManageCarriersOpen] = useState(false);
+    const { openComposer } = useEmailComposer();
 
     const { data: event, isLoading: isLoadingEvent } = useQuery({
         queryKey: ['csp_event', eventId],
@@ -217,7 +217,10 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
                             <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => setIsEmailDialogOpen(true)}
+                                onClick={() => openComposer({
+                                    cspEvent: { id: event.id, title: event.title },
+                                    customer: customer ? { id: customer.id, name: customer.name } : null
+                                })}
                                 className="gap-2"
                             >
                                 <Mail className="w-4 h-4" />
@@ -542,13 +545,6 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
                 isOpen={isEditDialogOpen}
                 onOpenChange={setIsEditDialogOpen}
                 eventId={eventId}
-            />
-            <EmailComposeDialog
-                open={isEmailDialogOpen}
-                onOpenChange={setIsEmailDialogOpen}
-                cspEvent={event}
-                customer={customer}
-                carrier={eventCarriers[0]}
             />
             <ManageCarriersDialog
                 isOpen={isManageCarriersOpen}

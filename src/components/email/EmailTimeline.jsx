@@ -7,16 +7,16 @@ import { Separator } from '@/components/ui/separator';
 import { Mail, ArrowUpRight, ArrowDownLeft, Users, Clock, ChevronDown, ChevronUp, Reply } from 'lucide-react';
 import { supabase } from '@/api/supabaseClient';
 import { formatDistanceToNow } from 'date-fns';
-import { EmailComposeDialog } from './EmailComposeDialog';
+import { useEmailComposer } from '@/contexts/EmailComposerContext';
 import { useAuth } from '@/contexts/AuthContext';
 
 export function EmailTimeline({ customerId, carrierId, cspEventId, onComposeClick }) {
   const [emails, setEmails] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedEmails, setExpandedEmails] = useState(new Set());
-  const [replyToEmail, setReplyToEmail] = useState(null);
   const { user } = useAuth();
   const currentUserEmail = user?.email;
+  const { openComposer } = useEmailComposer();
 
   useEffect(() => {
     fetchEmailActivities();
@@ -134,11 +134,18 @@ export function EmailTimeline({ customerId, carrierId, cspEventId, onComposeClic
   };
 
   const handleReply = (emailActivity) => {
-    setReplyToEmail(emailActivity);
-  };
+    const isFollowUp = emailActivity.direction === 'outbound' || emailActivity.from_email === currentUserEmail;
 
-  const handleCloseReply = () => {
-    setReplyToEmail(null);
+    openComposer({
+      initialTo: isFollowUp ? emailActivity.to_emails : [emailActivity.from_email],
+      initialSubject: emailActivity.subject.startsWith('Re:') ? emailActivity.subject : `Re: ${emailActivity.subject}`,
+      inReplyTo: emailActivity.message_id,
+      threadId: emailActivity.thread_id,
+      cspEvent: cspEventId ? { id: cspEventId } : null,
+      customer: customerId ? { id: customerId } : null,
+      carrier: carrierId ? { id: carrierId } : null,
+      isFollowUp,
+    });
   };
 
   const groupByThread = (emails) => {
@@ -383,27 +390,6 @@ export function EmailTimeline({ customerId, carrierId, cspEventId, onComposeClic
       </CardContent>
     </Card>
 
-    {replyToEmail && (() => {
-      const isFollowUp = replyToEmail.direction === 'outbound' ||
-                        replyToEmail.from_email === currentUserEmail;
-
-      return (
-        <EmailComposeDialog
-          open={!!replyToEmail}
-          onOpenChange={handleCloseReply}
-          cspEvent={replyToEmail.csp_event_id ? { id: replyToEmail.csp_event_id } : (cspEventId ? { id: cspEventId } : null)}
-          customer={replyToEmail.customer_id ? { id: replyToEmail.customer_id } : (customerId ? { id: customerId } : null)}
-          carrier={replyToEmail.carrier_id ? { id: replyToEmail.carrier_id } : (carrierId ? { id: carrierId } : null)}
-          defaultSubject={isFollowUp ? replyToEmail.subject : (
-            replyToEmail.subject?.startsWith('Re:') ? replyToEmail.subject : `Re: ${replyToEmail.subject}`
-          )}
-          defaultRecipients={isFollowUp ? replyToEmail.to_emails : [replyToEmail.from_email]}
-          defaultCc={isFollowUp ? (replyToEmail.cc_emails || []) : []}
-          inReplyTo={replyToEmail.message_id}
-          threadId={replyToEmail.thread_id}
-        />
-      );
-    })()}
   </>
   );
 }
