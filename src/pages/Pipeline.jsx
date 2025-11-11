@@ -7,7 +7,7 @@ import { supabase } from "../api/supabaseClient";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
-import { PlusCircle, MoreHorizontal, ArrowRight, Users, FileText, AlertTriangle, Filter } from "lucide-react";
+import { PlusCircle, MoreHorizontal, ArrowRight, Users, FileText, AlertTriangle, Filter, Clock, Bell } from "lucide-react";
 import { Skeleton } from "../components/ui/skeleton";
 import { Badge } from "../components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuCheckboxItem, DropdownMenuSeparator, DropdownMenuLabel } from "../components/ui/dropdown-menu";
@@ -18,7 +18,7 @@ import { Textarea } from "../components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import NewEventSheet from "../components/pipeline/NewEventSheet";
 import { createPageUrl, CSP_STAGES, formatCspStage } from "../utils";
-import { differenceInDays } from "date-fns";
+import { differenceInDays, format, formatDistanceToNow } from "date-fns";
 
 
 const STAGE_DEFINITIONS = {
@@ -48,7 +48,7 @@ const getAgingBadge = (days) => {
     return null;
 }
 
-const StageColumn = ({ stage, events, customers, tariffs, stageRef, onEventClick }) => {
+const StageColumn = ({ stage, events, customers, tariffs, stageRef, onEventClick, tasksData, interactionsData, emailsData }) => {
   return (
     <div className="w-56 flex-shrink-0" ref={stageRef}>
       <div className="flex items-center gap-2 mb-2 px-2">
@@ -78,6 +78,20 @@ const StageColumn = ({ stage, events, customers, tariffs, stageRef, onEventClick
               const relatedTariff = tariffs.find(t => t.csp_event_id === event.id);
               const daysInStage = event.days_in_stage || 0;
               const agingBadge = getAgingBadge(daysInStage);
+
+              const eventTasks = tasksData?.filter(t => t.entity_id === event.id && t.entity_type === 'csp_event') || [];
+              const nextTask = eventTasks.filter(t => t.status !== 'completed').sort((a, b) => new Date(a.due_date) - new Date(b.due_date))[0];
+
+              const eventInteractions = interactionsData?.filter(i => i.entity_id === event.id && i.entity_type === 'csp_event') || [];
+              const eventEmails = emailsData?.filter(e => e.csp_event_id === event.id) || [];
+              const allActivity = [...eventInteractions, ...eventEmails].sort((a, b) => {
+                const dateA = new Date(a.created_date || a.sent_at || a.created_at);
+                const dateB = new Date(b.created_date || b.sent_at || b.created_at);
+                return dateB - dateA;
+              });
+              const lastActivity = allActivity[0];
+              const lastActivityDate = lastActivity ? new Date(lastActivity.created_date || lastActivity.sent_at || lastActivity.created_at) : null;
+              const daysSinceActivity = lastActivityDate ? differenceInDays(new Date(), lastActivityDate) : null;
 
               return (
                 <Draggable key={event.id} draggableId={event.id} index={index}>
@@ -119,6 +133,25 @@ const StageColumn = ({ stage, events, customers, tariffs, stageRef, onEventClick
                         <CardContent className="p-2 pt-0 space-y-2">
                           <p className="text-xs text-slate-600 mb-1 truncate">{customer?.name || "..."}</p>
                           <p className="text-xs text-slate-500 mb-2 truncate">Assigned: {event.assigned_to || "Unassigned"}</p>
+
+                          {lastActivityDate && (
+                            <div className={`flex items-center gap-1 text-xs ${daysSinceActivity > 7 ? 'text-amber-600' : 'text-slate-500'}`}>
+                              <Clock className="w-3 h-3" />
+                              <span>Last: {formatDistanceToNow(lastActivityDate, { addSuffix: true })}</span>
+                            </div>
+                          )}
+
+                          {nextTask ? (
+                            <div className="flex items-center gap-1 text-xs text-blue-600">
+                              <Bell className="w-3 h-3" />
+                              <span>{format(new Date(nextTask.due_date), 'MMM d')}</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 text-xs text-slate-400">
+                              <Bell className="w-3 h-3" />
+                              <span>No tasks</span>
+                            </div>
+                          )}
 
                           {(customer || relatedTariff) && (
                             <div className="flex gap-1 mb-2">
@@ -235,6 +268,31 @@ export default function PipelinePage() {
     queryKey: ['users'],
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_all_users');
+      if (error) throw error;
+      return data || [];
+    },
+    initialData: []
+  });
+
+  const { data: tasksData = [] } = useQuery({
+    queryKey: ['tasks'],
+    queryFn: () => Task.list(),
+    initialData: []
+  });
+
+  const { data: interactionsData = [] } = useQuery({
+    queryKey: ['interactions'],
+    queryFn: () => Interaction.list(),
+    initialData: []
+  });
+
+  const { data: emailsData = [] } = useQuery({
+    queryKey: ['email_activities'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('email_activities')
+        .select('*')
+        .order('created_at', { ascending: false });
       if (error) throw error;
       return data || [];
     },
@@ -699,6 +757,9 @@ export default function PipelinePage() {
                   events={eventsByStage[stage]}
                   customers={customers}
                   tariffs={tariffs}
+                  tasksData={tasksData}
+                  interactionsData={interactionsData}
+                  emailsData={emailsData}
                   stageRef={(el) => {
                     if (stage === 'rfp_sent') {
                       rfpSentRef.current = el;

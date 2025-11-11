@@ -11,6 +11,7 @@ import ReportUploadPrompt from "../components/dashboard/ReportUploadPrompt";
 import MetricCard from "../components/dashboard/MetricCard";
 import DailyFocusBanner from "../components/dashboard/DailyFocusBanner";
 import { PredictiveInsightsPanel } from "../components/dashboard/PredictiveInsights";
+import MyFollowUps from "../components/dashboard/MyFollowUps";
 import { Users, Truck, FileText, Trash2, RefreshCw } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
@@ -250,6 +251,7 @@ export default function Dashboard() {
             <PipelineSnapshot events={cspEvents} />
           </div>
           <div className="xl:col-span-4 space-y-3">
+            <MyFollowUps />
             <AlertsPanel alerts={alerts} />
             <TodayTasks tasks={todayTasks} />
           </div>

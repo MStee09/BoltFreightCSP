@@ -4,6 +4,10 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/api/supabaseClient';
 import { Interaction } from '../../api/entities';
 import { useEmailComposer } from '@/contexts/EmailComposerContext';
+import { useUserRole } from '@/hooks/useUserRole';
+import { Avatar, AvatarFallback } from '../ui/avatar';
+import { Switch } from '../ui/switch';
+import { Label } from '../ui/label';
 import { Skeleton } from '../ui/skeleton';
 import { format, formatDistanceToNow } from 'date-fns';
 import {
@@ -387,7 +391,9 @@ export default function InteractionTimeline({ customerId, entityType }) {
   const [replyToEmail, setReplyToEmail] = useState(null);
   const [currentUserEmail, setCurrentUserEmail] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showOnlyMyActivity, setShowOnlyMyActivity] = useState(false);
   const { openComposer } = useEmailComposer();
+  const { isAdmin, isElite, userProfile } = useUserRole();
 
   useEffect(() => {
     localStorage.setItem(filterStorageKey, JSON.stringify(filterTypes));
@@ -514,10 +520,22 @@ export default function InteractionTimeline({ customerId, entityType }) {
   }, [interactions, emailActivities, filterTypes]);
 
   const filteredActivities = useMemo(() => {
-    if (!searchTerm) return allActivities;
+    let filtered = allActivities;
+
+    if (showOnlyMyActivity && currentUserEmail) {
+      filtered = filtered.filter(activity => {
+        if (activity.type === 'email') {
+          return activity.from_email === currentUserEmail || activity.direction === 'outbound';
+        } else {
+          return activity.created_by_email === currentUserEmail || activity.user_id === userProfile?.id;
+        }
+      });
+    }
+
+    if (!searchTerm) return filtered;
 
     const term = searchTerm.toLowerCase();
-    return allActivities.filter(activity => {
+    return filtered.filter(activity => {
       if (activity.type === 'email') {
         return activity.subject?.toLowerCase().includes(term) ||
                activity.body_text?.toLowerCase().includes(term) ||
@@ -527,7 +545,7 @@ export default function InteractionTimeline({ customerId, entityType }) {
                activity.details?.toLowerCase().includes(term);
       }
     });
-  }, [allActivities, searchTerm]);
+  }, [allActivities, searchTerm, showOnlyMyActivity, currentUserEmail, userProfile]);
 
   const groupedByDate = useMemo(() => {
     const groups = {
@@ -627,14 +645,29 @@ export default function InteractionTimeline({ customerId, entityType }) {
           <h3 className="font-semibold text-slate-900">Activity Timeline</h3>
         </div>
 
-        <div className="relative">
-          <Input
-            placeholder="Search activity..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 bg-white"
-          />
-          <Filter className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1">
+            <Input
+              placeholder="Search activity..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 bg-white"
+            />
+            <Filter className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+          </div>
+
+          {(isAdmin || isElite) && (
+            <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 rounded-lg border border-slate-200">
+              <Switch
+                id="my-activity-toggle"
+                checked={showOnlyMyActivity}
+                onCheckedChange={setShowOnlyMyActivity}
+              />
+              <Label htmlFor="my-activity-toggle" className="text-sm cursor-pointer whitespace-nowrap">
+                My Activity Only
+              </Label>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
