@@ -5,12 +5,14 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { RefreshCw, CheckCircle2, AlertCircle, Mail, Clock } from 'lucide-react';
+import { RefreshCw, CheckCircle2, AlertCircle, Mail, Clock, Shield } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/api/supabaseClient';
 import { formatDistanceToNow } from 'date-fns';
+import { useUserRole } from '@/hooks/useUserRole';
 
 export function EmailPollingSettings() {
+  const { isAdmin } = useUserRole();
   const [loading, setLoading] = useState(true);
   const [polling, setPolling] = useState(false);
   const [hasGmail, setHasGmail] = useState(false);
@@ -54,22 +56,23 @@ export function EmailPollingSettings() {
     }
   };
 
-  const togglePolling = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Not authenticated');
+  const togglePollingForAllUsers = async () => {
+    if (!isAdmin) {
+      toast.error('Admin access required');
+      return;
+    }
 
+    try {
       const newState = !pollingEnabled;
 
       const { error } = await supabase
         .from('user_gmail_tokens')
-        .update({ polling_enabled: newState })
-        .eq('user_id', user.id);
+        .update({ polling_enabled: newState });
 
       if (error) throw error;
 
       setPollingEnabled(newState);
-      toast.success(newState ? 'Email polling enabled' : 'Email polling disabled');
+      toast.success(newState ? 'Email polling enabled for all users' : 'Email polling disabled for all users');
 
       if (newState) {
         checkForReplies();
@@ -131,24 +134,28 @@ export function EmailPollingSettings() {
     );
   }
 
+  if (!isAdmin) {
+    return null;
+  }
+
   if (!hasGmail) {
     return (
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Mail className="h-5 w-5" />
-            Email Reply Tracking
+            <Shield className="h-5 w-5" />
+            Email Reply Tracking (Admin)
           </CardTitle>
           <CardDescription>
-            Automatically capture replies to emails sent from the app
+            System-wide setting - Automatically enabled for all users
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              Please connect your Gmail account first to enable reply tracking.
-              Go to the Gmail Integration section above to get started.
+              Email polling is automatically enabled for all users who connect their Gmail accounts.
+              No additional configuration needed.
             </AlertDescription>
           </Alert>
         </CardContent>
@@ -162,37 +169,45 @@ export function EmailPollingSettings() {
         <div className="flex items-center justify-between">
           <div className="space-y-1">
             <CardTitle className="flex items-center gap-2">
-              <Mail className="h-5 w-5" />
-              Email Reply Tracking
+              <Shield className="h-5 w-5" />
+              Email Reply Tracking (Admin)
             </CardTitle>
             <CardDescription>
-              Automatically checks for replies every 5 minutes
+              System-wide control - Automatically checks for replies every 5 minutes
             </CardDescription>
           </div>
           {pollingEnabled && (
             <Badge variant="default" className="gap-1">
               <CheckCircle2 className="h-3 w-3" />
-              Active
+              Active for All Users
             </Badge>
           )}
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        <Alert className="border-amber-200 bg-amber-50">
+          <Shield className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="text-amber-800">
+            <strong>Admin Control:</strong> This setting applies to all users system-wide.
+            Email polling is currently <strong>{pollingEnabled ? 'enabled' : 'disabled'}</strong> for everyone.
+          </AlertDescription>
+        </Alert>
+
         <div className="flex items-center justify-between p-4 border rounded-lg">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <Label htmlFor="polling-enabled" className="text-sm font-medium">
-                Enable Automatic Reply Tracking
+                Enable Automatic Reply Tracking (All Users)
               </Label>
             </div>
             <p className="text-xs text-muted-foreground">
-              Monitor {emailAddress} for replies to CRM emails
+              When enabled, all users with connected Gmail accounts will have their replies tracked automatically
             </p>
           </div>
           <Switch
             id="polling-enabled"
             checked={pollingEnabled}
-            onCheckedChange={togglePolling}
+            onCheckedChange={togglePollingForAllUsers}
           />
         </div>
 
@@ -201,12 +216,13 @@ export function EmailPollingSettings() {
             <CheckCircle2 className="h-4 w-4 text-blue-600" />
             <AlertDescription className="text-blue-800">
               <div className="space-y-2">
-                <p className="font-medium">How it works:</p>
+                <p className="font-medium">How it works for all users:</p>
                 <ul className="text-xs space-y-1 ml-4 list-disc">
-                  <li>Checks for new emails every 5 minutes</li>
-                  <li>Automatically matches replies to CSP Events, Customers, and Carriers</li>
-                  <li>Appears instantly in the Email Timeline</li>
+                  <li>Each user's Gmail is checked every 5 minutes automatically</li>
+                  <li>Replies are matched to CSP Events, Customers, and Carriers</li>
+                  <li>Shows up instantly in the Email Timeline for the relevant user</li>
                   <li>Only tracks replies to emails sent from this app</li>
+                  <li>No user configuration needed - works automatically</li>
                 </ul>
               </div>
             </AlertDescription>
