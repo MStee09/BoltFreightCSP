@@ -6,8 +6,10 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Mail, Check, AlertCircle, RefreshCw, Send, Copy, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/api/supabaseClient';
+import { useImpersonation } from '@/contexts/ImpersonationContext';
 
 export function GmailSetupSimple() {
+  const { isImpersonating, impersonatedUser } = useImpersonation();
   const [isConnected, setIsConnected] = useState(false);
   const [emailAddress, setEmailAddress] = useState('');
   const [loading, setLoading] = useState(true);
@@ -37,7 +39,7 @@ export function GmailSetupSimple() {
     if (googleClientId) {
       checkGmailConnection();
     }
-  }, [googleClientId]);
+  }, [googleClientId, isImpersonating, impersonatedUser]);
 
   const loadOAuthCredentials = async () => {
     try {
@@ -64,10 +66,12 @@ export function GmailSetupSimple() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      const effectiveUserId = isImpersonating ? impersonatedUser.id : user.id;
+
       const { data: tokens } = await supabase
         .from('user_gmail_tokens')
         .select('email_address')
-        .eq('user_id', user.id)
+        .eq('user_id', effectiveUserId)
         .maybeSingle();
 
       if (tokens) {
@@ -209,10 +213,12 @@ export function GmailSetupSimple() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      const effectiveUserId = isImpersonating ? impersonatedUser.id : user.id;
+
       await supabase
         .from('user_gmail_tokens')
         .delete()
-        .eq('user_id', user.id);
+        .eq('user_id', effectiveUserId);
 
       setIsConnected(false);
       setEmailAddress('');

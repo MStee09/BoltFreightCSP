@@ -8,8 +8,10 @@ import { Label } from '@/components/ui/label';
 import { User, Mail, Phone, Briefcase, Building2, FileSignature } from 'lucide-react';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useImpersonation } from '@/contexts/ImpersonationContext';
 
 export function UserProfile() {
+  const { isImpersonating, impersonatedUser } = useImpersonation();
   const [formData, setFormData] = useState({
     first_name: '',
     last_name: '',
@@ -22,15 +24,17 @@ export function UserProfile() {
   const queryClient = useQueryClient();
 
   const { data: profile, isLoading } = useQuery({
-    queryKey: ['user_profile'],
+    queryKey: ['user_profile', isImpersonating, impersonatedUser?.id],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      const effectiveUserId = isImpersonating ? impersonatedUser.id : user.id;
+
       const { data: credentials } = await supabase
         .from('user_gmail_credentials')
         .select('email_address')
-        .eq('user_id', user.id)
+        .eq('user_id', effectiveUserId)
         .maybeSingle();
 
       if (credentials) {
@@ -40,7 +44,7 @@ export function UserProfile() {
       const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
-        .eq('id', user.id)
+        .eq('id', effectiveUserId)
         .maybeSingle();
 
       if (error && error.code !== 'PGRST116') throw error;
@@ -93,6 +97,8 @@ export function UserProfile() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
+      const effectiveUserId = isImpersonating ? impersonatedUser.id : user.id;
+
       const signature = generateSignaturePreview();
 
       const { error } = await supabase
@@ -106,7 +112,7 @@ export function UserProfile() {
           email_signature: signature,
           updated_at: new Date().toISOString()
         })
-        .eq('id', user.id);
+        .eq('id', effectiveUserId);
 
       if (error) throw error;
 
