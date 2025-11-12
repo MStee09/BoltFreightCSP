@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
-import { PlusCircle, Search, TrendingUp, TrendingDown, Star, Eye, FileText, BarChart3, ArrowUpDown, Filter, X } from "lucide-react";
+import { PlusCircle, Search, TrendingUp, TrendingDown, Star, Eye, FileText, BarChart3, ArrowUpDown, Filter, X, Trash2 } from "lucide-react";
 import { Skeleton } from "../components/ui/skeleton";
 import { format, formatDistanceToNow } from "date-fns";
 import { Checkbox } from "../components/ui/checkbox";
@@ -19,9 +19,12 @@ import { toast } from "sonner";
 import TariffSummaryDrawer from "../components/customers/TariffSummaryDrawer";
 import CustomerMetricsDrawer from "../components/customers/CustomerMetricsDrawer";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../components/ui/alert-dialog";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function CustomersPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const { userProfile } = useUserRole();
   const [userPins, setUserPins] = useState(new Set());
@@ -34,6 +37,8 @@ export default function CustomersPage() {
   const [ownerFilter, setOwnerFilter] = useState('all');
   const [segmentFilter, setSegmentFilter] = useState('all');
   const [hoveredRowId, setHoveredRowId] = useState(null);
+  const [customerToDelete, setCustomerToDelete] = useState(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const { data: customers = [], isLoading: isLoadingCustomers } = useQuery({ queryKey: ["customers"], queryFn: () => Customer.list("-created_date"), initialData: [] });
   const { data: tariffs = [], isLoading: isLoadingTariffs } = useQuery({ queryKey: ["tariffs"], queryFn: () => Tariff.list(), initialData: [] });
@@ -194,6 +199,25 @@ export default function CustomersPage() {
     } else {
       setSortColumn(column);
       setSortDirection('asc');
+    }
+  };
+
+  const handleDeleteClick = (customer) => {
+    setCustomerToDelete(customer);
+    setShowDeleteDialog(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!customerToDelete) return;
+
+    try {
+      await Customer.delete(customerToDelete.id);
+      toast.success('Customer deleted successfully');
+      queryClient.invalidateQueries(['customers']);
+      setShowDeleteDialog(false);
+      setCustomerToDelete(null);
+    } catch (error) {
+      toast.error(error.message || 'Failed to delete customer');
     }
   };
 
@@ -510,6 +534,24 @@ export default function CustomersPage() {
                               <TooltipContent>Open Metrics</TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleDeleteClick(customer);
+                                  }}
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Delete Customer</TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -532,6 +574,26 @@ export default function CustomersPage() {
         onOpenChange={setShowMetricsDrawer}
         customer={selectedCustomerForMetrics}
       />
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Customer</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{customerToDelete?.name}"? This action cannot be undone and will remove all associated data including tariffs, CSP events, and interactions.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              Delete Customer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

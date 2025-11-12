@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Customer, Tariff, Carrier } from '../api/entities';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Button } from '../components/ui/button';
 import { Skeleton } from '../components/ui/skeleton';
 import { Badge } from '../components/ui/badge';
-import { ArrowLeft, Edit, Mail, ExternalLink, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Edit, Mail, ExternalLink, ChevronRight, Trash2 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { createPageUrl } from '../utils';
 import InteractionTimeline from '../components/customers/InteractionTimeline';
@@ -19,6 +19,8 @@ import { EmailThreadBadge } from '../components/email/EmailThreadBadge';
 import { useEmailComposer } from '../contexts/EmailComposerContext';
 import { BackButton } from '../components/navigation/BackButton';
 import { useNavigation } from '../contexts/NavigationContext';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/alert-dialog';
+import { toast } from 'sonner';
 
 export default function CustomerDetail() {
     const [searchParams] = useSearchParams();
@@ -27,14 +29,28 @@ export default function CustomerDetail() {
     const defaultTab = searchParams.get('tab') || 'overview';
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(isNew);
     const [emailViewMode, setEmailViewMode] = useState('threads');
+    const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const { goBack } = useNavigation();
     const { openComposer } = useEmailComposer();
+    const navigate = useNavigate();
+    const queryClient = useQueryClient();
 
     const { data: customer, isLoading } = useQuery({
         queryKey: ['customer', customerId],
         queryFn: () => Customer.get(customerId),
         enabled: !!customerId && !isNew,
     });
+
+    const handleDelete = async () => {
+        try {
+            await Customer.delete(customerId);
+            toast.success('Customer deleted successfully');
+            queryClient.invalidateQueries(['customers']);
+            navigate(createPageUrl('Customers'));
+        } catch (error) {
+            toast.error(error.message || 'Failed to delete customer');
+        }
+    };
 
     if (isNew) {
         return (
@@ -92,6 +108,9 @@ export default function CustomerDetail() {
                         </Button>
                         <Button variant="outline" onClick={() => setIsEditDialogOpen(true)}>
                             <Edit className="w-4 h-4 mr-2" /> Edit
+                        </Button>
+                        <Button variant="outline" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => setShowDeleteDialog(true)}>
+                            <Trash2 className="w-4 h-4 mr-2" /> Delete
                         </Button>
                     </div>
                 </div>
@@ -192,6 +211,26 @@ export default function CustomerDetail() {
                 isOpen={isEditDialogOpen}
                 onOpenChange={setIsEditDialogOpen}
             />
+
+            <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Customer</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to delete "{customer?.name}"? This action cannot be undone and will remove all associated data including tariffs, CSP events, and interactions.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleDelete}
+                            className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                        >
+                            Delete Customer
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </>
     );
 }
