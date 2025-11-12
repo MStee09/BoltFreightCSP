@@ -11,6 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Send, X, FileText, Reply, Calendar, CheckSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/api/supabaseClient';
+import { useImpersonation } from '@/contexts/ImpersonationContext';
 
 export function EmailComposeDialog({
   open,
@@ -27,6 +28,7 @@ export function EmailComposeDialog({
   isFollowUp = false
 }) {
   const queryClient = useQueryClient();
+  const { isImpersonating, impersonatedUser } = useImpersonation();
   const [trackingCode, setTrackingCode] = useState('');
   const [toEmails, setToEmails] = useState([]);
   const [ccEmails, setCcEmails] = useState([]);
@@ -49,7 +51,7 @@ export function EmailComposeDialog({
       loadTemplates();
       loadUserProfile();
     }
-  }, [open]);
+  }, [open, isImpersonating, impersonatedUser]);
 
   useEffect(() => {
     if (!open || !trackingCode) return;
@@ -119,10 +121,12 @@ export function EmailComposeDialog({
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        const effectiveUserId = isImpersonating ? impersonatedUser.id : user.id;
+
         const { data: credentials } = await supabase
           .from('user_gmail_credentials')
           .select('email_address')
-          .eq('user_id', user.id)
+          .eq('user_id', effectiveUserId)
           .maybeSingle();
 
         if (credentials) {
@@ -138,10 +142,12 @@ export function EmailComposeDialog({
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
+        const effectiveUserId = isImpersonating ? impersonatedUser.id : user.id;
+
         const { data: profile } = await supabase
           .from('user_profiles')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('id', effectiveUserId)
           .maybeSingle();
 
         if (profile) {

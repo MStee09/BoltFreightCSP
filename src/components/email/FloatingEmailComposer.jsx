@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/api/supabaseClient';
 import { useQueryClient } from '@tanstack/react-query';
 import { Customer, Carrier, CSPEventCarrier, CarrierContact, CSPEvent } from '@/api/entities';
+import { useImpersonation } from '@/contexts/ImpersonationContext';
 
 export function FloatingEmailComposer({
   draftId,
@@ -33,6 +34,7 @@ export function FloatingEmailComposer({
   zIndex = 1000,
 }) {
   const queryClient = useQueryClient();
+  const { isImpersonating, impersonatedUser } = useImpersonation();
   const [isMinimized, setIsMinimized] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -88,7 +90,7 @@ export function FloatingEmailComposer({
   useEffect(() => {
     loadUserProfile();
     loadTemplates();
-  }, []);
+  }, [isImpersonating, impersonatedUser]);
 
   // Load full CSP event data
   useEffect(() => {
@@ -250,12 +252,15 @@ export function FloatingEmailComposer({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      console.log('📧 Loading user profile...');
+      // Use impersonated user's ID if impersonating
+      const effectiveUserId = isImpersonating ? impersonatedUser.id : user.id;
+
+      console.log('📧 Loading user profile...', { isImpersonating, effectiveUserId });
 
       const { data: profile } = await supabase
         .from('user_profiles')
         .select('*')
-        .eq('id', user.id)
+        .eq('id', effectiveUserId)
         .maybeSingle();
 
       console.log('👤 Profile data:', profile);
@@ -275,7 +280,7 @@ export function FloatingEmailComposer({
         const { data: credentials } = await supabase
           .from('user_gmail_credentials')
           .select('email_address')
-          .eq('user_id', user.id)
+          .eq('user_id', effectiveUserId)
           .maybeSingle();
 
         if (credentials) {
