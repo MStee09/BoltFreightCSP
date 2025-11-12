@@ -37,13 +37,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Users, Plus, Edit, Trash2, Shield, User, CheckCircle, XCircle, Star, FileText, Eye, Mail, Clock, X, Link2 } from 'lucide-react';
+import { Users, Plus, Edit, Trash2, Shield, User, CheckCircle, XCircle, Star, FileText, Eye, Mail, Clock, X, Link2, UserCog } from 'lucide-react';
 import { supabase } from '@/api/supabaseClient';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { InviteUserDialog } from './InviteUserDialog';
+import { useImpersonation } from '@/contexts/ImpersonationContext';
+import { Textarea } from '@/components/ui/textarea';
 
 export function UserManagement() {
+  const { startImpersonation } = useImpersonation();
   const [users, setUsers] = useState([]);
   const [invitations, setInvitations] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -51,7 +54,10 @@ export function UserManagement() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isInviteDialogOpen, setIsInviteDialogOpen] = useState(false);
+  const [isImpersonateDialogOpen, setIsImpersonateDialogOpen] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
+  const [userToImpersonate, setUserToImpersonate] = useState(null);
+  const [impersonationReason, setImpersonationReason] = useState('');
   const [currentUserId, setCurrentUserId] = useState(null);
 
   useEffect(() => {
@@ -366,6 +372,21 @@ export function UserManagement() {
     }
   };
 
+  const handleImpersonate = async () => {
+    if (!userToImpersonate) return;
+
+    const result = await startImpersonation(userToImpersonate.id, impersonationReason);
+
+    if (result.error) {
+      toast.error(result.error);
+    } else {
+      toast.success(`Now viewing as ${userToImpersonate.full_name || userToImpersonate.email}`);
+      setIsImpersonateDialogOpen(false);
+      setUserToImpersonate(null);
+      setImpersonationReason('');
+    }
+  };
+
   if (loading) {
     return (
       <Card>
@@ -574,6 +595,18 @@ export function UserManagement() {
                         <Button
                           variant="ghost"
                           size="sm"
+                          onClick={() => {
+                            setUserToImpersonate(user);
+                            setIsImpersonateDialogOpen(true);
+                          }}
+                          disabled={user.id === currentUserId}
+                          title="Impersonate user"
+                        >
+                          <UserCog className="h-4 w-4 text-blue-600" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           onClick={() => handleEditUser(user)}
                         >
                           <Edit className="h-4 w-4" />
@@ -702,6 +735,70 @@ export function UserManagement() {
         onOpenChange={setIsInviteDialogOpen}
         onInviteSent={fetchUsers}
       />
+
+      <Dialog open={isImpersonateDialogOpen} onOpenChange={setIsImpersonateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserCog className="h-5 w-5 text-blue-600" />
+              Impersonate User
+            </DialogTitle>
+            <DialogDescription>
+              You will temporarily view the application as{' '}
+              <strong>{userToImpersonate?.full_name || userToImpersonate?.email}</strong>.
+              This helps troubleshoot issues they might be experiencing.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="reason">Reason for Impersonation</Label>
+              <Textarea
+                id="reason"
+                placeholder="e.g., Troubleshooting Gmail connection issue"
+                value={impersonationReason}
+                onChange={(e) => setImpersonationReason(e.target.value)}
+                rows={3}
+              />
+              <p className="text-xs text-muted-foreground">
+                This will be logged for security audit purposes.
+              </p>
+            </div>
+            <div className="rounded-md bg-blue-50 border border-blue-200 p-3">
+              <div className="flex gap-2">
+                <Shield className="h-4 w-4 text-blue-600 mt-0.5" />
+                <div className="text-xs text-blue-800">
+                  <p className="font-medium mb-1">What happens during impersonation:</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    <li>You'll see the app exactly as they see it</li>
+                    <li>All actions will appear as if they performed them</li>
+                    <li>This session is fully audited</li>
+                    <li>Click "Exit Impersonation" in the banner to return</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsImpersonateDialogOpen(false);
+                setUserToImpersonate(null);
+                setImpersonationReason('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleImpersonate}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              <UserCog className="h-4 w-4 mr-2" />
+              Start Impersonation
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

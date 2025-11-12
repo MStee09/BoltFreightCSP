@@ -2,6 +2,7 @@ import './App.css'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from './contexts/AuthContext'
 import { EmailComposerProvider } from './contexts/EmailComposerContext'
+import { ImpersonationProvider } from './contexts/ImpersonationContext'
 import Pages from "./pages/index.jsx"
 import { Toaster } from "./components/ui/toaster"
 import { Toaster as SonnerToaster } from 'sonner'
@@ -19,11 +20,13 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <EmailComposerProvider>
-          <Pages />
-          <Toaster />
-          <SonnerToaster position="top-right" />
-        </EmailComposerProvider>
+        <ImpersonationProvider>
+          <EmailComposerProvider>
+            <Pages />
+            <Toaster />
+            <SonnerToaster position="top-right" />
+          </EmailComposerProvider>
+        </ImpersonationProvider>
       </AuthProvider>
     </QueryClientProvider>
   )

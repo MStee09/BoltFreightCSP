@@ -20,8 +20,11 @@ import {
   Shield,
   HelpCircle,
   LogOut,
-  ChevronDown
+  ChevronDown,
+  UserCog,
+  X
 } from "lucide-react";
+import { useImpersonation } from "../contexts/ImpersonationContext";
 import {
   Sidebar,
   SidebarContent,
@@ -104,6 +107,7 @@ export default function Layout({ children, currentPageName }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { isAdmin, userProfile } = useUserRole();
+  const { isImpersonating, impersonatedUser, adminUser, stopImpersonation } = useImpersonation();
   const [currentUser, setCurrentUser] = useState(null);
 
   const { data: rawCustomers = [] } = useQuery({
@@ -322,6 +326,31 @@ export default function Layout({ children, currentPageName }) {
         </Sidebar>
 
         <main className="flex-1 flex flex-col">
+          {isImpersonating && (
+            <div className="bg-blue-600 text-white px-6 py-3 flex items-center justify-between gap-4 shadow-md">
+              <div className="flex items-center gap-3">
+                <UserCog className="h-5 w-5" />
+                <div>
+                  <p className="font-semibold text-sm">
+                    Viewing as {impersonatedUser?.full_name || impersonatedUser?.email}
+                  </p>
+                  <p className="text-xs text-blue-100">
+                    You're troubleshooting as this user. Actions will appear as theirs.
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={stopImpersonation}
+                className="gap-2 bg-white/20 hover:bg-white/30 text-white border-white/30"
+              >
+                <X className="h-4 w-4" />
+                Exit Impersonation
+              </Button>
+            </div>
+          )}
+
           <header className="bg-white border-b border-slate-200 px-6 py-4 lg:hidden">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-4">
