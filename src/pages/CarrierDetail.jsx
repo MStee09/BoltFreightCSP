@@ -1,13 +1,13 @@
 
 import React, { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Customer, Carrier, Tariff, CSPEvent, Task, Interaction, Alert, Shipment, LostOpportunity, ReportSnapshot } from '../api/entities';
 import { supabase } from '../api/supabaseClient';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
-import { ArrowLeft, Edit, Users, FileText, BarChart2, ShieldCheck, Ban, Anchor, Mail } from 'lucide-react';
+import { ArrowLeft, Edit, Users, FileText, BarChart2, ShieldCheck, Ban, Anchor, Mail, Trash2 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Skeleton } from '../components/ui/skeleton';
 import { createPageUrl } from '../utils';
@@ -21,6 +21,8 @@ import InteractionTimeline from '../components/customers/InteractionTimeline';
 import { EmailThreadView } from '../components/email/EmailThreadView';
 import { EmailThreadBadge } from '../components/email/EmailThreadBadge';
 import { BackButton } from '../components/navigation/BackButton';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/alert-dialog';
+import { toast } from 'sonner';
 
 const PlaceholderTab = ({ title, icon }) => (
     <div className="py-12 text-center text-slate-500 border border-dashed rounded-lg mt-4">
@@ -438,6 +440,8 @@ const CarrierTariffs = ({ carrierId, highlightId }) => {
 
 export default function CarrierDetailPage() {
     const [searchParams] = useSearchParams();
+    const navigate = useNavigate();
+    const queryClient = useQueryClient();
     const carrierId = searchParams.get('id');
     const isNew = searchParams.get('new') === 'true';
     const prefillScac = searchParams.get('scac');
@@ -445,6 +449,7 @@ export default function CarrierDetailPage() {
     const highlightId = searchParams.get('highlight');
     const [isEditSheetOpen, setIsEditSheetOpen] = useState(isNew);
     const [emailViewMode, setEmailViewMode] = useState('threads');
+    const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const { openComposer } = useEmailComposer();
 
     const { data: carrier, isLoading } = useQuery({
@@ -452,6 +457,17 @@ export default function CarrierDetailPage() {
         queryFn: () => Carrier.get(carrierId),
         enabled: !!carrierId && !isNew,
     });
+
+    const handleDelete = async () => {
+        try {
+            await Carrier.delete(carrierId);
+            toast.success('Carrier deleted successfully');
+            queryClient.invalidateQueries(['carriers']);
+            navigate(createPageUrl('Carriers'));
+        } catch (error) {
+            toast.error(error.message || 'Failed to delete carrier');
+        }
+    };
 
     if (isNew) {
         return (
@@ -508,6 +524,9 @@ export default function CarrierDetailPage() {
                         </Button>
                         <Button variant="outline" onClick={() => setIsEditSheetOpen(true)}>
                             <Edit className="w-4 h-4 mr-2" /> Edit Carrier
+                        </Button>
+                        <Button variant="outline" className="text-red-600 hover:text-red-700 hover:bg-red-50" onClick={() => setShowDeleteDialog(true)}>
+                            <Trash2 className="w-4 h-4 mr-2" /> Delete
                         </Button>
                     </div>
                 </div>
@@ -609,6 +628,26 @@ export default function CarrierDetailPage() {
                 isOpen={isEditSheetOpen}
                 onOpenChange={setIsEditSheetOpen}
             />
+
+            <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Carrier</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to delete "{carrier?.name}"? This action cannot be undone and will remove all associated data including tariffs and relationships.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleDelete}
+                            className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                        >
+                            Delete Carrier
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </>
     );
 }

@@ -11,7 +11,6 @@ import { Badge } from "../components/ui/badge";
 import { PlusCircle, Search, TrendingUp, TrendingDown, Star, Eye, FileText, BarChart3, ArrowUpDown, Filter, X, Trash2 } from "lucide-react";
 import { Skeleton } from "../components/ui/skeleton";
 import { format, formatDistanceToNow } from "date-fns";
-import { Checkbox } from "../components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import { supabase } from "../api/supabaseClient";
 import { useUserRole } from "../hooks/useUserRole";
@@ -315,7 +314,6 @@ export default function CustomersPage() {
             <Table>
               <TableHeader>
                 <TableRow className="bg-slate-50/50 text-xs uppercase tracking-wider text-slate-500 hover:bg-slate-50/50">
-                  <TableHead className="p-4"><Checkbox /></TableHead>
                   <TableHead className="w-8"></TableHead>
                   <TableHead>Customer</TableHead>
                   <TableHead>Segment</TableHead>
@@ -388,7 +386,6 @@ export default function CustomersPage() {
                       onMouseEnter={() => setHoveredRowId(customer.id)}
                       onMouseLeave={() => setHoveredRowId(null)}
                     >
-                      <TableCell className="p-4" onClick={e => e.stopPropagation()}><Checkbox /></TableCell>
                       <TableCell className="p-4" onClick={e => e.stopPropagation()}>
                         <TooltipProvider>
                           <Tooltip>

@@ -7,18 +7,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
-import { PlusCircle, Search, ArrowRight, Filter, X, ArrowUpDown, Star } from "lucide-react";
+import { PlusCircle, Search, ArrowRight, Filter, X, ArrowUpDown, Star, Trash2 } from "lucide-react";
 import { Skeleton } from "../components/ui/skeleton";
 import { format } from "date-fns";
-import { Checkbox } from "../components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../components/ui/dropdown-menu";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../components/ui/alert-dialog";
 import { supabase } from "../api/supabaseClient";
 import { useAuth } from "../contexts/AuthContext";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function CarriersPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { user } = useAuth();
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -27,6 +29,8 @@ export default function CarriersPage() {
   const [sortDirection, setSortDirection] = useState('desc');
   const [userPins, setUserPins] = useState(new Set());
   const [hoveredRowId, setHoveredRowId] = useState(null);
+  const [carrierToDelete, setCarrierToDelete] = useState(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const { data: carriers = [], isLoading: isLoadingCarriers } = useQuery({
     queryKey: ["carriers"],
@@ -114,6 +118,25 @@ export default function CarriersPage() {
       };
     });
   }, [carriers, tariffs]);
+
+  const handleDeleteClick = (carrier) => {
+    setCarrierToDelete(carrier);
+    setShowDeleteDialog(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!carrierToDelete) return;
+
+    try {
+      await Carrier.delete(carrierToDelete.id);
+      toast.success('Carrier deleted successfully');
+      queryClient.invalidateQueries(['carriers']);
+      setShowDeleteDialog(false);
+      setCarrierToDelete(null);
+    } catch (error) {
+      toast.error(error.message || 'Failed to delete carrier');
+    }
+  };
 
   const uniqueOwners = useMemo(() => {
     const owners = new Set();
@@ -257,7 +280,6 @@ export default function CarriersPage() {
           <Table>
             <TableHeader>
               <TableRow className="bg-slate-50/50 text-xs uppercase tracking-wider text-slate-500 hover:bg-slate-50/50">
-                <TableHead className="p-4"><Checkbox /></TableHead>
                 <TableHead className="w-8"></TableHead>
                 <TableHead>Carrier</TableHead>
                 <TableHead>Active Tariffs</TableHead>
@@ -287,7 +309,6 @@ export default function CarriersPage() {
                     onMouseEnter={() => setHoveredRowId(carrier.id)}
                     onMouseLeave={() => setHoveredRowId(null)}
                   >
-                    <TableCell className="p-4" onClick={e => e.stopPropagation()}><Checkbox /></TableCell>
                     <TableCell className="p-4" onClick={e => e.stopPropagation()}>
                       <TooltipProvider>
                         <Tooltip>
@@ -346,14 +367,33 @@ export default function CarriersPage() {
                       <span className="text-sm text-slate-700">{carrier.account_owner || 'N/A'}</span>
                     </TableCell>
                     <TableCell onClick={e => e.stopPropagation()}>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRowClick(carrier.id)}
-                        className={`transition-opacity ${hoveredRowId === carrier.id ? 'opacity-100' : 'opacity-0'}`}
-                      >
-                        View <ArrowRight className="w-4 h-4 ml-2" />
-                      </Button>
+                      <div className={`flex items-center gap-1 transition-opacity ${hoveredRowId === carrier.id ? 'opacity-100' : 'opacity-0'}`}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRowClick(carrier.id)}
+                        >
+                          View <ArrowRight className="w-4 h-4 ml-2" />
+                        </Button>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteClick(carrier);
+                                }}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Delete Carrier</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -362,6 +402,26 @@ export default function CarriersPage() {
           </Table>
         </div>
       </div>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Carrier</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{carrierToDelete?.name}"? This action cannot be undone and will remove all associated data including tariffs and relationships.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              Delete Carrier
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
