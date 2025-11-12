@@ -49,7 +49,7 @@ export default function CustomerDetail() {
                     </div>
                 </div>
                 <EditCustomerDialog
-                    open={true}
+                    isOpen={true}
                     onOpenChange={(open) => {
                         if (!open) goBack();
                     }}
