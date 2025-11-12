@@ -60,14 +60,19 @@ Deno.serve(async (req: Request) => {
       throw new Error('User profile not found');
     }
 
-    const { data: appPasswordCreds } = await supabaseClient
+    const { data: appPasswordCreds, error: credError } = await supabaseClient
       .from('user_gmail_credentials')
       .select('*')
       .eq('user_id', user.id)
       .maybeSingle();
 
+    if (credError) {
+      console.error('Error fetching Gmail credentials:', credError);
+      throw new Error('Failed to fetch Gmail credentials');
+    }
+
     if (!appPasswordCreds) {
-      throw new Error('Gmail app password not configured');
+      throw new Error('Gmail app password not configured. Please set it up in Settings.');
     }
 
     const transporter = nodemailer.createTransport({
@@ -190,9 +195,14 @@ Deno.serve(async (req: Request) => {
       mailOptions.headers['X-FreightOps-Token'] = foToken;
     }
 
-    await transporter.sendMail(mailOptions);
+    try {
+      await transporter.sendMail(mailOptions);
+    } catch (emailError) {
+      console.error('SMTP Error:', emailError);
+      throw new Error(`Failed to send email: ${emailError.message}`);
+    }
 
-    const { data: insertedEmail } = await supabaseClient
+    const { data: insertedEmail, error: insertError } = await supabaseClient
       .from('email_activities')
       .insert({
         tracking_code: trackingCode,
@@ -217,6 +227,11 @@ Deno.serve(async (req: Request) => {
       })
       .select()
       .single();
+
+    if (insertError) {
+      console.error('Error inserting email activity:', insertError);
+      throw new Error('Email sent but failed to save to database');
+    }
 
     return new Response(
       JSON.stringify({ 

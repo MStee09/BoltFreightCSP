@@ -138,6 +138,10 @@ export function FloatingEmailComposer({
 
   // Autosave draft every 10 seconds
   useEffect(() => {
+    if (autosaveTimerRef.current) {
+      clearTimeout(autosaveTimerRef.current);
+    }
+
     if (subject || body || toEmails.length > 0) {
       autosaveTimerRef.current = setTimeout(() => {
         saveDraft();

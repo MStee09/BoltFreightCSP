@@ -22,7 +22,7 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
     });
 
-    const { data: { subscription } } = User.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       setUser(session?.user ?? null);
       setLoading(false);
     });

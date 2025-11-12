@@ -134,13 +134,13 @@ export const gmailService = {
     const trackingCode = trackingCodeMatch ? trackingCodeMatch[0].slice(1, -1) : null;
 
     let body = '';
-    if (message.payload.body.data) {
+    if (message.payload.body?.data) {
       body = atob(message.payload.body.data.replace(/-/g, '+').replace(/_/g, '/'));
     } else if (message.payload.parts) {
       const textPart = message.payload.parts.find(
         part => part.mimeType === 'text/plain'
       );
-      if (textPart && textPart.body.data) {
+      if (textPart?.body.data) {
         body = atob(textPart.body.data.replace(/-/g, '+').replace(/_/g, '/'));
       }
     }
@@ -150,8 +150,8 @@ export const gmailService = {
       threadId: message.threadId,
       subject,
       from,
-      to: to.split(',').map(e => e.trim()),
-      cc: cc.split(',').map(e => e.trim()).filter(Boolean),
+      to: to ? this.parseEmailList(to) : [],
+      cc: cc ? this.parseEmailList(cc) : [],
       body,
       date: new Date(date),
       trackingCode,
