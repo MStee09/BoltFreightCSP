@@ -37,16 +37,46 @@ import {
   ArrowRight,
   Filter,
   Search,
+  Reply,
+  Check,
+  Plus,
+  Circle,
+  Pause,
+  CheckCircle2,
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { toast } from 'sonner';
 import { useEmailComposer } from '@/contexts/EmailComposerContext';
 
 const STATUS_CONFIG = {
-  awaiting_reply: { label: 'Awaiting Reply', color: 'bg-amber-500', textColor: 'text-amber-700', icon: Clock },
-  active: { label: 'Active', color: 'bg-green-500', textColor: 'text-green-700', icon: MailOpen },
-  stalled: { label: 'Stalled', color: 'bg-orange-500', textColor: 'text-orange-700', icon: Clock },
-  closed: { label: 'Closed', color: 'bg-gray-400', textColor: 'text-gray-600', icon: X },
+  awaiting_reply: {
+    label: 'Awaiting Reply',
+    color: 'bg-[#F2C94C]',
+    textColor: 'text-amber-700',
+    badgeColor: 'bg-amber-100 text-amber-700 border-amber-300',
+    icon: Clock
+  },
+  active: {
+    label: 'Active',
+    color: 'bg-[#3BB273]',
+    textColor: 'text-green-700',
+    badgeColor: 'bg-green-100 text-green-700 border-green-300',
+    icon: Circle
+  },
+  stalled: {
+    label: 'Stalled',
+    color: 'bg-[#F2994A]',
+    textColor: 'text-orange-700',
+    badgeColor: 'bg-orange-100 text-orange-700 border-orange-300',
+    icon: Pause
+  },
+  closed: {
+    label: 'Closed',
+    color: 'bg-[#BDBDBD]',
+    textColor: 'text-gray-600',
+    badgeColor: 'bg-gray-100 text-gray-600 border-gray-300',
+    icon: CheckCircle2
+  },
 };
 
 export function EmailThreadView({ cspEventId, customerId, carrierId }) {
@@ -227,45 +257,69 @@ export function EmailThreadView({ cspEventId, customerId, carrierId }) {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
+      {/* New Email Button */}
+      <div className="flex justify-end">
+        <Button
+          onClick={() => openComposer({
+            cspEvent: cspEventId ? { id: cspEventId } : null,
+            customer: customerId ? { id: customerId } : null,
+            carrier: carrierId ? { id: carrierId } : null,
+          })}
+          size="sm"
+          className="gap-2"
+        >
+          <Plus className="h-4 w-4" />
+          New Email
+        </Button>
+      </div>
+
       {/* Filters & Controls */}
-      <div className="flex flex-wrap gap-2 items-center justify-between bg-slate-50 p-3 rounded-lg">
-        <div className="flex gap-2 flex-wrap">
+      <div className="flex flex-wrap gap-2 items-center justify-between bg-slate-50 p-2.5 rounded-lg">
+        <div className="flex gap-1.5 flex-wrap">
           <Button
             variant={filterStatus === 'active' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setFilterStatus('active')}
+            className="h-8 gap-1.5"
           >
+            <Circle className="h-3 w-3 fill-current" />
             Active
           </Button>
           <Button
             variant={filterStatus === 'awaiting_reply' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setFilterStatus('awaiting_reply')}
+            className="h-8 gap-1.5"
           >
-            <Clock className="h-3 w-3 mr-1" />
+            <Clock className="h-3 w-3" />
             Awaiting Reply
           </Button>
           <Button
             variant={filterStatus === 'stalled' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setFilterStatus('stalled')}
+            className="h-8 gap-1.5"
           >
+            <Pause className="h-3 w-3" />
             Stalled
           </Button>
           <Button
             variant={filterStatus === 'closed' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setFilterStatus('closed')}
+            className="h-8 gap-1.5"
           >
+            <CheckCircle2 className="h-3 w-3" />
             Closed
           </Button>
           <Button
             variant={showMineOnly ? 'default' : 'outline'}
             size="sm"
             onClick={() => setShowMineOnly(!showMineOnly)}
+            className="h-8 gap-1.5"
           >
-            <UserCircle className="h-3 w-3 mr-1" />
+            <UserCircle className="h-3 w-3" />
             Mine
           </Button>
         </div>
@@ -401,85 +455,121 @@ function ThreadCard({
   });
 
   const nextFollowUp = followUpTasks.sort((a, b) => new Date(a.due_date) - new Date(b.due_date))[0];
-
+  const [isHovered, setIsHovered] = useState(false);
   const [visibleMessages, setVisibleMessages] = useState(2);
 
   const loadMoreMessages = () => {
     setVisibleMessages(prev => Math.min(prev + 2, messages.length));
   };
 
+  const hasAttachments = messages.some(m => m.has_attachments);
+
   return (
-    <Card className={`transition-all ${!thread.is_read ? 'border-l-4 border-l-blue-500' : ''}`}>
-      <CardContent className="p-4">
+    <Card
+      className={`transition-all hover:shadow-md ${!thread.is_read ? 'border-l-4 border-l-blue-500' : ''}`}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <CardContent className="p-2.5">
         {/* Thread Header (Collapsed) */}
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-2">
           <Button
             variant="ghost"
             size="sm"
-            className="p-0 h-6 w-6"
+            className="p-0 h-5 w-5 mt-0.5"
             onClick={onToggle}
           >
-            {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
           </Button>
 
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap mb-1">
+            {/* Subject line with status pill on right */}
+            <div className="flex items-center justify-between gap-2 mb-1">
               <button
                 onClick={onToggle}
-                className="font-semibold hover:underline text-left"
+                className="text-base font-semibold hover:underline text-left flex-1 min-w-0 truncate"
               >
                 {thread.subject}
               </button>
-              <Badge className={`${statusConfig.color} text-white text-xs`}>
+              <Badge className={`${statusConfig.badgeColor} text-xs border flex-shrink-0`}>
                 <StatusIcon className="h-3 w-3 mr-1" />
                 {statusConfig.label}
               </Badge>
-              {nextFollowUp && (
-                <Badge variant="outline" className="text-xs">
-                  <Calendar className="h-3 w-3 mr-1" />
-                  Follow-up {formatDistanceToNow(new Date(nextFollowUp.due_date), { addSuffix: true })}
-                </Badge>
+            </div>
+
+            {/* Micro context row */}
+            <div className="flex items-center justify-between gap-2 text-xs text-slate-500">
+              <div className="flex items-center gap-3">
+                <span>Last reply {formatDistanceToNow(new Date(thread.last_activity_at), { addSuffix: true })}</span>
+                <span className="flex items-center gap-1">
+                  <Mail className="h-3 w-3" />
+                  {thread.message_count} {thread.message_count === 1 ? 'message' : 'messages'}
+                </span>
+                {nextFollowUp && (
+                  <span className="flex items-center gap-1 text-amber-600">
+                    <Calendar className="h-3 w-3" />
+                    Follow-up {formatDistanceToNow(new Date(nextFollowUp.due_date), { addSuffix: true })}
+                  </span>
+                )}
+              </div>
+              {hasAttachments && (
+                <span className="flex items-center gap-1">
+                  <Paperclip className="h-3 w-3" />
+                  Attachments
+                </span>
               )}
             </div>
 
-            <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-              <div className="flex items-center gap-1">
-                <Users className="h-3 w-3" />
-                {thread.participant_emails.slice(0, 3).map((email, idx) => (
-                  <Badge key={idx} variant="secondary" className="text-xs">
-                    {email.split('@')[0]}
-                  </Badge>
-                ))}
-                {thread.participant_emails.length > 3 && (
-                  <Badge variant="secondary" className="text-xs">
-                    +{thread.participant_emails.length - 3} more
-                  </Badge>
-                )}
-              </div>
-
-              <span>
-                {formatDistanceToNow(new Date(thread.last_activity_at), { addSuffix: true })}
-              </span>
-
-              <span className="flex items-center gap-1">
-                <Mail className="h-3 w-3" />
-                {thread.message_count}
-              </span>
-
-              {thread.owner && (
-                <div className="flex items-center gap-1">
-                  <Avatar className="h-5 w-5">
-                    <AvatarFallback className="text-xs">
-                      {thread.owner.full_name?.charAt(0) || thread.owner.email.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span>{thread.owner.full_name || thread.owner.email}</span>
-                </div>
+            {/* Participants chips */}
+            <div className="flex items-center gap-1 mt-1">
+              {thread.participant_emails.slice(0, 4).map((email, idx) => (
+                <Badge key={idx} variant="secondary" className="text-[10px] px-1.5 py-0 h-5">
+                  {email.split('@')[0]}
+                </Badge>
+              ))}
+              {thread.participant_emails.length > 4 && (
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-5">
+                  +{thread.participant_emails.length - 4}
+                </Badge>
               )}
             </div>
           </div>
 
-          <DropdownMenu>
+          {/* Quick Action Icons (hover) + Dropdown */}
+          <div className="flex items-center gap-1">
+            {/* Quick actions - fade in on hover */}
+            <div className={`flex gap-0.5 transition-opacity ${isHovered ? 'opacity-100' : 'opacity-0'}`}>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0"
+                onClick={() => onReplyInGmail(thread)}
+                title="Reply in Gmail"
+              >
+                <Reply className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0"
+                onClick={() => onCreateFollowUp(3)}
+                title="Add Follow-up"
+              >
+                <Clock className="h-3.5 w-3.5" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0"
+                onClick={() => onMarkClosed(thread.id)}
+                title="Mark Closed"
+              >
+                <Check className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+
+            {/* Dropdown menu */}
+            <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                 <MoreVertical className="h-4 w-4" />
@@ -536,11 +626,12 @@ function ThreadCard({
               </DropdownMenuSub>
             </DropdownMenuContent>
           </DropdownMenu>
+          </div>
         </div>
 
         {/* Expanded Thread Timeline */}
         {isExpanded && (
-          <div className="mt-4 ml-9 space-y-2">
+          <div className="mt-3 ml-7 space-y-2">
             {messages.length > visibleMessages && (
               <Button
                 variant="outline"

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/api/supabaseClient';
 import { Badge } from '@/components/ui/badge';
-import { Mail, Clock } from 'lucide-react';
+import { Mail, Clock, Pause, Circle } from 'lucide-react';
 
 export function EmailThreadBadge({ cspEventId, customerId, carrierId, onClick }) {
   const { data: counts } = useQuery({
@@ -19,10 +19,12 @@ export function EmailThreadBadge({ cspEventId, customerId, carrierId, onClick })
       if (error) throw error;
 
       const awaiting = data?.filter(t => t.status === 'awaiting_reply').length || 0;
+      const stalled = data?.filter(t => t.status === 'stalled').length || 0;
       const active = data?.filter(t => t.status === 'active').length || 0;
+      const closed = data?.filter(t => t.status === 'closed').length || 0;
       const total = data?.length || 0;
 
-      return { awaiting, active, total };
+      return { awaiting, stalled, active, closed, total };
     },
     refetchInterval: 30000,
   });
@@ -31,15 +33,30 @@ export function EmailThreadBadge({ cspEventId, customerId, carrierId, onClick })
     return null;
   }
 
+  // Priority: Awaiting > Stalled > Active > Closed
   if (counts.awaiting > 0) {
     return (
       <button
         onClick={onClick}
         className="inline-flex items-center gap-1 text-xs hover:opacity-80 transition-opacity"
       >
-        <Badge variant="outline" className="gap-1 border-amber-500 text-amber-700 bg-amber-50">
+        <Badge className="gap-1 bg-[#F2C94C] hover:bg-[#F2C94C]/90 text-white border-0">
           <Clock className="h-3 w-3" />
           {counts.awaiting} awaiting reply
+        </Badge>
+      </button>
+    );
+  }
+
+  if (counts.stalled > 0) {
+    return (
+      <button
+        onClick={onClick}
+        className="inline-flex items-center gap-1 text-xs hover:opacity-80 transition-opacity"
+      >
+        <Badge className="gap-1 bg-[#F2994A] hover:bg-[#F2994A]/90 text-white border-0">
+          <Pause className="h-3 w-3" />
+          {counts.stalled} stalled
         </Badge>
       </button>
     );
@@ -51,9 +68,23 @@ export function EmailThreadBadge({ cspEventId, customerId, carrierId, onClick })
         onClick={onClick}
         className="inline-flex items-center gap-1 text-xs hover:opacity-80 transition-opacity"
       >
-        <Badge variant="outline" className="gap-1 text-muted-foreground">
+        <Badge className="gap-1 bg-[#3BB273] hover:bg-[#3BB273]/90 text-white border-0">
+          <Circle className="h-3 w-3 fill-current" />
+          {counts.active} active
+        </Badge>
+      </button>
+    );
+  }
+
+  if (counts.closed > 0) {
+    return (
+      <button
+        onClick={onClick}
+        className="inline-flex items-center gap-1 text-xs hover:opacity-80 transition-opacity"
+      >
+        <Badge className="gap-1 bg-[#BDBDBD] hover:bg-[#BDBDBD]/90 text-white border-0">
           <Mail className="h-3 w-3" />
-          {counts.active} active thread{counts.active !== 1 ? 's' : ''}
+          {counts.closed} closed
         </Badge>
       </button>
     );
