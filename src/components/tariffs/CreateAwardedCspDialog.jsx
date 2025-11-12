@@ -271,7 +271,7 @@ export default function CreateAwardedCspDialog({
               </div>
             )}
 
-            <Popover open={carrierSearchOpen} onOpenChange={setCarrierSearchOpen} modal={true}>
+            <Popover open={carrierSearchOpen} onOpenChange={setCarrierSearchOpen}>
               <PopoverTrigger asChild>
                 <Button
                   type="button"
@@ -284,7 +284,7 @@ export default function CreateAwardedCspDialog({
                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-[400px] p-0" align="start" side="bottom" sideOffset={4}>
+              <PopoverContent className="w-[400px] p-0 z-[100]" align="start" side="bottom" sideOffset={4}>
                 <Command>
                   <CommandInput
                     placeholder="Type carrier name..."
@@ -374,7 +374,7 @@ export default function CreateAwardedCspDialog({
 
           <div className="space-y-2">
             <Label htmlFor="due_date">Implementation Due Date</Label>
-            <Popover modal={true}>
+            <Popover>
               <PopoverTrigger asChild>
                 <Button
                   type="button"
@@ -388,7 +388,7 @@ export default function CreateAwardedCspDialog({
                   {formData.due_date ? format(formData.due_date, 'PPP') : 'Select date'}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start" side="bottom" sideOffset={4}>
+              <PopoverContent className="w-auto p-0 z-[100]" align="start" side="bottom" sideOffset={4}>
                 <Calendar
                   mode="single"
                   selected={formData.due_date}
