@@ -14,6 +14,8 @@ import CustomerOverviewTab from '../components/customers/CustomerOverviewTab';
 import EditCustomerDialog from '../components/customers/EditCustomerDialog';
 import DocumentsTab from '../components/customers/DocumentsTab';
 import CustomerTariffTimeline from '../components/customers/CustomerTariffTimeline';
+import { EmailThreadView } from '../components/email/EmailThreadView';
+import { EmailThreadBadge } from '../components/email/EmailThreadBadge';
 import { useEmailComposer } from '../contexts/EmailComposerContext';
 import { BackButton } from '../components/navigation/BackButton';
 import { useNavigation } from '../contexts/NavigationContext';
@@ -24,6 +26,7 @@ export default function CustomerDetail() {
     const isNew = searchParams.get('new') === 'true';
     const defaultTab = searchParams.get('tab') || 'overview';
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(isNew);
+    const [emailViewMode, setEmailViewMode] = useState('threads');
     const { goBack } = useNavigation();
     const { openComposer } = useEmailComposer();
 
@@ -93,41 +96,51 @@ export default function CustomerDetail() {
                     </div>
                 </div>
 
-                <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 mb-6 flex items-center gap-6 text-sm">
-                    {customer.account_owner && (
-                        <div className="flex items-center gap-2">
-                            <span className="font-medium text-slate-600">Owner:</span>
-                            <span className="text-slate-900">{customer.account_owner}</span>
-                        </div>
-                    )}
-                    {customer.segment && (
-                        <div className="flex items-center gap-2">
-                            <span className="font-medium text-slate-600">Segment:</span>
-                            <Badge variant="outline" className="capitalize">
-                                {customer.segment}
-                            </Badge>
-                        </div>
-                    )}
-                    {customer.status && (
-                        <div className="flex items-center gap-2">
-                            <span className="font-medium text-slate-600">Status:</span>
-                            <Badge variant="secondary" className="capitalize">
-                                {customer.status}
-                            </Badge>
-                        </div>
-                    )}
-                    {customer.health_score && (
-                        <div className="flex items-center gap-2">
-                            <span className="font-medium text-slate-600">Health Score:</span>
-                            <span className="text-slate-900 font-medium">{customer.health_score}</span>
-                        </div>
-                    )}
+                <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 mb-6 flex items-center justify-between gap-6 text-sm">
+                    <div className="flex items-center gap-6">
+                        {customer.account_owner && (
+                            <div className="flex items-center gap-2">
+                                <span className="font-medium text-slate-600">Owner:</span>
+                                <span className="text-slate-900">{customer.account_owner}</span>
+                            </div>
+                        )}
+                        {customer.segment && (
+                            <div className="flex items-center gap-2">
+                                <span className="font-medium text-slate-600">Segment:</span>
+                                <Badge variant="outline" className="capitalize">
+                                    {customer.segment}
+                                </Badge>
+                            </div>
+                        )}
+                        {customer.status && (
+                            <div className="flex items-center gap-2">
+                                <span className="font-medium text-slate-600">Status:</span>
+                                <Badge variant="secondary" className="capitalize">
+                                    {customer.status}
+                                </Badge>
+                            </div>
+                        )}
+                        {customer.health_score && (
+                            <div className="flex items-center gap-2">
+                                <span className="font-medium text-slate-600">Health Score:</span>
+                                <span className="text-slate-900 font-medium">{customer.health_score}</span>
+                            </div>
+                        )}
+                    </div>
+                    <EmailThreadBadge
+                        customerId={customerId}
+                        onClick={() => {
+                            const emailsTab = document.querySelector('[value="emails"]');
+                            if (emailsTab) emailsTab.click();
+                        }}
+                    />
                 </div>
 
                 <Tabs defaultValue={defaultTab}>
                     <TabsList className="bg-slate-100">
                         <TabsTrigger value="overview">Overview</TabsTrigger>
                         <TabsTrigger value="tariffs">Tariffs</TabsTrigger>
+                        <TabsTrigger value="emails">Emails</TabsTrigger>
                         <TabsTrigger value="activity">Activity</TabsTrigger>
                         <TabsTrigger value="documents">Documents</TabsTrigger>
                     </TabsList>
@@ -136,6 +149,34 @@ export default function CustomerDetail() {
                     </TabsContent>
                     <TabsContent value="tariffs">
                         <CustomerTariffTimeline customerId={customerId} />
+                    </TabsContent>
+                    <TabsContent value="emails">
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-lg font-semibold">Email Communications</h3>
+                                <div className="flex gap-2">
+                                    <Button
+                                        variant={emailViewMode === 'threads' ? 'default' : 'outline'}
+                                        size="sm"
+                                        onClick={() => setEmailViewMode('threads')}
+                                    >
+                                        Thread View
+                                    </Button>
+                                    <Button
+                                        variant={emailViewMode === 'timeline' ? 'default' : 'outline'}
+                                        size="sm"
+                                        onClick={() => setEmailViewMode('timeline')}
+                                    >
+                                        Timeline View
+                                    </Button>
+                                </div>
+                            </div>
+                            {emailViewMode === 'threads' ? (
+                                <EmailThreadView customerId={customerId} />
+                            ) : (
+                                <InteractionTimeline customerId={customerId} entityType="customer" />
+                            )}
+                        </div>
                     </TabsContent>
                     <TabsContent value="activity">
                         <InteractionTimeline customerId={customerId} entityType="customer" />

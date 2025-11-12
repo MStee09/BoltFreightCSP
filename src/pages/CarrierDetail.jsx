@@ -18,6 +18,8 @@ import CarrierOverview from '../components/carriers/CarrierOverview';
 import ManageContactsDialog from '../components/carriers/ManageContactsDialog';
 import { useEmailComposer } from '../contexts/EmailComposerContext';
 import InteractionTimeline from '../components/customers/InteractionTimeline';
+import { EmailThreadView } from '../components/email/EmailThreadView';
+import { EmailThreadBadge } from '../components/email/EmailThreadBadge';
 import { BackButton } from '../components/navigation/BackButton';
 
 const PlaceholderTab = ({ title, icon }) => (
@@ -442,6 +444,7 @@ export default function CarrierDetailPage() {
     const defaultTab = searchParams.get('tab') || 'overview';
     const highlightId = searchParams.get('highlight');
     const [isEditSheetOpen, setIsEditSheetOpen] = useState(isNew);
+    const [emailViewMode, setEmailViewMode] = useState('threads');
     const { openComposer } = useEmailComposer();
 
     const { data: carrier, isLoading } = useQuery({
@@ -509,35 +512,45 @@ export default function CarrierDetailPage() {
                     </div>
                 </div>
 
-                <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 mb-6 flex items-center gap-6 text-sm">
-                    {carrier.scac_code && (
-                        <div className="flex items-center gap-2">
-                            <span className="font-medium text-slate-600">SCAC:</span>
-                            <span className="text-slate-900 font-mono">{carrier.scac_code}</span>
-                        </div>
-                    )}
-                    {carrier.service_type && (
-                        <div className="flex items-center gap-2">
-                            <span className="font-medium text-slate-600">Service Type:</span>
-                            <Badge variant="outline" className="capitalize">
-                                {carrier.service_type}
-                            </Badge>
-                        </div>
-                    )}
-                    {carrier.status && (
-                        <div className="flex items-center gap-2">
-                            <span className="font-medium text-slate-600">Status:</span>
-                            <Badge variant="secondary" className="capitalize">
-                                {carrier.status}
-                            </Badge>
-                        </div>
-                    )}
+                <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 mb-6 flex items-center justify-between gap-6 text-sm">
+                    <div className="flex items-center gap-6">
+                        {carrier.scac_code && (
+                            <div className="flex items-center gap-2">
+                                <span className="font-medium text-slate-600">SCAC:</span>
+                                <span className="text-slate-900 font-mono">{carrier.scac_code}</span>
+                            </div>
+                        )}
+                        {carrier.service_type && (
+                            <div className="flex items-center gap-2">
+                                <span className="font-medium text-slate-600">Service Type:</span>
+                                <Badge variant="outline" className="capitalize">
+                                    {carrier.service_type}
+                                </Badge>
+                            </div>
+                        )}
+                        {carrier.status && (
+                            <div className="flex items-center gap-2">
+                                <span className="font-medium text-slate-600">Status:</span>
+                                <Badge variant="secondary" className="capitalize">
+                                    {carrier.status}
+                                </Badge>
+                            </div>
+                        )}
+                    </div>
+                    <EmailThreadBadge
+                        carrierId={carrierId}
+                        onClick={() => {
+                            const emailsTab = document.querySelector('[value="emails"]');
+                            if (emailsTab) emailsTab.click();
+                        }}
+                    />
                 </div>
 
                 <Tabs defaultValue={defaultTab}>
                     <TabsList className="bg-slate-100">
                         <TabsTrigger value="overview">Overview</TabsTrigger>
                         <TabsTrigger value="tariffs">Tariffs</TabsTrigger>
+                        <TabsTrigger value="emails">Emails</TabsTrigger>
                         <TabsTrigger value="contacts">Contacts</TabsTrigger>
                         <TabsTrigger value="kpis">KPIs</TabsTrigger>
                         <TabsTrigger value="timeline">Activity</TabsTrigger>
@@ -548,6 +561,34 @@ export default function CarrierDetailPage() {
                     </TabsContent>
                     <TabsContent value="tariffs">
                         <CarrierTariffs carrierId={carrierId} highlightId={highlightId} />
+                    </TabsContent>
+                    <TabsContent value="emails">
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-lg font-semibold">Email Communications</h3>
+                                <div className="flex gap-2">
+                                    <Button
+                                        variant={emailViewMode === 'threads' ? 'default' : 'outline'}
+                                        size="sm"
+                                        onClick={() => setEmailViewMode('threads')}
+                                    >
+                                        Thread View
+                                    </Button>
+                                    <Button
+                                        variant={emailViewMode === 'timeline' ? 'default' : 'outline'}
+                                        size="sm"
+                                        onClick={() => setEmailViewMode('timeline')}
+                                    >
+                                        Timeline View
+                                    </Button>
+                                </div>
+                            </div>
+                            {emailViewMode === 'threads' ? (
+                                <EmailThreadView carrierId={carrierId} />
+                            ) : (
+                                <InteractionTimeline customerId={carrierId} entityType="carrier" />
+                            )}
+                        </div>
                     </TabsContent>
                     <TabsContent value="contacts">
                         <CarrierContacts carrier={carrier} />

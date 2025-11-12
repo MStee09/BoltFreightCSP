@@ -11,6 +11,8 @@ import { ArrowLeft, Edit, Mail, Phone, ExternalLink, Building2 } from 'lucide-re
 import { createPageUrl } from '../utils';
 import { useEmailComposer } from '../contexts/EmailComposerContext';
 import { EmailTimeline } from '../components/email/EmailTimeline';
+import { EmailThreadView } from '../components/email/EmailThreadView';
+import { EmailThreadBadge } from '../components/email/EmailThreadBadge';
 import CspStrategyTab from '../components/customers/CspStrategyTab';
 import CspEventOverview from '../components/pipeline/CspEventOverview';
 import EditCspEventDialog from '../components/pipeline/EditCspEventDialog';
@@ -26,6 +28,7 @@ export default function CspEventDetail() {
     const defaultTab = searchParams.get('tab') || 'overview';
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [isManageCarriersOpen, setIsManageCarriersOpen] = useState(false);
+    const [emailViewMode, setEmailViewMode] = useState('threads');
     const { openComposer } = useEmailComposer();
 
     const { data: event, isLoading } = useQuery({
@@ -97,35 +100,44 @@ export default function CspEventDetail() {
                     </div>
                 </div>
 
-                <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 mb-6 flex items-center gap-6 text-sm">
-                    {customer?.name && (
-                        <div className="flex items-center gap-2">
-                            <span className="font-medium text-slate-600">Customer:</span>
-                            <span className="text-slate-900">{customer.name}</span>
-                        </div>
-                    )}
-                    {event.stage && (
-                        <div className="flex items-center gap-2">
-                            <span className="font-medium text-slate-600">Stage:</span>
-                            <Badge variant="outline" className="capitalize">
-                                {event.stage.replace(/_/g, ' ')}
-                            </Badge>
-                        </div>
-                    )}
-                    {event.assigned_to && (
-                        <div className="flex items-center gap-2">
-                            <span className="font-medium text-slate-600">Owner:</span>
-                            <span className="text-slate-900">{event.assigned_to}</span>
-                        </div>
-                    )}
-                    {event.mode && (
-                        <div className="flex items-center gap-2">
-                            <span className="font-medium text-slate-600">Mode:</span>
-                            <Badge variant="secondary" className="capitalize">
-                                {event.mode}
-                            </Badge>
-                        </div>
-                    )}
+                <div className="bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 mb-6 flex items-center justify-between gap-6 text-sm">
+                    <div className="flex items-center gap-6">
+                        {customer?.name && (
+                            <div className="flex items-center gap-2">
+                                <span className="font-medium text-slate-600">Customer:</span>
+                                <span className="text-slate-900">{customer.name}</span>
+                            </div>
+                        )}
+                        {event.stage && (
+                            <div className="flex items-center gap-2">
+                                <span className="font-medium text-slate-600">Stage:</span>
+                                <Badge variant="outline" className="capitalize">
+                                    {event.stage.replace(/_/g, ' ')}
+                                </Badge>
+                            </div>
+                        )}
+                        {event.assigned_to && (
+                            <div className="flex items-center gap-2">
+                                <span className="font-medium text-slate-600">Owner:</span>
+                                <span className="text-slate-900">{event.assigned_to}</span>
+                            </div>
+                        )}
+                        {event.mode && (
+                            <div className="flex items-center gap-2">
+                                <span className="font-medium text-slate-600">Mode:</span>
+                                <Badge variant="secondary" className="capitalize">
+                                    {event.mode}
+                                </Badge>
+                            </div>
+                        )}
+                    </div>
+                    <EmailThreadBadge
+                        cspEventId={eventId}
+                        onClick={() => {
+                            const emailsTab = document.querySelector('[value="emails"]');
+                            if (emailsTab) emailsTab.click();
+                        }}
+                    />
                 </div>
 
                 <Tabs defaultValue={defaultTab}>
@@ -150,11 +162,39 @@ export default function CspEventDetail() {
                         <InteractionTimeline customerId={event.customer_id} entityType="customer" />
                     </TabsContent>
                     <TabsContent value="emails">
-                        <EmailTimeline
-                            cspEventId={eventId}
-                            customerId={event?.customer_id}
-                            onComposeClick={() => setIsEmailDialogOpen(true)}
-                        />
+                        <div className="space-y-4">
+                            <div className="flex items-center justify-between">
+                                <h3 className="text-lg font-semibold">Email Communications</h3>
+                                <div className="flex gap-2">
+                                    <Button
+                                        variant={emailViewMode === 'threads' ? 'default' : 'outline'}
+                                        size="sm"
+                                        onClick={() => setEmailViewMode('threads')}
+                                    >
+                                        Thread View
+                                    </Button>
+                                    <Button
+                                        variant={emailViewMode === 'timeline' ? 'default' : 'outline'}
+                                        size="sm"
+                                        onClick={() => setEmailViewMode('timeline')}
+                                    >
+                                        Timeline View
+                                    </Button>
+                                </div>
+                            </div>
+                            {emailViewMode === 'threads' ? (
+                                <EmailThreadView cspEventId={eventId} />
+                            ) : (
+                                <EmailTimeline
+                                    cspEventId={eventId}
+                                    customerId={event?.customer_id}
+                                    onComposeClick={() => openComposer({
+                                        cspEvent: { id: event.id, title: event.title },
+                                        customer: customer ? { id: customer.id, name: customer.name } : null
+                                    })}
+                                />
+                            )}
+                        </div>
                     </TabsContent>
                     <TabsContent value="carriers">
                         <div className="mt-4">
