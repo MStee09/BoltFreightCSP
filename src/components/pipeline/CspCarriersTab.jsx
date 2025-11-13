@@ -30,7 +30,8 @@ import { Checkbox } from '../ui/checkbox';
 import BidDocsViewer from './BidDocsViewer';
 import EditLaneScopeDialog from './EditLaneScopeDialog';
 import BulkUploadDialog from './BulkUploadDialog';
-import AwardCarrierDialog from './AwardCarrierDialog';
+import { AwardCarrierConfirmDialog } from './AwardCarrierConfirmDialog';
+import { AwardSuccessDialog } from './AwardSuccessDialog';
 import NotAwardDialog from './NotAwardDialog';
 import InlineNoteEditor from './InlineNoteEditor';
 import CreateProposedTariffsDialog from './CreateProposedTariffsDialog';
@@ -61,8 +62,10 @@ export default function CspCarriersTab({ cspEvent }) {
   const [editingScopeCarrier, setEditingScopeCarrier] = useState(null);
   const [editingNoteCarrier, setEditingNoteCarrier] = useState(null);
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
-  const [awardDialogOpen, setAwardDialogOpen] = useState(false);
-  const [awardDialogCarriers, setAwardDialogCarriers] = useState(null);
+  const [awardConfirmOpen, setAwardConfirmOpen] = useState(false);
+  const [awardCarrier, setAwardCarrier] = useState(null);
+  const [awardSuccessOpen, setAwardSuccessOpen] = useState(false);
+  const [awardedTariff, setAwardedTariff] = useState(null);
   const [notAwardDialogOpen, setNotAwardDialogOpen] = useState(false);
   const [notAwardDialogCarriers, setNotAwardDialogCarriers] = useState(null);
   const [createTariffDialogOpen, setCreateTariffDialogOpen] = useState(false);
@@ -79,6 +82,20 @@ export default function CspCarriersTab({ cspEvent }) {
   const { data: allCarriers = [] } = useQuery({
     queryKey: ['carriers'],
     queryFn: () => Carrier.list(),
+  });
+
+  const { data: customer } = useQuery({
+    queryKey: ['customer', cspEvent?.customer_id],
+    queryFn: async () => {
+      if (!cspEvent?.customer_id) return null;
+      const { data } = await supabase
+        .from('customers')
+        .select('id, name')
+        .eq('id', cspEvent.customer_id)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!cspEvent?.customer_id,
   });
 
   const updateStatusMutation = useMutation({
@@ -115,6 +132,34 @@ export default function CspCarriersTab({ cspEvent }) {
       toast({
         title: 'Error',
         description: error.message || 'Failed to update carrier status',
+        variant: 'destructive'
+      });
+    },
+  });
+
+  const awardCarrierMutation = useMutation({
+    mutationFn: async (assignmentId) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const { data, error } = await supabase.rpc('award_carrier_with_tariff', {
+        p_assignment_id: assignmentId,
+        p_awarded_by: user?.id
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries(['csp_event_carriers']);
+      queryClient.invalidateQueries(['tariffs']);
+      setAwardConfirmOpen(false);
+      setAwardedTariff(data);
+      setAwardSuccessOpen(true);
+    },
+    onError: (error) => {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to award carrier',
         variant: 'destructive'
       });
     },
@@ -196,8 +241,8 @@ export default function CspCarriersTab({ cspEvent }) {
   }, [bidDocsPromptCarrierId]);
 
   const handleAwardCarrier = (carrierAssignment) => {
-    setAwardDialogCarriers(carrierAssignment);
-    setAwardDialogOpen(true);
+    setAwardCarrier(carrierAssignment);
+    setAwardConfirmOpen(true);
   };
 
   const handleNotAwardCarrier = (carrierAssignment) => {
@@ -205,18 +250,10 @@ export default function CspCarriersTab({ cspEvent }) {
     setNotAwardDialogOpen(true);
   };
 
-  const handleAwardConfirm = ({ laneScope, notes }) => {
-    const carriers = Array.isArray(awardDialogCarriers) ? awardDialogCarriers : [awardDialogCarriers];
-    carriers.forEach(carrier => {
-      updateStatusMutation.mutate({
-        carrierId: carrier.carrier_id,
-        newStatus: 'awarded',
-        laneScope,
-        notes
-      });
-    });
-    setAwardDialogOpen(false);
-    setAwardDialogCarriers(null);
+  const handleAwardConfirm = () => {
+    if (awardCarrier?.id) {
+      awardCarrierMutation.mutate(awardCarrier.id);
+    }
   };
 
   const handleNotAwardConfirm = ({ reason, notes }) => {
@@ -626,12 +663,23 @@ export default function CspCarriersTab({ cspEvent }) {
         </Button>
       </div>
 
-      <AwardCarrierDialog
-        open={awardDialogOpen}
-        onOpenChange={setAwardDialogOpen}
-        carriers={awardDialogCarriers}
+      <AwardCarrierConfirmDialog
+        isOpen={awardConfirmOpen}
+        onOpenChange={setAwardConfirmOpen}
+        carrier={awardCarrier?.carrier}
+        customer={customer || { name: 'Customer' }}
         onConfirm={handleAwardConfirm}
-        isBulk={Array.isArray(awardDialogCarriers) && awardDialogCarriers.length > 1}
+        isLoading={awardCarrierMutation.isPending}
+      />
+
+      <AwardSuccessDialog
+        isOpen={awardSuccessOpen}
+        onOpenChange={setAwardSuccessOpen}
+        carrier={awardCarrier?.carrier}
+        tariffReferenceId={awardedTariff?.tariff_reference_id}
+        onViewTariff={() => {
+          window.location.href = `/tariffdetail?id=${awardedTariff?.tariff_id}`;
+        }}
       />
 
       <NotAwardDialog
