@@ -108,7 +108,6 @@ export default function CspCarriersTab({ cspEvent }) {
     onSuccess: () => {
       queryClient.invalidateQueries(['csp_event_carriers']);
       toast({ title: 'Success', description: 'Carrier status updated' });
-      setActionDialog(null);
     },
     onError: (error) => {
       toast({
