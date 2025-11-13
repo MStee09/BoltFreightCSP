@@ -6,8 +6,7 @@ const createEntity = (tableName) => ({
   async list(orderBy = '-created_date') {
     let query = supabase
       .from(tableName)
-      .select('*')
-      .eq('user_id', MOCK_USER_ID);
+      .select('*');
 
     if (orderBy) {
       const isDesc = orderBy.startsWith('-');
@@ -47,7 +46,6 @@ const createEntity = (tableName) => ({
       .from(tableName)
       .update({ ...payload, updated_date: new Date().toISOString() })
       .eq('id', id)
-      .eq('user_id', MOCK_USER_ID)
       .select()
       .single();
 
@@ -59,8 +57,7 @@ const createEntity = (tableName) => ({
     const { error } = await supabase
       .from(tableName)
       .delete()
-      .eq('id', id)
-      .eq('user_id', MOCK_USER_ID);
+      .eq('id', id);
 
     if (error) throw error;
     return { success: true };
@@ -70,8 +67,7 @@ const createEntity = (tableName) => ({
     console.log(`[${tableName}] Filter called with:`, filters);
     let query = supabase
       .from(tableName)
-      .select('*')
-      .eq('user_id', MOCK_USER_ID);
+      .select('*');
 
     Object.entries(filters).forEach(([key, value]) => {
       if (key === 'order_by') {
