@@ -458,8 +458,12 @@ export default function CspCarriersTab({ cspEvent }) {
                                           size="sm"
                                           variant="outline"
                                           onClick={() => handleAwardCarrier(carrierData)}
-                                          disabled={!['under_review', 'revision_requested'].includes(carrierData.status)}
+                                          disabled={
+                                            cspEvent.stage !== 'award_tariff_finalization' ||
+                                            !['under_review', 'revision_requested'].includes(carrierData.status)
+                                          }
                                           className={
+                                            cspEvent.stage === 'award_tariff_finalization' &&
                                             ['under_review', 'revision_requested'].includes(carrierData.status)
                                               ? "h-7 text-xs bg-green-50 text-green-700 border-green-300 hover:bg-green-100 hover:text-green-800"
                                               : "h-7 text-xs opacity-50 cursor-not-allowed"
@@ -469,23 +473,43 @@ export default function CspCarriersTab({ cspEvent }) {
                                           Award
                                         </Button>
                                       </TooltipTrigger>
-                                      {!['under_review', 'revision_requested'].includes(carrierData.status) && (
+                                      {(cspEvent.stage !== 'award_tariff_finalization' || !['under_review', 'revision_requested'].includes(carrierData.status)) && (
                                         <TooltipContent>
-                                          <p className="text-xs">Available after carrier is Under Review</p>
+                                          <p className="text-xs">
+                                            {cspEvent.stage !== 'award_tariff_finalization'
+                                              ? 'CSP must be in Award & Tariff Finalization stage (Stage 6)'
+                                              : 'Carrier must be in Under Review or Revision Requested status'}
+                                          </p>
                                         </TooltipContent>
                                       )}
                                     </Tooltip>
                                   </TooltipProvider>
 
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleNotAwardCarrier(carrierData)}
-                                    className="h-7 text-xs bg-red-50 text-red-700 border-red-300 hover:bg-red-100 hover:text-red-800"
-                                  >
-                                    <XCircle className="w-3 h-3 mr-1" />
-                                    Not Award
-                                  </Button>
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => handleNotAwardCarrier(carrierData)}
+                                          disabled={cspEvent.stage !== 'award_tariff_finalization'}
+                                          className={
+                                            cspEvent.stage === 'award_tariff_finalization'
+                                              ? "h-7 text-xs bg-red-50 text-red-700 border-red-300 hover:bg-red-100 hover:text-red-800"
+                                              : "h-7 text-xs opacity-50 cursor-not-allowed"
+                                          }
+                                        >
+                                          <XCircle className="w-3 h-3 mr-1" />
+                                          Not Award
+                                        </Button>
+                                      </TooltipTrigger>
+                                      {cspEvent.stage !== 'award_tariff_finalization' && (
+                                        <TooltipContent>
+                                          <p className="text-xs">CSP must be in Award & Tariff Finalization stage (Stage 6)</p>
+                                        </TooltipContent>
+                                      )}
+                                    </Tooltip>
+                                  </TooltipProvider>
                                 </>
                               )}
                             </div>
