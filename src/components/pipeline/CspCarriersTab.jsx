@@ -34,6 +34,7 @@ import AwardCarrierDialog from './AwardCarrierDialog';
 import NotAwardDialog from './NotAwardDialog';
 import InlineNoteEditor from './InlineNoteEditor';
 import CreateProposedTariffsDialog from './CreateProposedTariffsDialog';
+import ManageCarriersDialog from './ManageCarriersDialog';
 import { useEmailComposer } from '../../contexts/EmailComposerContext';
 import { useUserRole } from '../../hooks/useUserRole';
 
@@ -67,6 +68,7 @@ export default function CspCarriersTab({ cspEvent }) {
   const [createTariffDialogOpen, setCreateTariffDialogOpen] = useState(false);
   const [showStageGateOverride, setShowStageGateOverride] = useState(false);
   const [bidDocsPromptCarrierId, setBidDocsPromptCarrierId] = useState(null);
+  const [manageCarriersOpen, setManageCarriersOpen] = useState(false);
 
   const { data: eventCarriers = [], isLoading } = useQuery({
     queryKey: ['csp_event_carriers', cspEvent?.id],
@@ -589,37 +591,16 @@ export default function CspCarriersTab({ cspEvent }) {
         </TabsContent>
       </Tabs>
 
-      {availableCarriers.length > 0 && (
-        <Card className="bg-slate-50">
-          <CardHeader>
-            <CardTitle className="text-sm flex items-center gap-2">
-              <UserPlus className="w-4 h-4" />
-              Invite Additional Carriers
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {availableCarriers.slice(0, 5).map((carrier) => (
-                <Button
-                  key={carrier.id}
-                  size="sm"
-                  variant="outline"
-                  onClick={() => inviteCarrierMutation.mutate(carrier.id)}
-                  disabled={inviteCarrierMutation.isPending}
-                >
-                  <UserPlus className="w-3 h-3 mr-1" />
-                  {carrier.name}
-                </Button>
-              ))}
-              {availableCarriers.length > 5 && (
-                <span className="text-sm text-slate-500 self-center">
-                  +{availableCarriers.length - 5} more...
-                </span>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      <div className="mt-4">
+        <Button
+          onClick={() => setManageCarriersOpen(true)}
+          variant="outline"
+          className="w-full border-dashed border-2 h-12 hover:bg-slate-50"
+        >
+          <UserPlus className="w-4 h-4 mr-2" />
+          Invite Carriers
+        </Button>
+      </div>
 
       <AwardCarrierDialog
         open={awardDialogOpen}
@@ -654,6 +635,12 @@ export default function CspCarriersTab({ cspEvent }) {
           queryClient.invalidateQueries(['csp_event_carriers']);
           setSelectedCarriers(new Set());
         }}
+      />
+
+      <ManageCarriersDialog
+        isOpen={manageCarriersOpen}
+        onOpenChange={setManageCarriersOpen}
+        cspEventId={cspEvent.id}
       />
     </div>
   );

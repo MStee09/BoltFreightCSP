@@ -42,7 +42,7 @@ export default function ManageCarriersDialog({ isOpen, onOpenChange, cspEventId 
                 csp_event_id: cspEventId,
                 carrier_id: carrierId,
                 status: 'invited',
-                invited_date: new Date().toISOString()
+                invited_at: new Date().toISOString()
             });
         },
         onSuccess: () => {
