@@ -166,7 +166,15 @@ export default function CustomersPage() {
       filtered = [...filtered].sort((a, b) => {
         let valueA, valueB;
 
-        if (sortColumn === 'marginTrend') {
+        if (sortColumn === 'name') {
+          valueA = (a.name || '').toLowerCase();
+          valueB = (b.name || '').toLowerCase();
+          if (sortDirection === 'asc') {
+            return valueA.localeCompare(valueB);
+          } else {
+            return valueB.localeCompare(valueA);
+          }
+        } else if (sortColumn === 'marginTrend') {
           valueA = a.marginTrend || 0;
           valueB = b.marginTrend || 0;
         } else if (sortColumn === 'lastTouch') {
@@ -315,7 +323,17 @@ export default function CustomersPage() {
               <TableHeader>
                 <TableRow className="bg-slate-50/50 text-xs uppercase tracking-wider text-slate-500 hover:bg-slate-50/50">
                   <TableHead className="w-8"></TableHead>
-                  <TableHead>Customer</TableHead>
+                  <TableHead>
+                    <button
+                      onClick={() => handleSort('name')}
+                      className="flex items-center gap-1 hover:text-slate-900 transition-colors"
+                    >
+                      Customer
+                      {sortColumn === 'name' && (
+                        <ArrowUpDown className={`w-3 h-3 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                      )}
+                    </button>
+                  </TableHead>
                   <TableHead>Segment</TableHead>
                   <TableHead>Active Tariff</TableHead>
                   <TableHead>Next CSP Due</TableHead>

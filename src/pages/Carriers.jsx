@@ -27,6 +27,15 @@ export default function CarriersPage() {
   const [ownerFilter, setOwnerFilter] = useState('all');
   const [sortColumn, setSortColumn] = useState('active_tariffs');
   const [sortDirection, setSortDirection] = useState('desc');
+
+  const handleSort = (column) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
   const [userPins, setUserPins] = useState(new Set());
   const [hoveredRowId, setHoveredRowId] = useState(null);
   const [carrierToDelete, setCarrierToDelete] = useState(null);
@@ -174,12 +183,12 @@ export default function CarriersPage() {
           return dateA < dateB ? 1 : dateA > dateB ? -1 : 0;
         }
       } else if (sortColumn === 'name') {
-        const nameA = a.name.toLowerCase();
-        const nameB = b.name.toLowerCase();
+        const nameA = (a.name || '').toLowerCase();
+        const nameB = (b.name || '').toLowerCase();
         if (sortDirection === 'asc') {
-          return nameA > nameB ? 1 : nameA < nameB ? -1 : 0;
+          return nameA.localeCompare(nameB);
         } else {
-          return nameA < nameB ? 1 : nameA > nameB ? -1 : 0;
+          return nameB.localeCompare(nameA);
         }
       }
       return 0;
@@ -281,10 +290,40 @@ export default function CarriersPage() {
             <TableHeader>
               <TableRow className="bg-slate-50/50 text-xs uppercase tracking-wider text-slate-500 hover:bg-slate-50/50">
                 <TableHead className="w-8"></TableHead>
-                <TableHead>Carrier</TableHead>
-                <TableHead>Active Tariffs</TableHead>
+                <TableHead>
+                  <button
+                    onClick={() => handleSort('name')}
+                    className="flex items-center gap-1 hover:text-slate-900 transition-colors"
+                  >
+                    Carrier
+                    {sortColumn === 'name' && (
+                      <ArrowUpDown className={`w-3 h-3 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                    )}
+                  </button>
+                </TableHead>
+                <TableHead>
+                  <button
+                    onClick={() => handleSort('active_tariffs')}
+                    className="flex items-center gap-1 hover:text-slate-900 transition-colors"
+                  >
+                    Active Tariffs
+                    {sortColumn === 'active_tariffs' && (
+                      <ArrowUpDown className={`w-3 h-3 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                    )}
+                  </button>
+                </TableHead>
                 <TableHead>Coverage</TableHead>
-                <TableHead>Last Updated</TableHead>
+                <TableHead>
+                  <button
+                    onClick={() => handleSort('last_updated')}
+                    className="flex items-center gap-1 hover:text-slate-900 transition-colors"
+                  >
+                    Last Updated
+                    {sortColumn === 'last_updated' && (
+                      <ArrowUpDown className={`w-3 h-3 ${sortDirection === 'desc' ? 'rotate-180' : ''}`} />
+                    )}
+                  </button>
+                </TableHead>
                 <TableHead>Owner</TableHead>
                 <TableHead className="w-32">Actions</TableHead>
               </TableRow>
