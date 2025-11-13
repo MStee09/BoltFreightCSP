@@ -193,8 +193,16 @@ export function GmailSetupSimple() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to send test email');
+        let errorMessage = 'Failed to send test email';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (parseError) {
+          const textResponse = await response.text();
+          console.error('Non-JSON error response:', textResponse);
+          errorMessage = `Server error (${response.status}). The send-email function may not be deployed or configured correctly.`;
+        }
+        throw new Error(errorMessage);
       }
 
       toast.success(`Test email sent to ${emailAddress}! Check your inbox.`, { duration: 5000 });

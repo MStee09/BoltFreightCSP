@@ -136,12 +136,12 @@ Deno.serve(async (req: Request) => {
         secure: false,
         auth: {
           type: 'OAuth2',
-          user: oauthTokens.email,
+          user: oauthTokens.email_address,
           accessToken: accessToken,
         },
       });
 
-      fromEmail = oauthTokens.email;
+      fromEmail = oauthTokens.email_address;
     } else {
       // Fallback to app password
       transporter = nodemailer.createTransport({
@@ -268,7 +268,7 @@ Deno.serve(async (req: Request) => {
 
     try {
       await transporter.sendMail(mailOptions);
-    } catch (emailError) {
+    } catch (emailError: any) {
       console.error('SMTP Error:', emailError);
       throw new Error(`Failed to send email: ${emailError.message}`);
     }
@@ -319,7 +319,7 @@ Deno.serve(async (req: Request) => {
         },
       }
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error sending email:', error);
     return new Response(
       JSON.stringify({ error: error.message }),

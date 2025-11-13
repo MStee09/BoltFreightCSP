@@ -567,8 +567,16 @@ export function FloatingEmailComposer({
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to send email');
+        let errorMessage = 'Failed to send email';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.error || errorMessage;
+        } catch (parseError) {
+          const textResponse = await response.text();
+          console.error('Non-JSON error response:', textResponse);
+          errorMessage = `Server error (${response.status}). Please check your Gmail connection in Settings.`;
+        }
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
