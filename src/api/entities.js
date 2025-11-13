@@ -25,7 +25,6 @@ const createEntity = (tableName) => ({
       .from(tableName)
       .select('*')
       .eq('id', id)
-      .eq('user_id', MOCK_USER_ID)
       .maybeSingle();
 
     if (error) throw error;

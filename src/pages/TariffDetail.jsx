@@ -126,10 +126,12 @@ export default function TariffDetailPage() {
         enabled: !!tariff?.customer_id,
     });
 
+    const carrierId = tariff?.carrier_ids?.[0] || tariff?.carrier_id;
+
     const { data: carrier, isLoading: isLoadingCarrier } = useQuery({
-        queryKey: ['carrier', tariff?.carrier_id],
-        queryFn: () => Carrier.get(tariff.carrier_id),
-        enabled: !!tariff?.carrier_id,
+        queryKey: ['carrier', carrierId],
+        queryFn: () => Carrier.get(carrierId),
+        enabled: !!carrierId,
     });
 
     const { data: cspEvent, isLoading: isLoadingCspEvent } = useQuery({
@@ -207,18 +209,13 @@ export default function TariffDetailPage() {
                 </TabsList>
 
                 <TabsContent value="overview" className="space-y-6">
-                    {cspEvent && (
+                    {cspEvent && carrier && (
                         <LinkedCspSummaryCard
                             cspEvent={cspEvent}
                             customer={customer}
-                            carriers={carriers.filter(c => tariff.carrier_ids?.includes(c.id))}
+                            carriers={[carrier]}
                         />
                     )}
-
-                    {tariff.renewal_csp_event_id && (() => {
-                        const renewalCsp = cspEvents.find(e => e.id === tariff.renewal_csp_event_id);
-                        return renewalCsp ? <RenewalStatusBadge renewalCspEvent={renewalCsp} /> : null;
-                    })()}
 
                     {(cspEvent || customer) && (
                         <Card className="border-blue-200 bg-blue-50/50">
