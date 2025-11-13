@@ -140,6 +140,7 @@ export const Document = createEntity('documents');
 export const CalendarEvent = createEntity('calendar_events');
 export const CSPEventCarrier = createEntity('csp_event_carriers');
 export const CarrierContact = createEntity('carrier_contacts');
+export const TariffFamily = createEntity('tariff_families');
 
 export const User = {
   async signUp(email, password) {

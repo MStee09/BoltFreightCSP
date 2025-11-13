@@ -20,6 +20,7 @@ import { useToast } from '../ui/use-toast';
 import { supabase } from '../../api/supabaseClient';
 import ScacCarrierMatch from '../documents/ScacCarrierMatch';
 import VolumeSpendTab from './VolumeSpendTab';
+import CspCarriersTab from './CspCarriersTab';
 
 const STAGES = [
     "discovery",
@@ -351,72 +352,7 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
                             </TabsContent>
 
                             <TabsContent value="carriers" className="mt-4">
-                                <Card>
-                                    <CardHeader className="flex flex-row items-center justify-between">
-                                        <div>
-                                            <CardTitle className="text-base">Involved Carriers</CardTitle>
-                                            <CardDescription>Carriers participating in this event</CardDescription>
-                                        </div>
-                                        <Button
-                                            size="sm"
-                                            onClick={() => setIsManageCarriersOpen(true)}
-                                        >
-                                            <Plus className="w-4 h-4 mr-2" />
-                                            Manage Carriers
-                                        </Button>
-                                    </CardHeader>
-                                    <CardContent>
-                                        {isLoadingCarriers ? (
-                                            <div className="space-y-3">
-                                                <Skeleton className="h-16 w-full" />
-                                                <Skeleton className="h-16 w-full" />
-                                            </div>
-                                        ) : eventCarriers.length > 0 ? (
-                                            <div className="space-y-3">
-                                                {eventCarriers.map((carrier) => (
-                                                    <div key={carrier.id} className="flex items-start justify-between p-3 border rounded-lg hover:bg-slate-50">
-                                                        <div className="flex-1">
-                                                            <div className="flex items-center gap-2 mb-1">
-                                                                <p className="font-medium text-sm text-slate-900">{carrier.name}</p>
-                                                                {carrier.assignment && (
-                                                                    <Badge variant="outline" className="text-xs capitalize">
-                                                                        {carrier.assignment.status}
-                                                                    </Badge>
-                                                                )}
-                                                            </div>
-                                                            <p className="text-xs text-slate-500 capitalize">{carrier.service_type}</p>
-                                                            {carrier.contact_email && (
-                                                                <div className="flex items-center gap-2 mt-2">
-                                                                    <Mail className="w-3 h-3 text-slate-400" />
-                                                                    <p className="text-xs text-slate-600">{carrier.contact_email}</p>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                        <Button
-                                                            variant="ghost"
-                                                            size="sm"
-                                                            onClick={() => window.open(`/carriers/${carrier.id}`, '_blank')}
-                                                        >
-                                                            <ExternalLink className="w-4 h-4" />
-                                                        </Button>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <div className="text-center py-8">
-                                                <p className="text-sm text-slate-500 mb-4">No carriers assigned yet</p>
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    onClick={() => setIsManageCarriersOpen(true)}
-                                                >
-                                                    <Plus className="w-4 h-4 mr-2" />
-                                                    Add Carriers
-                                                </Button>
-                                            </div>
-                                        )}
-                                    </CardContent>
-                                </Card>
+                                <CspCarriersTab cspEvent={event} />
                             </TabsContent>
 
                             <TabsContent value="tariffs" className="mt-4">
