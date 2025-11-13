@@ -105,11 +105,15 @@ export default function ManageCarriersDialog({ isOpen, onOpenChange, cspEventId 
     };
 
     const handleAddSelected = async () => {
-        for (const carrierId of selectedCarriers) {
-            await addCarrierMutation.mutateAsync(carrierId);
+        try {
+            for (const carrierId of selectedCarriers) {
+                await addCarrierMutation.mutateAsync(carrierId);
+            }
+            setSelectedCarriers(new Set());
+            setSearchQuery('');
+        } catch (error) {
+            console.error('Error adding carriers:', error);
         }
-        setSelectedCarriers(new Set());
-        setSearchQuery('');
     };
 
     const handleRemoveCarrier = (assignmentId) => {
