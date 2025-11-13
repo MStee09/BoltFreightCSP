@@ -5,9 +5,10 @@ import { supabase } from '../../api/supabaseClient';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
+import { Alert, AlertDescription } from '../ui/alert';
 import {
   MoreVertical, UserPlus, Upload, FileText, Award, XCircle,
-  RefreshCw, CheckCircle, Clock, Send, Truck, Paperclip
+  RefreshCw, CheckCircle, Clock, Send, Truck, Paperclip, AlertTriangle, Mail
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -21,8 +22,12 @@ import { useToast } from '../ui/use-toast';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Textarea } from '../ui/textarea';
 import { Label } from '../ui/label';
+import { Input } from '../ui/input';
 import { format } from 'date-fns';
 import { Checkbox } from '../ui/checkbox';
+import BidDocsViewer from './BidDocsViewer';
+import EditLaneScopeDialog from './EditLaneScopeDialog';
+import { useEmailComposer } from '../../contexts/EmailComposerContext';
 
 const STATUS_CONFIG = {
   invited: { label: 'Invited', color: 'bg-slate-100 text-slate-700', icon: Send },
@@ -38,10 +43,12 @@ const STATUS_CONFIG = {
 export default function CspCarriersTab({ cspEvent }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { openComposer } = useEmailComposer();
   const [filterStatus, setFilterStatus] = useState('all');
   const [actionDialog, setActionDialog] = useState(null);
   const [selectedCarriers, setSelectedCarriers] = useState(new Set());
   const [bulkAction, setBulkAction] = useState(null);
+  const [editingScopeCarrier, setEditingScopeCarrier] = useState(null);
 
   const { data: eventCarriers = [], isLoading } = useQuery({
     queryKey: ['csp_event_carriers', cspEvent?.id],
@@ -55,7 +62,7 @@ export default function CspCarriersTab({ cspEvent }) {
   });
 
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ carrierId, newStatus, notes }) => {
+    mutationFn: async ({ carrierId, newStatus, notes, laneScope }) => {
       const carrier = eventCarriers.find(c => c.carrier_id === carrierId);
       const updates = {
         status: newStatus,
@@ -69,6 +76,10 @@ export default function CspCarriersTab({ cspEvent }) {
         updates.awarded_at = new Date().toISOString();
         const { data: { user } } = await supabase.auth.getUser();
         updates.awarded_by = user?.id;
+
+        if (laneScope && Object.values(laneScope).some(v => v)) {
+          updates.lane_scope_json = laneScope;
+        }
       }
 
       return CSPEventCarrier.update(carrier.id, updates);
@@ -137,7 +148,17 @@ export default function CspCarriersTab({ cspEvent }) {
   const availableCarriers = allCarriers.filter(c => !invitedCarrierIds.has(c.id));
 
   const handleStatusChange = (carrierId, newStatus) => {
-    setActionDialog({ carrierId, newStatus, notes: '' });
+    setActionDialog({
+      carrierId,
+      newStatus,
+      notes: '',
+      laneScope: {
+        origins: '',
+        destinations: '',
+        equipmentTypes: '',
+        estimatedVolume: '',
+      },
+    });
   };
 
   const handleBulkAction = (action) => {
@@ -158,8 +179,20 @@ export default function CspCarriersTab({ cspEvent }) {
     setSelectedCarriers(newSelection);
   };
 
+  const isAwardStage = cspEvent?.stage === 'awarded' || cspEvent?.stage === 'implementation';
+  const hasAwardedCarriers = statusCounts.awarded > 0;
+
   return (
     <div className="space-y-4">
+      {isAwardStage && !hasAwardedCarriers && (
+        <Alert className="border-orange-200 bg-orange-50">
+          <AlertTriangle className="w-4 h-4 text-orange-600" />
+          <AlertDescription className="text-orange-900">
+            <strong>No awards yet.</strong> Award at least one carrier to proceed with tariff creation.
+          </AlertDescription>
+        </Alert>
+      )}
+
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Truck className="w-5 h-5 text-slate-600" />
@@ -235,12 +268,7 @@ export default function CspCarriersTab({ cspEvent }) {
                               <StatusIcon className="w-3 h-3 mr-1" />
                               {statusConfig?.label}
                             </Badge>
-                            {bidDocsCount > 0 && (
-                              <Badge variant="outline">
-                                <Paperclip className="w-3 h-3 mr-1" />
-                                {bidDocsCount} file{bidDocsCount > 1 ? 's' : ''}
-                              </Badge>
-                            )}
+                            <BidDocsViewer eventCarrier={carrierData} />
                           </div>
 
                           {carrierData.notes && (
@@ -258,6 +286,15 @@ export default function CspCarriersTab({ cspEvent }) {
                               <span>Awarded: {format(new Date(carrierData.awarded_at), 'MMM d, yyyy')}</span>
                             )}
                           </div>
+
+                          {carrierData.status === 'awarded' && (
+                            <button
+                              onClick={() => setEditingScopeCarrier(carrierData)}
+                              className="text-xs text-blue-600 hover:text-blue-800 hover:underline mt-2"
+                            >
+                              {carrierData.lane_scope_json ? 'Edit scope' : 'Add lane scope'}
+                            </button>
+                          )}
                         </div>
                       </div>
 
@@ -268,6 +305,17 @@ export default function CspCarriersTab({ cspEvent }) {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => {
+                            openComposer({
+                              cspEvent,
+                              carrier: carrierData.carrier,
+                              initialTo: carrierData.carrier.email ? [carrierData.carrier.email] : [],
+                            });
+                          }}>
+                            <Mail className="w-4 h-4 mr-2" />
+                            Email Carrier
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => handleStatusChange(carrierData.carrier_id, 'submitted')}>
                             <FileText className="w-4 h-4 mr-2" />
                             Mark Submitted
@@ -341,7 +389,7 @@ export default function CspCarriersTab({ cspEvent }) {
 
       {actionDialog && (
         <Dialog open={!!actionDialog} onOpenChange={() => setActionDialog(null)}>
-          <DialogContent>
+          <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>
                 {STATUS_CONFIG[actionDialog.newStatus]?.label}
@@ -360,6 +408,71 @@ export default function CspCarriersTab({ cspEvent }) {
                   rows={3}
                 />
               </div>
+
+              {actionDialog.newStatus === 'awarded' && (
+                <div className="space-y-4 pt-4 border-t">
+                  <div>
+                    <h4 className="font-semibold text-sm mb-3">Lane Scope (Optional)</h4>
+                    <p className="text-xs text-slate-500 mb-3">
+                      Define the scope of lanes covered by this award
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="origins">Origins</Label>
+                      <Input
+                        id="origins"
+                        value={actionDialog.laneScope.origins}
+                        onChange={(e) => setActionDialog({
+                          ...actionDialog,
+                          laneScope: { ...actionDialog.laneScope, origins: e.target.value }
+                        })}
+                        placeholder="e.g., CA, TX, NY"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="destinations">Destinations</Label>
+                      <Input
+                        id="destinations"
+                        value={actionDialog.laneScope.destinations}
+                        onChange={(e) => setActionDialog({
+                          ...actionDialog,
+                          laneScope: { ...actionDialog.laneScope, destinations: e.target.value }
+                        })}
+                        placeholder="e.g., FL, GA, NC"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="equipmentTypes">Equipment Types</Label>
+                      <Input
+                        id="equipmentTypes"
+                        value={actionDialog.laneScope.equipmentTypes}
+                        onChange={(e) => setActionDialog({
+                          ...actionDialog,
+                          laneScope: { ...actionDialog.laneScope, equipmentTypes: e.target.value }
+                        })}
+                        placeholder="e.g., Dry Van, Reefer"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="estimatedVolume">Estimated Volume</Label>
+                      <Input
+                        id="estimatedVolume"
+                        value={actionDialog.laneScope.estimatedVolume}
+                        onChange={(e) => setActionDialog({
+                          ...actionDialog,
+                          laneScope: { ...actionDialog.laneScope, estimatedVolume: e.target.value }
+                        })}
+                        placeholder="e.g., 100 shipments/mo"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setActionDialog(null)}>
@@ -415,6 +528,14 @@ export default function CspCarriersTab({ cspEvent }) {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+      )}
+
+      {editingScopeCarrier && (
+        <EditLaneScopeDialog
+          eventCarrier={editingScopeCarrier}
+          open={!!editingScopeCarrier}
+          onOpenChange={(open) => !open && setEditingScopeCarrier(null)}
+        />
       )}
     </div>
   );

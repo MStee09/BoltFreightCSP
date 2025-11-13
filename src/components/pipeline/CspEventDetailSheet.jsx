@@ -21,6 +21,10 @@ import { supabase } from '../../api/supabaseClient';
 import ScacCarrierMatch from '../documents/ScacCarrierMatch';
 import VolumeSpendTab from './VolumeSpendTab';
 import CspCarriersTab from './CspCarriersTab';
+import CreateAwardedTariffsDialog from './CreateAwardedTariffsDialog';
+import StageGateOverrideDialog from './StageGateOverrideDialog';
+import { validateStageTransition } from '../../utils/stageGateValidation';
+import { useUserRole } from '../../hooks/useUserRole';
 
 const STAGES = [
     "discovery",
@@ -42,7 +46,11 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [isCustomerDetailOpen, setIsCustomerDetailOpen] = useState(false);
     const [isManageCarriersOpen, setIsManageCarriersOpen] = useState(false);
+    const [isCreateTariffsDialogOpen, setIsCreateTariffsDialogOpen] = useState(false);
+    const [overrideDialog, setOverrideDialog] = useState(null);
     const { openComposer } = useEmailComposer();
+    const { userProfile } = useUserRole();
+    const canOverride = userProfile?.app_role === 'admin' || userProfile?.app_role === 'elite';
 
     const { data: event, isLoading: isLoadingEvent } = useQuery({
         queryKey: ['csp_event', eventId],
@@ -136,7 +144,29 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
     };
 
     const moveToNextStage = useMutation({
-        mutationFn: async (newStage) => {
+        mutationFn: async ({ newStage, skipValidation = false }) => {
+            if (!skipValidation) {
+                const validation = await validateStageTransition(
+                    event.stage,
+                    newStage,
+                    event,
+                    eventCarrierAssignments,
+                    tariffs
+                );
+
+                if (!validation.valid) {
+                    if (canOverride) {
+                        setOverrideDialog({
+                            newStage,
+                            validationError: validation.message,
+                        });
+                        throw new Error('VALIDATION_FAILED_NEEDS_OVERRIDE');
+                    } else {
+                        throw new Error(validation.message);
+                    }
+                }
+            }
+
             await CSPEvent.update(eventId, { stage: newStage });
             await Interaction.create({
                 entity_type: 'customer',
@@ -161,11 +191,13 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
             });
         },
         onError: (error) => {
-            toast({
-                title: "Error",
-                description: error.message || "Failed to update stage.",
-                variant: "destructive",
-            });
+            if (error.message !== 'VALIDATION_FAILED_NEEDS_OVERRIDE') {
+                toast({
+                    title: "Error",
+                    description: error.message || "Failed to update stage.",
+                    variant: "destructive",
+                });
+            }
         }
     });
 
@@ -240,7 +272,7 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
                                 value={event?.stage}
                                 onValueChange={(value) => {
                                     if (value !== event?.stage) {
-                                        moveToNextStage.mutate(value);
+                                        moveToNextStage.mutate({ newStage: value });
                                     }
                                 }}
                                 disabled={moveToNextStage.isPending}
@@ -284,6 +316,25 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
                                     <TabsTrigger value="documents">Documents</TabsTrigger>
                                 </TabsList>
                                 <TabsContent value="overview" className="space-y-4">
+                                    {event?.stage === 'awarded' && (
+                                        <Card className="border-green-200 bg-green-50">
+                                            <CardContent className="p-4">
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <p className="font-semibold text-green-900">Ready to Create Tariffs</p>
+                                                        <p className="text-sm text-green-700">Create proposed tariffs for awarded carriers</p>
+                                                    </div>
+                                                    <Button
+                                                        onClick={() => setIsCreateTariffsDialogOpen(true)}
+                                                        className="bg-green-600 hover:bg-green-700"
+                                                    >
+                                                        <Award className="w-4 h-4 mr-2" />
+                                                        Create Awarded Tariff(s)
+                                                    </Button>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    )}
                                     <Card>
                                         <CardHeader>
                                             <CardTitle>Event Details</CardTitle>
@@ -492,6 +543,27 @@ export default function CspEventDetailSheet({ isOpen, onOpenChange, eventId }) {
                 onOpenChange={setIsCustomerDetailOpen}
                 customerId={event?.customer_id}
             />
+            <CreateAwardedTariffsDialog
+                cspEvent={event}
+                open={isCreateTariffsDialogOpen}
+                onOpenChange={setIsCreateTariffsDialogOpen}
+            />
+            {overrideDialog && (
+                <StageGateOverrideDialog
+                    cspEvent={event}
+                    newStage={overrideDialog.newStage}
+                    validationError={overrideDialog.validationError}
+                    open={!!overrideDialog}
+                    onOpenChange={(open) => !open && setOverrideDialog(null)}
+                    onOverrideConfirm={() => {
+                        moveToNextStage.mutate({
+                            newStage: overrideDialog.newStage,
+                            skipValidation: true,
+                        });
+                        setOverrideDialog(null);
+                    }}
+                />
+            )}
         </Sheet>
     );
 }
