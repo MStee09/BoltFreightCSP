@@ -33,7 +33,7 @@ import BulkUploadDialog from './BulkUploadDialog';
 import AwardCarrierDialog from './AwardCarrierDialog';
 import NotAwardDialog from './NotAwardDialog';
 import InlineNoteEditor from './InlineNoteEditor';
-import CreateAwardedCspDialog from '../tariffs/CreateAwardedCspDialog';
+import CreateProposedTariffsDialog from './CreateProposedTariffsDialog';
 import { useEmailComposer } from '../../contexts/EmailComposerContext';
 import { useUserRole } from '../../hooks/useUserRole';
 
@@ -595,14 +595,12 @@ export default function CspCarriersTab({ cspEvent }) {
         isBulk={Array.isArray(notAwardDialogCarriers) && notAwardDialogCarriers.length > 1}
       />
 
-      {createTariffDialogOpen && (
-        <CreateAwardedCspDialog
-          cspEvent={cspEvent}
-          awardedCarriers={carrierData.filter(c => c.status === 'awarded')}
-          open={createTariffDialogOpen}
-          onOpenChange={setCreateTariffDialogOpen}
-        />
-      )}
+      <CreateProposedTariffsDialog
+        cspEvent={cspEvent}
+        awardedCarriers={carrierData.filter(c => c.status === 'awarded')}
+        open={createTariffDialogOpen}
+        onOpenChange={setCreateTariffDialogOpen}
+      />
 
       <BulkUploadDialog
         selectedCarriers={Array.from(selectedCarriers)}
