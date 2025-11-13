@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Alert, AlertDescription } from '../ui/alert';
 import {
   MoreVertical, UserPlus, Upload, FileText, Award, XCircle,
-  RefreshCw, CheckCircle, Clock, Send, Truck, Paperclip, AlertTriangle, Mail
+  RefreshCw, CheckCircle, Clock, Send, Truck, Paperclip, AlertTriangle, Mail, MessageSquare
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -23,10 +23,12 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from '../ui/textarea';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { format } from 'date-fns';
 import { Checkbox } from '../ui/checkbox';
 import BidDocsViewer from './BidDocsViewer';
 import EditLaneScopeDialog from './EditLaneScopeDialog';
+import AddNoteDialog from './AddNoteDialog';
 import { useEmailComposer } from '../../contexts/EmailComposerContext';
 
 const STATUS_CONFIG = {
@@ -49,6 +51,7 @@ export default function CspCarriersTab({ cspEvent }) {
   const [selectedCarriers, setSelectedCarriers] = useState(new Set());
   const [bulkAction, setBulkAction] = useState(null);
   const [editingScopeCarrier, setEditingScopeCarrier] = useState(null);
+  const [addingNoteCarrier, setAddingNoteCarrier] = useState(null);
 
   const { data: eventCarriers = [], isLoading } = useQuery({
     queryKey: ['csp_event_carriers', cspEvent?.id],
@@ -62,7 +65,7 @@ export default function CspCarriersTab({ cspEvent }) {
   });
 
   const updateStatusMutation = useMutation({
-    mutationFn: async ({ carrierId, newStatus, notes, laneScope }) => {
+    mutationFn: async ({ carrierId, newStatus, notes, laneScope, reason }) => {
       const carrier = eventCarriers.find(c => c.carrier_id === carrierId);
       const updates = {
         status: newStatus,
@@ -80,6 +83,9 @@ export default function CspCarriersTab({ cspEvent }) {
         if (laneScope && Object.values(laneScope).some(v => v)) {
           updates.lane_scope_json = laneScope;
         }
+      }
+      if (newStatus === 'not_awarded' && reason) {
+        updates.not_awarded_reason = reason;
       }
 
       return CSPEventCarrier.update(carrier.id, updates);
@@ -147,11 +153,33 @@ export default function CspCarriersTab({ cspEvent }) {
   const invitedCarrierIds = new Set(eventCarriers.map(ec => ec.carrier_id));
   const availableCarriers = allCarriers.filter(c => !invitedCarrierIds.has(c.id));
 
+  const handleQuickStatusChange = async (carrierId, newStatus) => {
+    const needsDialog = ['awarded', 'not_awarded'].includes(newStatus);
+
+    if (needsDialog) {
+      setActionDialog({
+        carrierId,
+        newStatus,
+        notes: '',
+        reason: '',
+        laneScope: {
+          origins: '',
+          destinations: '',
+          equipmentTypes: '',
+          estimatedVolume: '',
+        },
+      });
+    } else {
+      updateStatusMutation.mutate({ carrierId, newStatus });
+    }
+  };
+
   const handleStatusChange = (carrierId, newStatus) => {
     setActionDialog({
       carrierId,
       newStatus,
       notes: '',
+      reason: '',
       laneScope: {
         origins: '',
         destinations: '',
@@ -264,15 +292,46 @@ export default function CspCarriersTab({ cspEvent }) {
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
                             <h4 className="font-semibold">{carrierData.carrier.name}</h4>
-                            <Badge className={statusConfig?.color}>
-                              <StatusIcon className="w-3 h-3 mr-1" />
-                              {statusConfig?.label}
-                            </Badge>
+
+                            <Select
+                              value={carrierData.status}
+                              onValueChange={(value) => handleQuickStatusChange(carrierData.carrier_id, value)}
+                              disabled={updateStatusMutation.isPending}
+                            >
+                              <SelectTrigger className={`h-7 w-[160px] text-xs ${statusConfig?.color}`}>
+                                <SelectValue>
+                                  <div className="flex items-center gap-1">
+                                    <StatusIcon className="w-3 h-3" />
+                                    {statusConfig?.label}
+                                  </div>
+                                </SelectValue>
+                              </SelectTrigger>
+                              <SelectContent>
+                                {Object.entries(STATUS_CONFIG).map(([key, config]) => {
+                                  const Icon = config.icon;
+                                  return (
+                                    <SelectItem key={key} value={key}>
+                                      <div className="flex items-center gap-2">
+                                        <Icon className="w-3 h-3" />
+                                        {config.label}
+                                      </div>
+                                    </SelectItem>
+                                  );
+                                })}
+                              </SelectContent>
+                            </Select>
+
                             <BidDocsViewer eventCarrier={carrierData} />
                           </div>
 
                           {carrierData.notes && (
                             <p className="text-sm text-slate-600 mb-2">{carrierData.notes}</p>
+                          )}
+
+                          {carrierData.status === 'not_awarded' && carrierData.not_awarded_reason && (
+                            <p className="text-xs text-slate-500 mb-2">
+                              <span className="font-medium">Reason:</span> {carrierData.not_awarded_reason}
+                            </p>
                           )}
 
                           <div className="flex items-center gap-4 text-xs text-slate-500">
@@ -314,6 +373,10 @@ export default function CspCarriersTab({ cspEvent }) {
                           }}>
                             <Mail className="w-4 h-4 mr-2" />
                             Email Carrier
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setAddingNoteCarrier(carrierData)}>
+                            <MessageSquare className="w-4 h-4 mr-2" />
+                            Add Note
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => handleStatusChange(carrierData.carrier_id, 'submitted')}>
@@ -409,6 +472,25 @@ export default function CspCarriersTab({ cspEvent }) {
                 />
               </div>
 
+              {actionDialog.newStatus === 'not_awarded' && (
+                <div className="pt-4 border-t">
+                  <div>
+                    <Label htmlFor="not_awarded_reason">Reason for Not Awarding *</Label>
+                    <Textarea
+                      id="not_awarded_reason"
+                      value={actionDialog.reason}
+                      onChange={(e) => setActionDialog({ ...actionDialog, reason: e.target.value })}
+                      placeholder="Explain why this carrier was not awarded..."
+                      rows={3}
+                      className="mt-2"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">
+                      This reason will be displayed on the carrier card
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {actionDialog.newStatus === 'awarded' && (
                 <div className="space-y-4 pt-4 border-t">
                   <div>
@@ -479,7 +561,17 @@ export default function CspCarriersTab({ cspEvent }) {
                 Cancel
               </Button>
               <Button
-                onClick={() => updateStatusMutation.mutate(actionDialog)}
+                onClick={() => {
+                  if (actionDialog.newStatus === 'not_awarded' && !actionDialog.reason?.trim()) {
+                    toast({
+                      title: 'Reason Required',
+                      description: 'Please provide a reason for not awarding this carrier',
+                      variant: 'destructive',
+                    });
+                    return;
+                  }
+                  updateStatusMutation.mutate(actionDialog);
+                }}
                 disabled={updateStatusMutation.isPending}
               >
                 Confirm
@@ -535,6 +627,14 @@ export default function CspCarriersTab({ cspEvent }) {
           eventCarrier={editingScopeCarrier}
           open={!!editingScopeCarrier}
           onOpenChange={(open) => !open && setEditingScopeCarrier(null)}
+        />
+      )}
+
+      {addingNoteCarrier && (
+        <AddNoteDialog
+          eventCarrier={addingNoteCarrier}
+          open={!!addingNoteCarrier}
+          onOpenChange={(open) => !open && setAddingNoteCarrier(null)}
         />
       )}
     </div>
