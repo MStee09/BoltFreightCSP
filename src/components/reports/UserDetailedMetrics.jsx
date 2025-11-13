@@ -114,13 +114,12 @@ export function UserDetailedMetrics({ userId, userName, dateRange, open, onOpenC
           .from('tariff_activities')
           .select(`
             *,
-            tariff:tariffs(id, carrier_id, customers),
-            carrier:tariff_activities_carrier_id_fkey(name)
+            tariff:tariffs(id, carrier_id, customers)
           `)
           .in('user_id', userIds)
-          .gte('activity_date', dateRange.from.toISOString())
-          .lte('activity_date', dateRange.to.toISOString())
-          .order('activity_date', { ascending: false }),
+          .gte('created_at', dateRange.from.toISOString())
+          .lte('created_at', dateRange.to.toISOString())
+          .order('created_at', { ascending: false }),
 
         supabase
           .from('csp_event_carriers')
@@ -140,8 +139,8 @@ export function UserDetailedMetrics({ userId, userName, dateRange, open, onOpenC
           .from('documents')
           .select('*')
           .in('user_id', userIds)
-          .gte('uploaded_at', dateRange.from.toISOString())
-          .lte('uploaded_at', dateRange.to.toISOString())
+          .gte('created_date', dateRange.from.toISOString())
+          .lte('created_date', dateRange.to.toISOString())
       ]);
 
       if (eventsResult.error) throw eventsResult.error;
@@ -232,7 +231,7 @@ export function UserDetailedMetrics({ userId, userName, dateRange, open, onOpenC
     });
 
     tariffActivities.forEach(activity => {
-      const dayKey = format(new Date(activity.activity_date), 'MMM dd');
+      const dayKey = format(new Date(activity.created_at), 'MMM dd');
       if (!activityByDay[dayKey]) {
         activityByDay[dayKey] = { day: dayKey, stageChanges: 0, emails: 0, tariffs: 0 };
       }
