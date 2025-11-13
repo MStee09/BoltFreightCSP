@@ -21,6 +21,7 @@ export default function ManageCarriersDialog({ isOpen, onOpenChange, cspEventId 
     const navigate = useNavigate();
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCarriers, setSelectedCarriers] = useState(new Set());
+    const [ownershipTypes, setOwnershipTypes] = useState(new Map());
 
     const { data: allCarriers = [] } = useQuery({
         queryKey: ['carriers'],
@@ -37,12 +38,13 @@ export default function ManageCarriersDialog({ isOpen, onOpenChange, cspEventId 
     const assignedCarrierIds = new Set(eventCarrierAssignments.map(ec => ec.carrier_id));
 
     const addCarrierMutation = useMutation({
-        mutationFn: async (carrierId) => {
+        mutationFn: async ({ carrierId, ownershipType }) => {
             return CSPEventCarrier.create({
                 csp_event_id: cspEventId,
                 carrier_id: carrierId,
                 status: 'invited',
-                invited_at: new Date().toISOString()
+                invited_at: new Date().toISOString(),
+                ownership_type: ownershipType || 'rocket_csp'
             });
         },
         onSuccess: () => {
@@ -81,6 +83,26 @@ export default function ManageCarriersDialog({ isOpen, onOpenChange, cspEventId 
         }
     });
 
+    const updateOwnershipTypeMutation = useMutation({
+        mutationFn: async ({ assignmentId, ownershipType }) => {
+            return CSPEventCarrier.update(assignmentId, { ownership_type: ownershipType });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries(['csp_event_carriers', cspEventId]);
+            toast({
+                title: 'Ownership type updated',
+                description: 'Carrier ownership type has been updated'
+            });
+        },
+        onError: (error) => {
+            toast({
+                title: 'Error',
+                description: error.message,
+                variant: 'destructive'
+            });
+        }
+    });
+
     const filteredCarriers = allCarriers.filter(carrier =>
         carrier.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
         carrier.scac_code?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -98,18 +120,34 @@ export default function ManageCarriersDialog({ isOpen, onOpenChange, cspEventId 
         const newSelected = new Set(selectedCarriers);
         if (newSelected.has(carrierId)) {
             newSelected.delete(carrierId);
+            const newTypes = new Map(ownershipTypes);
+            newTypes.delete(carrierId);
+            setOwnershipTypes(newTypes);
         } else {
             newSelected.add(carrierId);
+            const newTypes = new Map(ownershipTypes);
+            newTypes.set(carrierId, 'rocket_csp');
+            setOwnershipTypes(newTypes);
         }
         setSelectedCarriers(newSelected);
+    };
+
+    const handleOwnershipTypeChange = (carrierId, ownershipType) => {
+        const newTypes = new Map(ownershipTypes);
+        newTypes.set(carrierId, ownershipType);
+        setOwnershipTypes(newTypes);
     };
 
     const handleAddSelected = async () => {
         try {
             for (const carrierId of selectedCarriers) {
-                await addCarrierMutation.mutateAsync(carrierId);
+                await addCarrierMutation.mutateAsync({
+                    carrierId,
+                    ownershipType: ownershipTypes.get(carrierId) || 'rocket_csp'
+                });
             }
             setSelectedCarriers(new Set());
+            setOwnershipTypes(new Map());
             setSearchQuery('');
         } catch (error) {
             console.error('Error adding carriers:', error);
@@ -173,30 +211,50 @@ export default function ManageCarriersDialog({ isOpen, onOpenChange, cspEventId 
                                             {availableCarriers.map((carrier) => (
                                                 <div
                                                     key={carrier.id}
-                                                    className="flex items-start gap-3 p-3 border rounded-lg hover:bg-slate-50 cursor-pointer transition-colors"
-                                                    onClick={() => handleToggleCarrier(carrier.id)}
+                                                    className="flex items-start gap-3 p-3 border rounded-lg hover:bg-slate-50 transition-colors"
                                                 >
                                                     <Checkbox
                                                         checked={selectedCarriers.has(carrier.id)}
                                                         onCheckedChange={() => handleToggleCarrier(carrier.id)}
                                                         className="mt-1"
                                                     />
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="flex items-center gap-2 mb-1">
-                                                            <p className="font-medium text-sm">{carrier.name}</p>
-                                                            {carrier.scac_code && (
-                                                                <Badge variant="outline" className="text-xs">
-                                                                    {carrier.scac_code}
-                                                                </Badge>
+                                                    <div className="flex-1 min-w-0 space-y-2">
+                                                        <div className="cursor-pointer" onClick={() => handleToggleCarrier(carrier.id)}>
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <p className="font-medium text-sm">{carrier.name}</p>
+                                                                {carrier.scac_code && (
+                                                                    <Badge variant="outline" className="text-xs">
+                                                                        {carrier.scac_code}
+                                                                    </Badge>
+                                                                )}
+                                                            </div>
+                                                            {carrier.service_type && (
+                                                                <p className="text-xs text-slate-500 capitalize">{carrier.service_type}</p>
+                                                            )}
+                                                            {carrier.contact_email && (
+                                                                <div className="flex items-center gap-1 mt-1">
+                                                                    <Mail className="w-3 h-3 text-slate-400" />
+                                                                    <p className="text-xs text-slate-600">{carrier.contact_email}</p>
+                                                                </div>
                                                             )}
                                                         </div>
-                                                        {carrier.service_type && (
-                                                            <p className="text-xs text-slate-500 capitalize">{carrier.service_type}</p>
-                                                        )}
-                                                        {carrier.contact_email && (
-                                                            <div className="flex items-center gap-1 mt-1">
-                                                                <Mail className="w-3 h-3 text-slate-400" />
-                                                                <p className="text-xs text-slate-600">{carrier.contact_email}</p>
+                                                        {selectedCarriers.has(carrier.id) && (
+                                                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                                                <Label className="text-xs text-slate-600 min-w-fit">Ownership:</Label>
+                                                                <Select
+                                                                    value={ownershipTypes.get(carrier.id) || 'rocket_csp'}
+                                                                    onValueChange={(value) => handleOwnershipTypeChange(carrier.id, value)}
+                                                                >
+                                                                    <SelectTrigger className="h-7 text-xs">
+                                                                        <SelectValue />
+                                                                    </SelectTrigger>
+                                                                    <SelectContent>
+                                                                        <SelectItem value="rocket_csp">Rocket CSP</SelectItem>
+                                                                        <SelectItem value="rocket_blanket">Rocket Blanket</SelectItem>
+                                                                        <SelectItem value="customer_direct">Customer Direct</SelectItem>
+                                                                        <SelectItem value="priority1_blanket">Priority 1 Blanket</SelectItem>
+                                                                    </SelectContent>
+                                                                </Select>
                                                             </div>
                                                         )}
                                                     </div>
@@ -260,6 +318,27 @@ export default function ManageCarriersDialog({ isOpen, onOpenChange, cspEventId 
                                                         >
                                                             <X className="w-4 h-4" />
                                                         </Button>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-2">
+                                                        <Label className="text-xs text-slate-600 min-w-fit">Ownership:</Label>
+                                                        <Select
+                                                            value={assignment.ownership_type || 'rocket_csp'}
+                                                            onValueChange={(value) => updateOwnershipTypeMutation.mutate({
+                                                                assignmentId: assignment.id,
+                                                                ownershipType: value
+                                                            })}
+                                                        >
+                                                            <SelectTrigger className="h-7 text-xs">
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                            <SelectContent>
+                                                                <SelectItem value="rocket_csp">Rocket CSP</SelectItem>
+                                                                <SelectItem value="rocket_blanket">Rocket Blanket</SelectItem>
+                                                                <SelectItem value="customer_direct">Customer Direct</SelectItem>
+                                                                <SelectItem value="priority1_blanket">Priority 1 Blanket</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
                                                     </div>
 
                                                     {assignment.carrier.contact_email && (
