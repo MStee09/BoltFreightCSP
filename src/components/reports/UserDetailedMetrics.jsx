@@ -114,7 +114,7 @@ export function UserDetailedMetrics({ userId, userName, dateRange, open, onOpenC
           .from('tariff_activities')
           .select(`
             *,
-            tariff:tariffs(id, carrier_id, customers)
+            tariff:tariffs(id, carrier_id, customer_ids)
           `)
           .in('user_id', userIds)
           .gte('created_at', dateRange.from.toISOString())
