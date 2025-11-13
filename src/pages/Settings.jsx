@@ -19,6 +19,7 @@ import KnowledgeBaseSettings from '@/components/settings/KnowledgeBase';
 import AutomationManagement from '@/components/settings/AutomationManagement';
 import { useUserRole } from '@/hooks/useUserRole';
 import { useAuth } from '@/contexts/AuthContext';
+import { useImpersonation } from '@/contexts/ImpersonationContext';
 import { supabase } from '@/api/supabaseClient';
 import { useToast } from '@/components/ui/use-toast';
 import { Settings as SettingsIcon, Shield, AlertCircle, PlayCircle } from 'lucide-react';
@@ -96,9 +97,16 @@ const ROLE_DESCRIPTIONS = {
 
 export default function Settings() {
   const { user } = useAuth();
+  const { isImpersonating, impersonatedUser } = useImpersonation();
   const { isAdmin, isElite, role, loading, userProfile } = useUserRole();
   const { toast } = useToast();
   const [restartingTour, setRestartingTour] = useState(false);
+
+  const displayProfile = isImpersonating ? impersonatedUser : userProfile;
+  const displayEmail = isImpersonating ? impersonatedUser?.email : userProfile?.email;
+  const displayName = isImpersonating ? impersonatedUser?.full_name : userProfile?.full_name;
+  const displayRole = isImpersonating ? impersonatedUser?.role : role;
+  const displayIsActive = isImpersonating ? impersonatedUser?.is_active : userProfile?.is_active;
 
   const handleRestartTour = async () => {
     setRestartingTour(true);
@@ -159,10 +167,10 @@ export default function Settings() {
             <p className="text-slate-600">Manage your account and integrations</p>
           </div>
         </div>
-        {role && ROLE_DESCRIPTIONS[role] && (
-          <Badge variant="default" className={`gap-1 ${ROLE_DESCRIPTIONS[role].color} border`}>
+        {displayRole && ROLE_DESCRIPTIONS[displayRole] && (
+          <Badge variant="default" className={`gap-1 ${ROLE_DESCRIPTIONS[displayRole].color} border`}>
             <Shield className="h-3 w-3" />
-            {ROLE_DESCRIPTIONS[role].label}
+            {ROLE_DESCRIPTIONS[displayRole].label}
           </Badge>
         )}
       </div>
@@ -237,43 +245,43 @@ export default function Settings() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Email</p>
-                    <p className="text-sm">{userProfile?.email}</p>
+                    <p className="text-sm">{displayEmail}</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Full Name</p>
-                    <p className="text-sm">{userProfile?.full_name || 'Not set'}</p>
+                    <p className="text-sm">{displayName || displayEmail || 'Not set'}</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Role</p>
-                    {role && ROLE_DESCRIPTIONS[role] && (
-                      <Badge className={`mt-1 ${ROLE_DESCRIPTIONS[role].color} border`}>
-                        {ROLE_DESCRIPTIONS[role].label}
+                    {displayRole && ROLE_DESCRIPTIONS[displayRole] && (
+                      <Badge className={`mt-1 ${ROLE_DESCRIPTIONS[displayRole].color} border`}>
+                        {ROLE_DESCRIPTIONS[displayRole].label}
                       </Badge>
                     )}
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Status</p>
-                    <Badge variant={userProfile?.is_active ? 'default' : 'secondary'} className="mt-1">
-                      {userProfile?.is_active ? 'Active' : 'Inactive'}
+                    <Badge variant={displayIsActive ? 'default' : 'secondary'} className="mt-1">
+                      {displayIsActive ? 'Active' : 'Inactive'}
                     </Badge>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {role && ROLE_DESCRIPTIONS[role] && (
+            {displayRole && ROLE_DESCRIPTIONS[displayRole] && (
               <Card>
                 <CardHeader>
                   <CardTitle>Your Access Level</CardTitle>
                   <CardDescription>
-                    {ROLE_DESCRIPTIONS[role].description}
+                    {ROLE_DESCRIPTIONS[displayRole].description}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
                     <p className="text-sm font-medium text-slate-900">Permissions:</p>
                     <ul className="space-y-1">
-                      {ROLE_DESCRIPTIONS[role].features.map((feature, index) => (
+                      {ROLE_DESCRIPTIONS[displayRole].features.map((feature, index) => (
                         <li key={index} className="text-sm text-slate-600 flex items-start gap-2">
                           <span className="text-green-600 mt-0.5">✓</span>
                           <span>{feature}</span>
