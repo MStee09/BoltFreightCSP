@@ -25,7 +25,7 @@ import { Label } from '../ui/label';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { Checkbox } from '../ui/checkbox';
 import BidDocsViewer from './BidDocsViewer';
 import EditLaneScopeDialog from './EditLaneScopeDialog';
@@ -235,6 +235,22 @@ export default function CspCarriersTab({ cspEvent }) {
               <Button
                 size="sm"
                 variant="outline"
+                onClick={() => handleBulkAction('submitted')}
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                Mark Submitted ({selectedCarriers.size})
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setBulkUploadOpen(true)}
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Bulk Upload
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
                 onClick={() => handleBulkAction('awarded')}
               >
                 <Award className="w-4 h-4 mr-2" />
@@ -332,9 +348,11 @@ export default function CspCarriersTab({ cspEvent }) {
                           )}
 
                           {carrierData.status === 'not_awarded' && carrierData.not_awarded_reason && (
-                            <p className="text-xs text-slate-500 mb-2">
-                              <span className="font-medium">Reason:</span> {carrierData.not_awarded_reason}
-                            </p>
+                            <div className="bg-red-50 border border-red-200 rounded p-2 mb-2">
+                              <p className="text-xs text-red-800">
+                                <span className="font-medium">Not Awarded Reason:</span> {carrierData.not_awarded_reason}
+                              </p>
+                            </div>
                           )}
 
                           <div className="flex items-center gap-4 text-xs text-slate-500">
@@ -346,6 +364,20 @@ export default function CspCarriersTab({ cspEvent }) {
                             )}
                             {carrierData.awarded_at && (
                               <span>Awarded: {format(new Date(carrierData.awarded_at), 'MMM d, yyyy')}</span>
+                            )}
+                            {carrierData.last_activity_at && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="text-slate-400 border-l pl-4 ml-4 cursor-help">
+                                      Last activity: {formatDistanceToNow(new Date(carrierData.last_activity_at), { addSuffix: true })}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="text-xs">{carrierData.last_activity_type || 'Activity'} on {format(new Date(carrierData.last_activity_at), 'MMM d, yyyy h:mm a')}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
                             )}
                           </div>
 
@@ -640,6 +672,18 @@ export default function CspCarriersTab({ cspEvent }) {
           onOpenChange={(open) => !open && setAddingNoteCarrier(null)}
         />
       )}
+
+      <BulkUploadDialog
+        selectedCarriers={Array.from(selectedCarriers)}
+        carriers={eventCarriers}
+        cspEventId={cspEvent.id}
+        open={bulkUploadOpen}
+        onOpenChange={setBulkUploadOpen}
+        onSuccess={() => {
+          queryClient.invalidateQueries(['csp_event_carriers']);
+          setSelectedCarriers(new Set());
+        }}
+      />
     </div>
   );
 }
