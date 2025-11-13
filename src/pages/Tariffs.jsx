@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { Customer, Carrier, Tariff, CSPEvent } from "../api/entities";
 import { supabase } from "../api/supabaseClient";
 import { Link, useNavigate } from "react-router-dom";
@@ -10,7 +10,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../components/ui/dropdown-menu";
-import { PlusCircle, Search, Upload, ChevronDown, ChevronRight, AlertCircle, Eye, GitCompare, Download, FileText, Plus, Calendar, Link2, UploadCloud, RefreshCw, FileCheck, ArrowUpDown, Briefcase, FolderOpen, TrendingUp, Clock, X, Pin, User, Truck, Package, Edit, History, FileSpreadsheet, Repeat, ChevronsDown, ChevronsUp, Star } from "lucide-react";
+import { PlusCircle, Search, Upload, ChevronDown, ChevronRight, AlertCircle, Eye, GitCompare, Download, FileText, Plus, Calendar, Link2, UploadCloud, RefreshCw, FileCheck, ArrowUpDown, Briefcase, FolderOpen, TrendingUp, Clock, X, Pin, User, Truck, Package, Edit, History, FileSpreadsheet, Repeat, ChevronsDown, ChevronsUp, Star, MoreVertical, Trash2, CheckCircle } from "lucide-react";
 import { format, isAfter, isBefore, differenceInDays } from "date-fns";
 import { Skeleton } from "../components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../components/ui/tabs";
@@ -52,6 +52,7 @@ const SORT_OPTIONS = [
 
 export default function TariffsPage() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [ownershipTab, setOwnershipTab] = useState("rocket_csp");
   const [filtersByTab, setFiltersByTab] = useState({
@@ -84,6 +85,8 @@ export default function TariffsPage() {
   const [renewalFamilyData, setRenewalFamilyData] = useState(null);
   const [pinnedFamilies, setPinnedFamilies] = useState(new Set());
   const [userPins, setUserPins] = useState({ customers: new Set(), families: new Set() });
+  const [editingTariff, setEditingTariff] = useState(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
 
   const handleSort = (column) => {
     if (sortColumn === column) {
@@ -105,6 +108,37 @@ export default function TariffsPage() {
       ...prev,
       [ownershipTab]: newFilter
     }));
+  };
+
+  const handleChangeStatus = async (tariffId, newStatus) => {
+    try {
+      await Tariff.update(tariffId, { status: newStatus });
+      queryClient.invalidateQueries({ queryKey: ["tariffs"] });
+      toast.success(`Tariff status changed to ${newStatus}`);
+    } catch (error) {
+      console.error('Error changing tariff status:', error);
+      toast.error('Failed to change tariff status');
+    }
+  };
+
+  const handleDeleteTariff = async (tariffId, tariffName) => {
+    if (!confirm(`Are you sure you want to delete ${tariffName}? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      await Tariff.delete(tariffId);
+      queryClient.invalidateQueries({ queryKey: ["tariffs"] });
+      toast.success('Tariff deleted successfully');
+    } catch (error) {
+      console.error('Error deleting tariff:', error);
+      toast.error('Failed to delete tariff');
+    }
+  };
+
+  const handleEditTariff = (tariff) => {
+    setEditingTariff(tariff);
+    setShowEditDialog(true);
   };
 
   const { data: tariffs = [], isLoading: isTariffsLoading } = useQuery({
@@ -1784,6 +1818,50 @@ export default function TariffsPage() {
                                       }
                                       return null;
                                     })()}
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="h-7 w-7"
+                                        >
+                                          <MoreVertical className="w-3.5 h-3.5" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end" className="w-48">
+                                        <DropdownMenuItem onClick={() => handleEditTariff(tariff)}>
+                                          <Edit className="w-4 h-4 mr-2" />
+                                          Edit Details
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator />
+                                        {tariff.status !== 'active' && (
+                                          <DropdownMenuItem onClick={() => handleChangeStatus(tariff.id, 'active')}>
+                                            <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
+                                            Mark as Active
+                                          </DropdownMenuItem>
+                                        )}
+                                        {tariff.status !== 'proposed' && (
+                                          <DropdownMenuItem onClick={() => handleChangeStatus(tariff.id, 'proposed')}>
+                                            <Clock className="w-4 h-4 mr-2 text-blue-600" />
+                                            Mark as Proposed
+                                          </DropdownMenuItem>
+                                        )}
+                                        {tariff.status !== 'expired' && (
+                                          <DropdownMenuItem onClick={() => handleChangeStatus(tariff.id, 'expired')}>
+                                            <AlertCircle className="w-4 h-4 mr-2 text-slate-600" />
+                                            Mark as Expired
+                                          </DropdownMenuItem>
+                                        )}
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                          onClick={() => handleDeleteTariff(tariff.id, tariff.tariff_reference_id || tariff.version)}
+                                          className="text-red-600 focus:text-red-600"
+                                        >
+                                          <Trash2 className="w-4 h-4 mr-2" />
+                                          Delete Tariff
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
                                   </div>
                                 </td>
                               </tr>
@@ -1927,6 +2005,14 @@ export default function TariffsPage() {
               setRenewalFamilyData(null);
             }
           }}
+        />
+      )}
+
+      {showEditDialog && editingTariff && (
+        <EditTariffDialog
+          open={showEditDialog}
+          onOpenChange={setShowEditDialog}
+          tariff={editingTariff}
         />
       )}
     </div>
