@@ -14,11 +14,12 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Calendar as CalendarIcon, TrendingUp, TrendingDown, Users, Activity, FileText, Download, Copy, ArrowUp, ArrowDown, Share2 } from 'lucide-react';
+import { Calendar as CalendarIcon, TrendingUp, TrendingDown, Users, Activity, FileText, Download, Copy, ArrowUp, ArrowDown, Share2, ChevronRight } from 'lucide-react';
 import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
 import { supabase } from '@/api/supabaseClient';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { UserDetailedMetrics } from './UserDetailedMetrics';
 
 export function UserPerformanceReport() {
   const [dateRange, setDateRange] = useState({
@@ -30,6 +31,8 @@ export function UserPerformanceReport() {
   const [performanceData, setPerformanceData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('overview');
+  const [selectedUserDetail, setSelectedUserDetail] = useState(null);
+  const [detailSheetOpen, setDetailSheetOpen] = useState(false);
 
   useEffect(() => {
     fetchUsers();
@@ -516,48 +519,58 @@ export function UserPerformanceReport() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {performanceData?.userMetrics?.map((user) => (
-                  <div
-                    key={user.email}
-                    className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors"
-                  >
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <p className="font-medium">{user.name}</p>
-                        <Badge variant="secondary" className="text-xs">
-                          {user.eventsCreated} events
-                        </Badge>
+                {performanceData?.userMetrics?.map((user) => {
+                  const userProfile = users.find(u => u.email === user.email);
+                  return (
+                    <div
+                      key={user.email}
+                      className="flex items-center justify-between p-4 border rounded-lg hover:bg-slate-50 transition-colors cursor-pointer group"
+                      onClick={() => {
+                        if (userProfile) {
+                          setSelectedUserDetail({ id: userProfile.id, name: user.name });
+                          setDetailSheetOpen(true);
+                        }
+                      }}
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <p className="font-medium">{user.name}</p>
+                          <Badge variant="secondary" className="text-xs">
+                            {user.eventsCreated} events
+                          </Badge>
+                          <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-blue-600 transition-colors" />
+                        </div>
+                        <p className="text-xs text-muted-foreground">{user.email}</p>
                       </div>
-                      <p className="text-xs text-muted-foreground">{user.email}</p>
+                      <div className="flex items-center gap-6 text-sm">
+                        <div className="text-center">
+                          <p className="text-muted-foreground text-xs">Total Activity</p>
+                          <p className="font-semibold text-blue-600">{user.totalActivity}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-muted-foreground text-xs">Stage Changes</p>
+                          <p className="font-semibold">{user.stageChanges}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-muted-foreground text-xs">In Progress</p>
+                          <p className="font-semibold text-blue-600">{user.inProgressEvents}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-muted-foreground text-xs">Won</p>
+                          <p className="font-semibold text-green-600">{user.wonDeals}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-muted-foreground text-xs">Lost</p>
+                          <p className="font-semibold text-red-600">{user.lostDeals}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-muted-foreground text-xs">Win Rate</p>
+                          <p className="font-semibold">{getWinLossRatio(user)}%</p>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-6 text-sm">
-                      <div className="text-center">
-                        <p className="text-muted-foreground text-xs">Total Activity</p>
-                        <p className="font-semibold text-blue-600">{user.totalActivity}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-muted-foreground text-xs">Stage Changes</p>
-                        <p className="font-semibold">{user.stageChanges}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-muted-foreground text-xs">In Progress</p>
-                        <p className="font-semibold text-blue-600">{user.inProgressEvents}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-muted-foreground text-xs">Won</p>
-                        <p className="font-semibold text-green-600">{user.wonDeals}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-muted-foreground text-xs">Lost</p>
-                        <p className="font-semibold text-red-600">{user.lostDeals}</p>
-                      </div>
-                      <div className="text-center">
-                        <p className="text-muted-foreground text-xs">Win Rate</p>
-                        <p className="font-semibold">{getWinLossRatio(user)}%</p>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
@@ -863,6 +876,16 @@ export function UserPerformanceReport() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {selectedUserDetail && (
+        <UserDetailedMetrics
+          userId={selectedUserDetail.id}
+          userName={selectedUserDetail.name}
+          dateRange={dateRange}
+          open={detailSheetOpen}
+          onOpenChange={setDetailSheetOpen}
+        />
+      )}
     </div>
   );
 }
