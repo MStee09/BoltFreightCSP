@@ -6,6 +6,7 @@
       - summary -> title
       - details -> description
       - Remove summary/details fields that don't exist
+    - Fix activity_type: 'created' -> 'tariff_created'
 
   2. Security
     - No changes to security model
