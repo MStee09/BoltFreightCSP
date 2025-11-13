@@ -442,7 +442,17 @@ export default function CspCarriersTab({ cspEvent }) {
                         />
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2 flex-wrap">
-                            <h4 className="font-semibold">{carrierData.carrier.name}</h4>
+                            <div className="flex flex-col gap-1">
+                              <h4 className="font-semibold">{carrierData.carrier.name}</h4>
+                              {carrierData.ownership_type && (
+                                <Badge variant="outline" className="text-xs w-fit">
+                                  {carrierData.ownership_type === 'rocket_csp' && 'Rocket CSP'}
+                                  {carrierData.ownership_type === 'rocket_blanket' && 'Rocket Blanket'}
+                                  {carrierData.ownership_type === 'customer_direct' && 'Customer Direct'}
+                                  {carrierData.ownership_type === 'priority1_blanket' && 'Priority 1 Blanket'}
+                                </Badge>
+                              )}
+                            </div>
 
                             <Select
                               value={carrierData.status}
