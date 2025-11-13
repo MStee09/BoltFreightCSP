@@ -24,11 +24,13 @@ import { Textarea } from '../ui/textarea';
 import { Label } from '../ui/label';
 import { Input } from '../ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 import { format } from 'date-fns';
 import { Checkbox } from '../ui/checkbox';
 import BidDocsViewer from './BidDocsViewer';
 import EditLaneScopeDialog from './EditLaneScopeDialog';
 import AddNoteDialog from './AddNoteDialog';
+import BulkUploadDialog from './BulkUploadDialog';
 import { useEmailComposer } from '../../contexts/EmailComposerContext';
 
 const STATUS_CONFIG = {
@@ -52,6 +54,7 @@ export default function CspCarriersTab({ cspEvent }) {
   const [bulkAction, setBulkAction] = useState(null);
   const [editingScopeCarrier, setEditingScopeCarrier] = useState(null);
   const [addingNoteCarrier, setAddingNoteCarrier] = useState(null);
+  const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
 
   const { data: eventCarriers = [], isLoading } = useQuery({
     queryKey: ['csp_event_carriers', cspEvent?.id],
