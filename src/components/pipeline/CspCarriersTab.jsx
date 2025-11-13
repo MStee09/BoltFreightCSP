@@ -403,7 +403,7 @@ export default function CspCarriersTab({ cspEvent }) {
                           onCheckedChange={() => toggleCarrierSelection(carrierData.carrier_id)}
                         />
                         <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
+                          <div className="flex items-center gap-2 mb-2 flex-wrap">
                             <h4 className="font-semibold">{carrierData.carrier.name}</h4>
 
                             <Select
@@ -436,6 +436,58 @@ export default function CspCarriersTab({ cspEvent }) {
                             </Select>
 
                             <BidDocsViewer eventCarrier={carrierData} />
+
+                            <div className="ml-auto flex items-center gap-2">
+                              {carrierData.status === 'awarded' ? (
+                                <Badge className="bg-green-100 text-green-800 border-green-300">
+                                  <CheckCircle className="w-3 h-3 mr-1" />
+                                  Awarded
+                                </Badge>
+                              ) : carrierData.status === 'not_awarded' ? (
+                                <Badge variant="outline" className="bg-red-50 text-red-700 border-red-300">
+                                  <XCircle className="w-3 h-3 mr-1" />
+                                  Not Awarded
+                                </Badge>
+                              ) : (
+                                <>
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => handleAwardCarrier(carrierData)}
+                                          disabled={!['under_review', 'revision_requested'].includes(carrierData.status)}
+                                          className={
+                                            ['under_review', 'revision_requested'].includes(carrierData.status)
+                                              ? "h-7 text-xs bg-green-50 text-green-700 border-green-300 hover:bg-green-100 hover:text-green-800"
+                                              : "h-7 text-xs opacity-50 cursor-not-allowed"
+                                          }
+                                        >
+                                          <Award className="w-3 h-3 mr-1" />
+                                          Award
+                                        </Button>
+                                      </TooltipTrigger>
+                                      {!['under_review', 'revision_requested'].includes(carrierData.status) && (
+                                        <TooltipContent>
+                                          <p className="text-xs">Available after carrier is Under Review</p>
+                                        </TooltipContent>
+                                      )}
+                                    </Tooltip>
+                                  </TooltipProvider>
+
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleNotAwardCarrier(carrierData)}
+                                    className="h-7 text-xs bg-red-50 text-red-700 border-red-300 hover:bg-red-100 hover:text-red-800"
+                                  >
+                                    <XCircle className="w-3 h-3 mr-1" />
+                                    Not Award
+                                  </Button>
+                                </>
+                              )}
+                            </div>
                           </div>
 
                           {carrierData.notes && (
@@ -503,7 +555,7 @@ export default function CspCarriersTab({ cspEvent }) {
 
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="sm">
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
                             <MoreVertical className="w-4 h-4" />
                           </Button>
                         </DropdownMenuTrigger>
@@ -517,15 +569,6 @@ export default function CspCarriersTab({ cspEvent }) {
                           }}>
                             <Mail className="w-4 h-4 mr-2" />
                             Email Carrier
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => handleAwardCarrier(carrierData)}>
-                            <Award className="w-4 h-4 mr-2 text-green-600" />
-                            Award
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleNotAwardCarrier(carrierData)}>
-                            <XCircle className="w-4 h-4 mr-2 text-red-600" />
-                            Not Award
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem onClick={() => handleQuickStatusChange(carrierData.carrier_id, 'withdrawn')}>
