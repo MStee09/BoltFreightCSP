@@ -23,6 +23,21 @@ export function UserProfile() {
   const [email, setEmail] = useState('');
   const queryClient = useQueryClient();
 
+  const formatPhoneNumber = (value) => {
+    const cleaned = value.replace(/\D/g, '');
+
+    if (cleaned.length === 0) return '';
+    if (cleaned.length <= 3) return `(${cleaned}`;
+    if (cleaned.length <= 6) return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3)}`;
+    return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6, 10)}`;
+  };
+
+  const handlePhoneChange = (e) => {
+    const input = e.target.value;
+    const formatted = formatPhoneNumber(input);
+    setFormData({ ...formData, phone: formatted });
+  };
+
   const { data: profile, isLoading } = useQuery({
     queryKey: ['user_profile', isImpersonating, impersonatedUser?.id],
     queryFn: async () => {
@@ -57,7 +72,7 @@ export function UserProfile() {
       setFormData({
         first_name: profile.first_name || '',
         last_name: profile.last_name || '',
-        phone: profile.phone || '',
+        phone: formatPhoneNumber(profile.phone || ''),
         title: profile.title || '',
         company: profile.company || 'Rocketshipping'
       });
@@ -219,8 +234,9 @@ export function UserProfile() {
           <Input
             id="phone"
             value={formData.phone}
-            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+            onChange={handlePhoneChange}
             placeholder="(555) 123-4567"
+            maxLength={14}
           />
         </div>
 
