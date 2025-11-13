@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { CSPEventCarrier, Carrier } from '../../api/entities';
 import { supabase } from '../../api/supabaseClient';
@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Alert, AlertDescription } from '../ui/alert';
 import {
   MoreVertical, UserPlus, Upload, FileText, Award, XCircle,
-  RefreshCw, CheckCircle, Clock, Send, Truck, Paperclip, AlertTriangle, Mail, MessageSquare
+  RefreshCw, CheckCircle, Clock, Send, Truck, Paperclip, AlertTriangle, Mail, MessageSquare, Plus, ShieldAlert
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -29,9 +29,13 @@ import { format, formatDistanceToNow } from 'date-fns';
 import { Checkbox } from '../ui/checkbox';
 import BidDocsViewer from './BidDocsViewer';
 import EditLaneScopeDialog from './EditLaneScopeDialog';
-import AddNoteDialog from './AddNoteDialog';
 import BulkUploadDialog from './BulkUploadDialog';
+import AwardCarrierDialog from './AwardCarrierDialog';
+import NotAwardDialog from './NotAwardDialog';
+import InlineNoteEditor from './InlineNoteEditor';
+import CreateAwardedCspDialog from '../tariffs/CreateAwardedCspDialog';
 import { useEmailComposer } from '../../contexts/EmailComposerContext';
+import { useUserRole } from '../../hooks/useUserRole';
 
 const STATUS_CONFIG = {
   invited: { label: 'Invited', color: 'bg-slate-100 text-slate-700', icon: Send },
@@ -44,17 +48,25 @@ const STATUS_CONFIG = {
   declined: { label: 'Declined', color: 'bg-slate-100 text-slate-500', icon: XCircle },
 };
 
+const QUICK_STATUS_OPTIONS = ['invited', 'submitted', 'under_review', 'revision_requested'];
+
 export default function CspCarriersTab({ cspEvent }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { openComposer } = useEmailComposer();
+  const { role } = useUserRole();
   const [filterStatus, setFilterStatus] = useState('all');
-  const [actionDialog, setActionDialog] = useState(null);
   const [selectedCarriers, setSelectedCarriers] = useState(new Set());
-  const [bulkAction, setBulkAction] = useState(null);
   const [editingScopeCarrier, setEditingScopeCarrier] = useState(null);
-  const [addingNoteCarrier, setAddingNoteCarrier] = useState(null);
+  const [editingNoteCarrier, setEditingNoteCarrier] = useState(null);
   const [bulkUploadOpen, setBulkUploadOpen] = useState(false);
+  const [awardDialogOpen, setAwardDialogOpen] = useState(false);
+  const [awardDialogCarriers, setAwardDialogCarriers] = useState(null);
+  const [notAwardDialogOpen, setNotAwardDialogOpen] = useState(false);
+  const [notAwardDialogCarriers, setNotAwardDialogCarriers] = useState(null);
+  const [createTariffDialogOpen, setCreateTariffDialogOpen] = useState(false);
+  const [showStageGateOverride, setShowStageGateOverride] = useState(false);
+  const [bidDocsPromptCarrierId, setBidDocsPromptCarrierId] = useState(null);
 
   const { data: eventCarriers = [], isLoading } = useQuery({
     queryKey: ['csp_event_carriers', cspEvent?.id],
@@ -157,44 +169,94 @@ export default function CspCarriersTab({ cspEvent }) {
   const availableCarriers = allCarriers.filter(c => !invitedCarrierIds.has(c.id));
 
   const handleQuickStatusChange = async (carrierId, newStatus) => {
-    const needsDialog = ['awarded', 'not_awarded'].includes(newStatus);
-
-    if (needsDialog) {
-      setActionDialog({
-        carrierId,
-        newStatus,
-        notes: '',
-        reason: '',
-        laneScope: {
-          origins: '',
-          destinations: '',
-          equipmentTypes: '',
-          estimatedVolume: '',
-        },
-      });
-    } else {
-      updateStatusMutation.mutate({ carrierId, newStatus });
+    if (newStatus === 'submitted' && !eventCarriers.find(c => c.carrier_id === carrierId)?.bid_docs?.length) {
+      setBidDocsPromptCarrierId(carrierId);
     }
+    updateStatusMutation.mutate({ carrierId, newStatus });
   };
 
-  const handleStatusChange = (carrierId, newStatus) => {
-    setActionDialog({
-      carrierId,
-      newStatus,
-      notes: '',
-      reason: '',
-      laneScope: {
-        origins: '',
-        destinations: '',
-        equipmentTypes: '',
-        estimatedVolume: '',
-      },
+  useEffect(() => {
+    if (bidDocsPromptCarrierId) {
+      const timer = setTimeout(() => {
+        toast({
+          title: 'Upload Bid Docs?',
+          description: 'Carrier marked as submitted. Upload bid documents now or add them later.',
+          action: (
+            <Button size="sm" onClick={() => {
+              setBulkUploadOpen(true);
+              setBidDocsPromptCarrierId(null);
+            }}>Upload</Button>
+          )
+        });
+        setBidDocsPromptCarrierId(null);
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [bidDocsPromptCarrierId]);
+
+  const handleAwardCarrier = (carrierAssignment) => {
+    setAwardDialogCarriers(carrierAssignment);
+    setAwardDialogOpen(true);
+  };
+
+  const handleNotAwardCarrier = (carrierAssignment) => {
+    setNotAwardDialogCarriers(carrierAssignment);
+    setNotAwardDialogOpen(true);
+  };
+
+  const handleAwardConfirm = ({ laneScope, notes }) => {
+    const carriers = Array.isArray(awardDialogCarriers) ? awardDialogCarriers : [awardDialogCarriers];
+    carriers.forEach(carrier => {
+      updateStatusMutation.mutate({
+        carrierId: carrier.carrier_id,
+        newStatus: 'awarded',
+        laneScope,
+        notes
+      });
     });
+    setAwardDialogOpen(false);
+    setAwardDialogCarriers(null);
+  };
+
+  const handleNotAwardConfirm = ({ reason, notes }) => {
+    const carriers = Array.isArray(notAwardDialogCarriers) ? notAwardDialogCarriers : [notAwardDialogCarriers];
+    carriers.forEach(carrier => {
+      updateStatusMutation.mutate({
+        carrierId: carrier.carrier_id,
+        newStatus: 'not_awarded',
+        reason,
+        notes
+      });
+    });
+    setNotAwardDialogOpen(false);
+    setNotAwardDialogCarriers(null);
   };
 
   const handleBulkAction = (action) => {
     if (selectedCarriers.size === 0) {
       toast({ title: 'No carriers selected', variant: 'destructive' });
+      return;
+    }
+
+    const selectedCarrierData = carrierData.filter(c => selectedCarriers.has(c.carrier_id));
+
+    if (action === 'award') {
+      setAwardDialogCarriers(selectedCarrierData);
+      setAwardDialogOpen(true);
+      return;
+    }
+
+    if (action === 'not_award') {
+      setNotAwardDialogCarriers(selectedCarrierData);
+      setNotAwardDialogOpen(true);
+      return;
+    }
+
+    if (action === 'submitted') {
+      selectedCarrierData.forEach(carrier => {
+        updateStatusMutation.mutate({ carrierId: carrier.carrier_id, newStatus: 'submitted' });
+      });
+      setSelectedCarriers(new Set());
       return;
     }
     setBulkAction({ action, notes: '' });
@@ -251,7 +313,7 @@ export default function CspCarriersTab({ cspEvent }) {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => handleBulkAction('awarded')}
+                onClick={() => handleBulkAction('award')}
               >
                 <Award className="w-4 h-4 mr-2" />
                 Award Selected ({selectedCarriers.size})
@@ -259,15 +321,47 @@ export default function CspCarriersTab({ cspEvent }) {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => handleBulkAction('not_awarded')}
+                onClick={() => handleBulkAction('not_award')}
               >
                 <XCircle className="w-4 h-4 mr-2" />
                 Not Award Selected
               </Button>
             </>
           )}
+          {cspEvent?.stage === 'award_tariff_finalization' && hasAwardedCarriers && (
+            <Button
+              size="sm"
+              onClick={() => setCreateTariffDialogOpen(true)}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Create Awarded Tariff(s)
+            </Button>
+          )}
         </div>
       </div>
+
+      {cspEvent?.stage && !['invited', 'planning'].includes(cspEvent.stage) && !hasAwardedCarriers && (
+        <Alert className="border-orange-200 bg-orange-50">
+          <AlertTriangle className="w-4 h-4 text-orange-600" />
+          <AlertDescription className="flex items-center justify-between">
+            <span className="text-orange-900">
+              <strong>Stage Gate:</strong> At least one carrier must be awarded before moving to the next stage.
+            </span>
+            {(role === 'admin' || role === 'elite') && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowStageGateOverride(true)}
+                className="border-orange-300 hover:bg-orange-100"
+              >
+                <ShieldAlert className="w-3 h-3 mr-1" />
+                Override
+              </Button>
+            )}
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="flex items-center gap-2 text-sm text-slate-600">
         <Badge variant="outline">Invited: {statusCounts.invited}</Badge>
@@ -326,7 +420,8 @@ export default function CspCarriersTab({ cspEvent }) {
                                 </SelectValue>
                               </SelectTrigger>
                               <SelectContent>
-                                {Object.entries(STATUS_CONFIG).map(([key, config]) => {
+                                {QUICK_STATUS_OPTIONS.map(key => {
+                                  const config = STATUS_CONFIG[key];
                                   const Icon = config.icon;
                                   return (
                                     <SelectItem key={key} value={key}>
@@ -381,12 +476,26 @@ export default function CspCarriersTab({ cspEvent }) {
                             )}
                           </div>
 
-                          {carrierData.status === 'awarded' && (
+                          {carrierData.status === 'awarded' && carrierData.lane_scope_json && (
+                            <div className="text-xs text-slate-600 mt-2 p-2 bg-slate-50 rounded border">
+                              <span className="font-medium">Lane Scope:</span> {carrierData.lane_scope_json.mode || 'N/A'}
+                              {carrierData.lane_scope_json.origin && ` | ${carrierData.lane_scope_json.origin}`}
+                              {carrierData.lane_scope_json.destination && ` → ${carrierData.lane_scope_json.destination}`}
+                            </div>
+                          )}
+
+                          {editingNoteCarrier?.id === carrierData.id ? (
+                            <InlineNoteEditor
+                              carrierAssignment={carrierData}
+                              onCancel={() => setEditingNoteCarrier(null)}
+                            />
+                          ) : (
                             <button
-                              onClick={() => setEditingScopeCarrier(carrierData)}
-                              className="text-xs text-blue-600 hover:text-blue-800 hover:underline mt-2"
+                              onClick={() => setEditingNoteCarrier(carrierData)}
+                              className="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1 mt-2"
                             >
-                              {carrierData.lane_scope_json ? 'Edit scope' : 'Add lane scope'}
+                              <Plus className="w-3 h-3" />
+                              Add Note
                             </button>
                           )}
                         </div>
@@ -409,37 +518,22 @@ export default function CspCarriersTab({ cspEvent }) {
                             <Mail className="w-4 h-4 mr-2" />
                             Email Carrier
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => setAddingNoteCarrier(carrierData)}>
-                            <MessageSquare className="w-4 h-4 mr-2" />
-                            Add Note
-                          </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => handleStatusChange(carrierData.carrier_id, 'submitted')}>
-                            <FileText className="w-4 h-4 mr-2" />
-                            Mark Submitted
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleStatusChange(carrierData.carrier_id, 'under_review')}>
-                            <Clock className="w-4 h-4 mr-2" />
-                            Under Review
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleStatusChange(carrierData.carrier_id, 'revision_requested')}>
-                            <RefreshCw className="w-4 h-4 mr-2" />
-                            Request Revision
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => handleStatusChange(carrierData.carrier_id, 'awarded')}>
+                          <DropdownMenuItem onClick={() => handleAwardCarrier(carrierData)}>
                             <Award className="w-4 h-4 mr-2 text-green-600" />
                             Award
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleStatusChange(carrierData.carrier_id, 'not_awarded')}>
+                          <DropdownMenuItem onClick={() => handleNotAwardCarrier(carrierData)}>
                             <XCircle className="w-4 h-4 mr-2 text-red-600" />
                             Not Award
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem onClick={() => handleStatusChange(carrierData.carrier_id, 'withdrawn')}>
+                          <DropdownMenuItem onClick={() => handleQuickStatusChange(carrierData.carrier_id, 'withdrawn')}>
+                            <XCircle className="w-4 h-4 mr-2" />
                             Withdraw
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => handleStatusChange(carrierData.carrier_id, 'declined')}>
+                          <DropdownMenuItem onClick={() => handleQuickStatusChange(carrierData.carrier_id, 'declined')}>
+                            <XCircle className="w-4 h-4 mr-2" />
                             Declined
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -485,191 +579,28 @@ export default function CspCarriersTab({ cspEvent }) {
         </Card>
       )}
 
-      {actionDialog && (
-        <Dialog open={!!actionDialog} onOpenChange={() => setActionDialog(null)}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>
-                {STATUS_CONFIG[actionDialog.newStatus]?.label}
-              </DialogTitle>
-              <DialogDescription>
-                Update carrier status and add optional notes
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label>Notes (Optional)</Label>
-                <Textarea
-                  value={actionDialog.notes}
-                  onChange={(e) => setActionDialog({ ...actionDialog, notes: e.target.value })}
-                  placeholder="Add any relevant notes..."
-                  rows={3}
-                />
-              </div>
+      <AwardCarrierDialog
+        open={awardDialogOpen}
+        onOpenChange={setAwardDialogOpen}
+        carriers={awardDialogCarriers}
+        onConfirm={handleAwardConfirm}
+        isBulk={Array.isArray(awardDialogCarriers) && awardDialogCarriers.length > 1}
+      />
 
-              {actionDialog.newStatus === 'not_awarded' && (
-                <div className="pt-4 border-t">
-                  <div>
-                    <Label htmlFor="not_awarded_reason">Reason for Not Awarding *</Label>
-                    <Textarea
-                      id="not_awarded_reason"
-                      value={actionDialog.reason}
-                      onChange={(e) => setActionDialog({ ...actionDialog, reason: e.target.value })}
-                      placeholder="Explain why this carrier was not awarded..."
-                      rows={3}
-                      className="mt-2"
-                    />
-                    <p className="text-xs text-slate-500 mt-1">
-                      This reason will be displayed on the carrier card
-                    </p>
-                  </div>
-                </div>
-              )}
+      <NotAwardDialog
+        open={notAwardDialogOpen}
+        onOpenChange={setNotAwardDialogOpen}
+        carriers={notAwardDialogCarriers}
+        onConfirm={handleNotAwardConfirm}
+        isBulk={Array.isArray(notAwardDialogCarriers) && notAwardDialogCarriers.length > 1}
+      />
 
-              {actionDialog.newStatus === 'awarded' && (
-                <div className="space-y-4 pt-4 border-t">
-                  <div>
-                    <h4 className="font-semibold text-sm mb-3">Lane Scope (Optional)</h4>
-                    <p className="text-xs text-slate-500 mb-3">
-                      Define the scope of lanes covered by this award
-                    </p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="origins">Origins</Label>
-                      <Input
-                        id="origins"
-                        value={actionDialog.laneScope.origins}
-                        onChange={(e) => setActionDialog({
-                          ...actionDialog,
-                          laneScope: { ...actionDialog.laneScope, origins: e.target.value }
-                        })}
-                        placeholder="e.g., CA, TX, NY"
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="destinations">Destinations</Label>
-                      <Input
-                        id="destinations"
-                        value={actionDialog.laneScope.destinations}
-                        onChange={(e) => setActionDialog({
-                          ...actionDialog,
-                          laneScope: { ...actionDialog.laneScope, destinations: e.target.value }
-                        })}
-                        placeholder="e.g., FL, GA, NC"
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="equipmentTypes">Equipment Types</Label>
-                      <Input
-                        id="equipmentTypes"
-                        value={actionDialog.laneScope.equipmentTypes}
-                        onChange={(e) => setActionDialog({
-                          ...actionDialog,
-                          laneScope: { ...actionDialog.laneScope, equipmentTypes: e.target.value }
-                        })}
-                        placeholder="e.g., Dry Van, Reefer"
-                      />
-                    </div>
-
-                    <div>
-                      <Label htmlFor="estimatedVolume">Estimated Volume</Label>
-                      <Input
-                        id="estimatedVolume"
-                        value={actionDialog.laneScope.estimatedVolume}
-                        onChange={(e) => setActionDialog({
-                          ...actionDialog,
-                          laneScope: { ...actionDialog.laneScope, estimatedVolume: e.target.value }
-                        })}
-                        placeholder="e.g., 100 shipments/mo"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setActionDialog(null)}>
-                Cancel
-              </Button>
-              <Button
-                onClick={() => {
-                  if (actionDialog.newStatus === 'not_awarded' && !actionDialog.reason?.trim()) {
-                    toast({
-                      title: 'Reason Required',
-                      description: 'Please provide a reason for not awarding this carrier',
-                      variant: 'destructive',
-                    });
-                    return;
-                  }
-                  updateStatusMutation.mutate(actionDialog);
-                }}
-                disabled={updateStatusMutation.isPending}
-              >
-                Confirm
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {bulkAction && (
-        <Dialog open={!!bulkAction} onOpenChange={() => setBulkAction(null)}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>
-                Bulk {STATUS_CONFIG[bulkAction.action]?.label}
-              </DialogTitle>
-              <DialogDescription>
-                Update {selectedCarriers.size} selected carrier{selectedCarriers.size > 1 ? 's' : ''}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label>Notes (Optional)</Label>
-                <Textarea
-                  value={bulkAction.notes}
-                  onChange={(e) => setBulkAction({ ...bulkAction, notes: e.target.value })}
-                  placeholder="Add any relevant notes..."
-                  rows={3}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setBulkAction(null)}>
-                Cancel
-              </Button>
-              <Button
-                onClick={() => bulkUpdateMutation.mutate({
-                  carrierIds: Array.from(selectedCarriers),
-                  action: bulkAction.action,
-                  notes: bulkAction.notes,
-                })}
-                disabled={bulkUpdateMutation.isPending}
-              >
-                Confirm
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
-
-      {editingScopeCarrier && (
-        <EditLaneScopeDialog
-          eventCarrier={editingScopeCarrier}
-          open={!!editingScopeCarrier}
-          onOpenChange={(open) => !open && setEditingScopeCarrier(null)}
-        />
-      )}
-
-      {addingNoteCarrier && (
-        <AddNoteDialog
-          eventCarrier={addingNoteCarrier}
-          open={!!addingNoteCarrier}
-          onOpenChange={(open) => !open && setAddingNoteCarrier(null)}
+      {createTariffDialogOpen && (
+        <CreateAwardedCspDialog
+          cspEvent={cspEvent}
+          awardedCarriers={carrierData.filter(c => c.status === 'awarded')}
+          open={createTariffDialogOpen}
+          onOpenChange={setCreateTariffDialogOpen}
         />
       )}
 
