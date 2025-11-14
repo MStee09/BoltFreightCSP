@@ -129,16 +129,21 @@ export function MyPerformance() {
     enabled: !!currentUser?.id
   });
 
-  const MetricCard = ({ icon: Icon, title, value, trend, color, subtitle }) => (
-    <Card className="relative overflow-hidden border-0 shadow-md hover:shadow-lg transition-shadow">
-      <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${color}`} />
-      <CardHeader className="pb-3">
+  const MetricCard = ({ icon: Icon, title, value, trend, color, subtitle, iconColor }) => (
+    <Card className="relative overflow-hidden border-0 shadow-lg hover:shadow-xl transition-all hover:scale-105 duration-200">
+      <div className={`absolute inset-0 bg-gradient-to-br ${color} opacity-5`} />
+      <div className={`absolute top-0 left-0 w-full h-2 bg-gradient-to-r ${color}`} />
+      <CardHeader className="pb-4">
         <div className="flex items-center justify-between">
-          <div className={`p-2 rounded-lg bg-gradient-to-br ${color} bg-opacity-10`}>
-            <Icon className="h-5 w-5 text-slate-700" />
+          <div className={`p-3 rounded-xl bg-gradient-to-br ${color} shadow-md`}>
+            <Icon className={`h-6 w-6 ${iconColor || 'text-white'}`} />
           </div>
           {trend !== undefined && trend !== 0 && (
-            <div className={`flex items-center gap-1 text-sm font-medium ${trend > 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold ${
+              trend > 0
+                ? 'bg-green-50 text-green-700 border border-green-200'
+                : 'bg-red-50 text-red-700 border border-red-200'
+            }`}>
               {trend > 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
               {Math.abs(trend)}%
             </div>
@@ -146,9 +151,11 @@ export function MyPerformance() {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="text-3xl font-bold text-slate-900 mb-1">{value}</div>
-        <div className="text-sm text-slate-600">{title}</div>
-        {subtitle && <div className="text-xs text-slate-500 mt-1">{subtitle}</div>}
+        <div className="text-4xl font-extrabold text-slate-900 mb-2 bg-gradient-to-br from-slate-900 to-slate-700 bg-clip-text">
+          {value}
+        </div>
+        <div className="text-base font-medium text-slate-700">{title}</div>
+        {subtitle && <div className="text-sm text-slate-500 mt-1 font-medium">{subtitle}</div>}
       </CardContent>
     </Card>
   );
@@ -202,6 +209,7 @@ export function MyPerformance() {
           value={metrics.cspEvents}
           trend={metrics.cspTrend}
           color="from-blue-500 to-blue-600"
+          iconColor="text-white"
           subtitle="Events managed"
         />
         <MetricCard
@@ -210,6 +218,7 @@ export function MyPerformance() {
           value={metrics.emails}
           trend={metrics.emailTrend}
           color="from-green-500 to-green-600"
+          iconColor="text-white"
           subtitle="Communications"
         />
         <MetricCard
@@ -217,6 +226,7 @@ export function MyPerformance() {
           title="Tariff Updates"
           value={metrics.tariffActivities}
           color="from-amber-500 to-amber-600"
+          iconColor="text-white"
           subtitle="Activities logged"
         />
         <MetricCard
@@ -224,36 +234,40 @@ export function MyPerformance() {
           title="Documents"
           value={metrics.documents}
           color="from-purple-500 to-purple-600"
+          iconColor="text-white"
           subtitle="Files uploaded"
         />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {Object.keys(metrics.stageBreakdown).length > 0 && (
-          <Card className="shadow-md border-0">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Award className="h-5 w-5 text-blue-600" />
+          <Card className="shadow-lg border-0 relative overflow-hidden hover:shadow-xl transition-shadow">
+            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-blue-500 to-blue-600" />
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-3 text-xl">
+                <div className="p-2 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 shadow-md">
+                  <Award className="h-5 w-5 text-white" />
+                </div>
                 CSP Pipeline Breakdown
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {Object.entries(metrics.stageBreakdown)
                   .sort(([, a], [, b]) => b - a)
                   .map(([stage, count]) => {
                     const percentage = ((count / metrics.cspEvents) * 100).toFixed(0);
                     return (
                       <div key={stage} className="space-y-2">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="font-medium capitalize text-slate-700">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold capitalize text-slate-800 text-sm">
                             {stage.replace(/_/g, ' ')}
                           </span>
-                          <span className="text-slate-600">{count} events</span>
+                          <span className="text-sm font-bold text-blue-600">{count} events</span>
                         </div>
-                        <div className="w-full bg-slate-100 rounded-full h-2">
+                        <div className="w-full bg-slate-100 rounded-full h-3 shadow-inner">
                           <div
-                            className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all"
+                            className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all shadow-sm"
                             style={{ width: `${percentage}%` }}
                           />
                         </div>
@@ -266,30 +280,33 @@ export function MyPerformance() {
         )}
 
         {Object.keys(metrics.emailBreakdown).length > 0 && (
-          <Card className="shadow-md border-0">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <Mail className="h-5 w-5 text-green-600" />
+          <Card className="shadow-lg border-0 relative overflow-hidden hover:shadow-xl transition-shadow">
+            <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-green-500 to-green-600" />
+            <CardHeader className="pb-4">
+              <CardTitle className="flex items-center gap-3 text-xl">
+                <div className="p-2 rounded-lg bg-gradient-to-br from-green-500 to-green-600 shadow-md">
+                  <Mail className="h-5 w-5 text-white" />
+                </div>
                 Email Activity Types
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {Object.entries(metrics.emailBreakdown)
                   .sort(([, a], [, b]) => b - a)
                   .map(([type, count]) => {
                     const percentage = ((count / metrics.emails) * 100).toFixed(0);
                     return (
                       <div key={type} className="space-y-2">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="font-medium capitalize text-slate-700">
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold capitalize text-slate-800 text-sm">
                             {type.replace(/_/g, ' ')}
                           </span>
-                          <span className="text-slate-600">{count} emails</span>
+                          <span className="text-sm font-bold text-green-600">{count} emails</span>
                         </div>
-                        <div className="w-full bg-slate-100 rounded-full h-2">
+                        <div className="w-full bg-slate-100 rounded-full h-3 shadow-inner">
                           <div
-                            className="bg-gradient-to-r from-green-500 to-green-600 h-2 rounded-full transition-all"
+                            className="bg-gradient-to-r from-green-500 to-green-600 h-3 rounded-full transition-all shadow-sm"
                             style={{ width: `${percentage}%` }}
                           />
                         </div>
@@ -303,28 +320,31 @@ export function MyPerformance() {
       </div>
 
       {metrics.recentCspEvents.length > 0 && (
-        <Card className="shadow-md border-0">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Activity className="h-5 w-5 text-slate-700" />
+        <Card className="shadow-lg border-0 relative overflow-hidden hover:shadow-xl transition-shadow">
+          <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-slate-600 to-slate-800" />
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-3 text-xl">
+              <div className="p-2 rounded-lg bg-gradient-to-br from-slate-600 to-slate-800 shadow-md">
+                <Activity className="h-5 w-5 text-white" />
+              </div>
               Recent CSP Events
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
               {metrics.recentCspEvents.map((event) => (
-                <div key={event.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg hover:bg-slate-100 transition-colors">
+                <div key={event.id} className="flex items-center justify-between p-4 bg-gradient-to-r from-slate-50 to-slate-100 rounded-xl hover:from-slate-100 hover:to-slate-200 transition-all border border-slate-200 shadow-sm">
                   <div className="flex-1">
-                    <div className="font-medium text-slate-900">{event.title}</div>
+                    <div className="font-semibold text-slate-900 mb-1">{event.title}</div>
                     {event.customer && (
-                      <div className="text-sm text-slate-600">{event.customer.name}</div>
+                      <div className="text-sm text-slate-600 font-medium">{event.customer.name}</div>
                     )}
                   </div>
                   <div className="flex items-center gap-3">
-                    <Badge variant="outline" className="capitalize">
+                    <Badge variant="outline" className="capitalize font-semibold px-3 py-1">
                       {event.stage.replace(/_/g, ' ')}
                     </Badge>
-                    <span className="text-sm text-slate-500">
+                    <span className="text-sm text-slate-500 font-medium">
                       {format(new Date(event.created_date), 'MMM d')}
                     </span>
                   </div>
