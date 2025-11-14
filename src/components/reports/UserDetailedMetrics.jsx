@@ -71,7 +71,8 @@ export function UserDetailedMetrics({ userId, userName, dateRange, open, onOpenC
         emailActivitiesResult,
         tariffActivitiesResult,
         assignedCarriersResult,
-        documentsResult
+        documentsResult,
+        interactionsResult
       ] = await Promise.all([
         supabase
           .from('csp_events')
@@ -140,7 +141,15 @@ export function UserDetailedMetrics({ userId, userName, dateRange, open, onOpenC
           .select('*')
           .in('user_id', userIds)
           .gte('created_date', dateRange.from.toISOString())
+          .lte('created_date', dateRange.to.toISOString()),
+
+        supabase
+          .from('interactions')
+          .select('*')
+          .in('user_id', userIds)
+          .gte('created_date', dateRange.from.toISOString())
           .lte('created_date', dateRange.to.toISOString())
+          .order('created_date', { ascending: false })
       ]);
 
       if (eventsResult.error) throw eventsResult.error;
@@ -149,6 +158,7 @@ export function UserDetailedMetrics({ userId, userName, dateRange, open, onOpenC
       if (tariffActivitiesResult.error) throw tariffActivitiesResult.error;
       if (assignedCarriersResult.error) throw assignedCarriersResult.error;
       if (documentsResult.error) throw documentsResult.error;
+      if (interactionsResult.error) throw interactionsResult.error;
 
       const calculatedMetrics = calculateDetailedMetrics(
         eventsResult.data || [],
@@ -156,7 +166,8 @@ export function UserDetailedMetrics({ userId, userName, dateRange, open, onOpenC
         emailActivitiesResult.data || [],
         tariffActivitiesResult.data || [],
         assignedCarriersResult.data || [],
-        documentsResult.data || []
+        documentsResult.data || [],
+        interactionsResult.data || []
       );
 
       setMetrics(calculatedMetrics);
@@ -168,13 +179,15 @@ export function UserDetailedMetrics({ userId, userName, dateRange, open, onOpenC
     }
   };
 
-  const calculateDetailedMetrics = (events, stageHistory, emails, tariffActivities, assignedCarriers, documents) => {
+  const calculateDetailedMetrics = (events, stageHistory, emails, tariffActivities, assignedCarriers, documents, interactions) => {
     const stageDistribution = {};
     const emailsByType = { sent: 0, received: 0, replied: 0 };
     const activityByDay = {};
     const stageVelocity = [];
     const customerBreakdown = {};
     const carrierInteractions = {};
+    const allActivities = [];
+    const activityTypeCount = {};
 
     events.forEach(event => {
       const stage = event.stage || 'unknown';
@@ -260,6 +273,31 @@ export function UserDetailedMetrics({ userId, userName, dateRange, open, onOpenC
       };
     });
 
+    interactions.forEach(interaction => {
+      const dayKey = format(new Date(interaction.created_date), 'MMM dd');
+      if (!activityByDay[dayKey]) {
+        activityByDay[dayKey] = { day: dayKey, stageChanges: 0, emails: 0, tariffs: 0, other: 0 };
+      }
+
+      if (!['csp_stage_update', 'stage_change'].includes(interaction.interaction_type) &&
+          !['email'].includes(interaction.interaction_type) &&
+          !['tariff'].includes(interaction.interaction_type)) {
+        activityByDay[dayKey].other = (activityByDay[dayKey].other || 0) + 1;
+      }
+
+      activityTypeCount[interaction.interaction_type] = (activityTypeCount[interaction.interaction_type] || 0) + 1;
+
+      allActivities.push({
+        id: interaction.id,
+        type: interaction.interaction_type,
+        summary: interaction.summary,
+        details: interaction.details,
+        entityType: interaction.entity_type,
+        date: interaction.created_date,
+        metadata: interaction.metadata
+      });
+    });
+
     const wonEvents = events.filter(e => e.stage === 'won' || e.stage === 'live');
     const lostEvents = events.filter(e => e.stage === 'lost' || e.stage === 'not_awarded');
     const inProgressEvents = events.filter(e =>
@@ -306,7 +344,12 @@ export function UserDetailedMetrics({ userId, userName, dateRange, open, onOpenC
       topCarrierInteractions: Object.values(carrierInteractions)
         .sort((a, b) => b.count - a.count)
         .slice(0, 10),
-      emailBreakdown: emailsByType
+      emailBreakdown: emailsByType,
+      allActivities: allActivities.sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 50),
+      activityTypeCount: Object.entries(activityTypeCount)
+        .map(([type, count]) => ({ type, count }))
+        .sort((a, b) => b.count - a.count),
+      totalActivities: allActivities.length
     };
   };
 
@@ -460,6 +503,12 @@ export function UserDetailedMetrics({ userId, userName, dateRange, open, onOpenC
                           {metrics.summary.carriersInvited}
                         </span>
                       </div>
+                      <div className="flex items-center justify-between p-3 bg-amber-50 rounded-lg">
+                        <span className="text-sm font-medium">Total Activities</span>
+                        <span className="text-lg font-bold text-amber-600">
+                          {metrics.totalActivities}
+                        </span>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -604,6 +653,7 @@ export function UserDetailedMetrics({ userId, userName, dateRange, open, onOpenC
                           <Bar dataKey="stageChanges" fill="#3b82f6" name="Stage Changes" />
                           <Bar dataKey="emails" fill="#8b5cf6" name="Emails" />
                           <Bar dataKey="tariffs" fill="#10b981" name="Tariff Activities" />
+                          <Bar dataKey="other" fill="#f59e0b" name="Other Activities" />
                         </BarChart>
                       </ResponsiveContainer>
                     ) : (
@@ -611,6 +661,84 @@ export function UserDetailedMetrics({ userId, userName, dateRange, open, onOpenC
                         No activity data available
                       </p>
                     )}
+                  </CardContent>
+                </Card>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Activity Breakdown</CardTitle>
+                      <CardDescription>By type</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <ScrollArea className="h-[250px]">
+                        <div className="space-y-2">
+                          {metrics.activityTypeCount.map((item, idx) => (
+                            <div key={idx} className="flex items-center justify-between p-2 border rounded">
+                              <span className="text-sm font-medium capitalize">
+                                {item.type.replace(/_/g, ' ')}
+                              </span>
+                              <Badge variant="secondary">{item.count}</Badge>
+                            </div>
+                          ))}
+                        </div>
+                      </ScrollArea>
+                    </CardContent>
+                  </Card>
+
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Total Activities</CardTitle>
+                      <CardDescription>All tracked actions</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-center py-8">
+                        <div className="text-4xl font-bold text-blue-600">
+                          {metrics.totalActivities}
+                        </div>
+                        <p className="text-sm text-muted-foreground mt-2">
+                          Activities tracked in this period
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Recent Activities</CardTitle>
+                    <CardDescription>Last 50 actions</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <ScrollArea className="h-[400px]">
+                      <div className="space-y-3">
+                        {metrics.allActivities.map((activity) => (
+                          <div key={activity.id} className="border-l-4 border-blue-500 pl-3 py-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Badge variant="outline" className="text-xs">
+                                    {activity.type.replace(/_/g, ' ')}
+                                  </Badge>
+                                  <Badge variant="secondary" className="text-xs">
+                                    {activity.entityType}
+                                  </Badge>
+                                </div>
+                                <p className="text-sm font-medium">{activity.summary}</p>
+                                {activity.details && (
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    {activity.details}
+                                  </p>
+                                )}
+                              </div>
+                              <span className="text-xs text-muted-foreground whitespace-nowrap">
+                                {format(new Date(activity.date), 'MMM dd, h:mm a')}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
                   </CardContent>
                 </Card>
 
