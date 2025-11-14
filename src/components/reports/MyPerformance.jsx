@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/api/supabaseClient';
+import { useImpersonation } from '@/contexts/ImpersonationContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -12,10 +13,15 @@ export function MyPerformance() {
     from: startOfMonth(new Date()),
     to: endOfMonth(new Date())
   });
+  const { isImpersonating, impersonatedUser } = useImpersonation();
 
   const { data: currentUser } = useQuery({
-    queryKey: ['currentUser'],
+    queryKey: ['currentUser', isImpersonating, impersonatedUser?.id],
     queryFn: async () => {
+      if (isImpersonating && impersonatedUser) {
+        return impersonatedUser;
+      }
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 

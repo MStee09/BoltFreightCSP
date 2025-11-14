@@ -14,12 +14,14 @@ import { MyPerformance } from '../components/reports/MyPerformance';
 import { useToast } from '../components/ui/use-toast';
 import { supabase } from '../api/supabaseClient';
 import { useUserRole } from '../hooks/useUserRole';
+import { useImpersonation } from '../contexts/ImpersonationContext';
 
 export default function ReportsPage() {
     const [activeTab, setActiveTab] = useState('performance');
     const { toast } = useToast();
     const queryClient = useQueryClient();
     const { isAdmin, loading: roleLoading } = useUserRole();
+    const { isImpersonating, impersonatedUser } = useImpersonation();
 
     const { data: snapshots = [], isLoading: isLoadingSnapshots } = useQuery({
         queryKey: ["reportSnapshots"],
@@ -129,16 +131,18 @@ export default function ReportsPage() {
         );
     }
 
-    if (!isAdmin) {
+    if (!isAdmin || isImpersonating) {
         return (
             <div className="p-6 lg:p-8 max-w-[1600px] mx-auto">
                 <div className="flex items-center justify-between mb-8">
                     <div>
                         <h1 className="text-3xl font-bold text-slate-900 flex items-center gap-3">
                             <TrendingUp className="h-8 w-8 text-blue-600" />
-                            My Performance
+                            {isImpersonating ? `${impersonatedUser?.full_name || impersonatedUser?.email}'s Performance` : 'My Performance'}
                         </h1>
-                        <p className="text-slate-600 mt-1">Track your activity and contributions</p>
+                        <p className="text-slate-600 mt-1">
+                            {isImpersonating ? 'Viewing performance as this user' : 'Track your activity and contributions'}
+                        </p>
                     </div>
                 </div>
 
