@@ -85,55 +85,18 @@ Deno.serve(async (req: Request) => {
     let fromEmail;
 
     if (oauthTokens) {
-      // Check if token is expired and refresh if needed
-      const now = new Date();
-      const expiry = new Date(oauthTokens.token_expiry);
-      let accessToken = oauthTokens.access_token;
+      // Get OAuth credentials from system settings
+      const { data: oauthSettings } = await supabaseClient
+        .from('system_settings')
+        .select('setting_value')
+        .eq('setting_key', 'gmail_oauth_credentials')
+        .maybeSingle();
 
-      if (now >= expiry) {
-        // Get OAuth credentials from system settings
-        const { data: oauthSettings } = await supabaseClient
-          .from('system_settings')
-          .select('setting_value')
-          .eq('setting_key', 'gmail_oauth_credentials')
-          .maybeSingle();
-
-        if (!oauthSettings?.setting_value?.client_id) {
-          throw new Error('Gmail OAuth not configured. Please contact administrator.');
-        }
-
-        // Token expired, refresh it
-        const tokenRefreshResponse = await fetch('https://oauth2.googleapis.com/token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            client_id: oauthSettings.setting_value.client_id,
-            client_secret: oauthSettings.setting_value.client_secret,
-            refresh_token: oauthTokens.refresh_token,
-            grant_type: 'refresh_token',
-          }),
-        });
-
-        if (!tokenRefreshResponse.ok) {
-          const errorText = await tokenRefreshResponse.text();
-          console.error('Token refresh failed:', errorText);
-          throw new Error('Failed to refresh Gmail token. Please reconnect your Gmail account.');
-        }
-
-        const refreshData = await tokenRefreshResponse.json();
-        accessToken = refreshData.access_token;
-
-        // Update tokens in database
-        await supabaseClient
-          .from('user_gmail_tokens')
-          .update({
-            access_token: accessToken,
-            token_expiry: new Date(Date.now() + refreshData.expires_in * 1000).toISOString(),
-          })
-          .eq('user_id', effectiveUserId);
+      if (!oauthSettings?.setting_value?.client_id) {
+        throw new Error('Gmail OAuth not configured. Please contact administrator.');
       }
 
-      // Use OAuth2 for SMTP
+      // Use OAuth2 for SMTP with full credentials so nodemailer can refresh automatically
       transporter = nodemailer.createTransport({
         host: 'smtp.gmail.com',
         port: 587,
@@ -141,7 +104,10 @@ Deno.serve(async (req: Request) => {
         auth: {
           type: 'OAuth2',
           user: oauthTokens.email_address,
-          accessToken: accessToken,
+          clientId: oauthSettings.setting_value.client_id,
+          clientSecret: oauthSettings.setting_value.client_secret,
+          refreshToken: oauthTokens.refresh_token,
+          accessToken: oauthTokens.access_token,
         },
       });
 
