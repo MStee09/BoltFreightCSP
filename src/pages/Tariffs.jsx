@@ -110,39 +110,6 @@ export default function TariffsPage() {
     }
   }, []);
 
-  useEffect(() => {
-    const params = {};
-    if (viewMode !== 'family') {
-      params.view = viewMode;
-    }
-    if (selectedCustomerIds.size > 0) {
-      params.customer_ids = Array.from(selectedCustomerIds).join(',');
-    }
-
-    const newSearchParams = new URLSearchParams(params);
-    if (newSearchParams.toString() !== searchParams.toString()) {
-      setSearchParams(newSearchParams, { replace: true });
-    }
-  }, [viewMode, selectedCustomerIds]);
-
-  useEffect(() => {
-    if (searchTerm && !searchTerm.toLowerCase().startsWith('customer:')) {
-      const matchedCustomer = customers.find(c =>
-        c.name?.toLowerCase() === searchTerm.toLowerCase()
-      );
-      if (matchedCustomer) {
-        setSuggestedCustomer(matchedCustomer);
-        setShowSearchSuggestion(true);
-      } else {
-        setShowSearchSuggestion(false);
-        setSuggestedCustomer(null);
-      }
-    } else {
-      setShowSearchSuggestion(false);
-      setSuggestedCustomer(null);
-    }
-  }, [searchTerm, customers]);
-
   const handleSort = (column) => {
     if (sortColumn === column) {
       setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
@@ -274,6 +241,39 @@ export default function TariffsPage() {
       setPinnedFamilies(familyPins);
     }
   }, [userPinsData]);
+
+  useEffect(() => {
+    const params = {};
+    if (viewMode !== 'family') {
+      params.view = viewMode;
+    }
+    if (selectedCustomerIds.size > 0) {
+      params.customer_ids = Array.from(selectedCustomerIds).join(',');
+    }
+
+    const newSearchParams = new URLSearchParams(params);
+    if (newSearchParams.toString() !== searchParams.toString()) {
+      setSearchParams(newSearchParams, { replace: true });
+    }
+  }, [viewMode, selectedCustomerIds]);
+
+  useEffect(() => {
+    if (searchTerm && !searchTerm.toLowerCase().startsWith('customer:')) {
+      const matchedCustomer = customers.find(c =>
+        c.name?.toLowerCase() === searchTerm.toLowerCase()
+      );
+      if (matchedCustomer) {
+        setSuggestedCustomer(matchedCustomer);
+        setShowSearchSuggestion(true);
+      } else {
+        setShowSearchSuggestion(false);
+        setSuggestedCustomer(null);
+      }
+    } else {
+      setShowSearchSuggestion(false);
+      setSuggestedCustomer(null);
+    }
+  }, [searchTerm, customers]);
 
   const isLoading = isTariffsLoading || isCustomersLoading || isCarriersLoading || isCspEventsLoading;
 
