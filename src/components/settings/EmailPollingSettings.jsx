@@ -99,24 +99,28 @@ export function EmailPollingSettings() {
         },
       });
 
-      if (!response.ok) {
-        let errorMessage = 'Failed to check for replies';
-        try {
-          const contentType = response.headers.get('content-type');
-          if (contentType && contentType.includes('application/json')) {
-            const errorData = await response.json();
-            errorMessage = errorData.error || errorMessage;
-          } else {
-            const textResponse = await response.text();
-            console.error('Non-JSON error response:', textResponse);
-          }
-        } catch (parseError) {
-          console.error('Error parsing response:', parseError);
+      // Read response body once based on content type
+      const contentType = response.headers.get('content-type');
+      let result;
+
+      try {
+        if (contentType && contentType.includes('application/json')) {
+          result = await response.json();
+        } else {
+          const textResponse = await response.text();
+          console.error('Non-JSON response:', textResponse);
+          result = { error: textResponse };
         }
-        throw new Error(errorMessage);
+      } catch (parseError) {
+        console.error('Error parsing response:', parseError);
+        result = { error: 'Failed to parse server response' };
       }
 
-      const result = await response.json();
+      // Check if request was successful
+      if (!response.ok) {
+        const errorMessage = result.error || 'Failed to check for replies';
+        throw new Error(errorMessage);
+      }
       setLastChecked(result.lastChecked);
 
       if (result.newMessages > 0) {

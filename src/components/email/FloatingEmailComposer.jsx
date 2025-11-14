@@ -566,26 +566,28 @@ export function FloatingEmailComposer({
         })
       });
 
-      if (!response.ok) {
-        let errorMessage = 'Failed to send email';
-        try {
-          const contentType = response.headers.get('content-type');
-          if (contentType && contentType.includes('application/json')) {
-            const errorData = await response.json();
-            errorMessage = errorData.error || errorMessage;
-          } else {
-            const textResponse = await response.text();
-            console.error('Non-JSON error response:', textResponse);
-            errorMessage = `Server error (${response.status}). Please check your Gmail connection in Settings.`;
-          }
-        } catch (parseError) {
-          console.error('Error parsing response:', parseError);
-          errorMessage = `Server error (${response.status}). Please check your Gmail connection in Settings.`;
+      // Read response body once based on content type
+      const contentType = response.headers.get('content-type');
+      let result;
+
+      try {
+        if (contentType && contentType.includes('application/json')) {
+          result = await response.json();
+        } else {
+          const textResponse = await response.text();
+          console.error('Non-JSON response:', textResponse);
+          result = { error: textResponse };
         }
-        throw new Error(errorMessage);
+      } catch (parseError) {
+        console.error('Error parsing response:', parseError);
+        result = { error: 'Failed to parse server response' };
       }
 
-      const result = await response.json();
+      // Check if request was successful
+      if (!response.ok) {
+        const errorMessage = result.error || `Server error (${response.status}). Please check your Gmail connection in Settings.`;
+        throw new Error(errorMessage);
+      }
 
       // Create follow-up task if requested
       if (createFollowUp && result.success) {
