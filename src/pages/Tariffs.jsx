@@ -1,8 +1,8 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { Customer, Carrier, Tariff, CSPEvent } from "../api/entities";
 import { supabase } from "../api/supabaseClient";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { createPageUrl } from "../utils";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
@@ -10,6 +10,8 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../components/ui/dropdown-menu";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
 import { PlusCircle, Search, Upload, ChevronDown, ChevronRight, AlertCircle, Eye, GitCompare, Download, FileText, Plus, Calendar, Link2, UploadCloud, RefreshCw, FileCheck, ArrowUpDown, Briefcase, FolderOpen, TrendingUp, Clock, X, Pin, User, Truck, Package, Edit, History, FileSpreadsheet, Repeat, ChevronsDown, ChevronsUp, Star, MoreVertical, Trash2, CheckCircle } from "lucide-react";
 import { format, isAfter, isBefore, differenceInDays } from "date-fns";
 import { Skeleton } from "../components/ui/skeleton";
@@ -87,6 +89,59 @@ export default function TariffsPage() {
   const [userPins, setUserPins] = useState({ customers: new Set(), families: new Set() });
   const [editingTariff, setEditingTariff] = useState(null);
   const [showEditDialog, setShowEditDialog] = useState(false);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [selectedCustomerIds, setSelectedCustomerIds] = useState(new Set());
+  const [viewMode, setViewMode] = useState('family');
+  const [customerFilterOpen, setCustomerFilterOpen] = useState(false);
+  const [showSearchSuggestion, setShowSearchSuggestion] = useState(false);
+  const [suggestedCustomer, setSuggestedCustomer] = useState(null);
+
+  useEffect(() => {
+    const view = searchParams.get('view');
+    const customerIds = searchParams.get('customer_ids');
+
+    if (view && ['family', 'customer'].includes(view)) {
+      setViewMode(view);
+    }
+
+    if (customerIds) {
+      setSelectedCustomerIds(new Set(customerIds.split(',')));
+    }
+  }, []);
+
+  useEffect(() => {
+    const params = {};
+    if (viewMode !== 'family') {
+      params.view = viewMode;
+    }
+    if (selectedCustomerIds.size > 0) {
+      params.customer_ids = Array.from(selectedCustomerIds).join(',');
+    }
+
+    const newSearchParams = new URLSearchParams(params);
+    if (newSearchParams.toString() !== searchParams.toString()) {
+      setSearchParams(newSearchParams, { replace: true });
+    }
+  }, [viewMode, selectedCustomerIds]);
+
+  useEffect(() => {
+    if (searchTerm && !searchTerm.toLowerCase().startsWith('customer:')) {
+      const matchedCustomer = customers.find(c =>
+        c.name?.toLowerCase() === searchTerm.toLowerCase()
+      );
+      if (matchedCustomer) {
+        setSuggestedCustomer(matchedCustomer);
+        setShowSearchSuggestion(true);
+      } else {
+        setShowSearchSuggestion(false);
+        setSuggestedCustomer(null);
+      }
+    } else {
+      setShowSearchSuggestion(false);
+      setSuggestedCustomer(null);
+    }
+  }, [searchTerm, customers]);
 
   const handleSort = (column) => {
     if (sortColumn === column) {
@@ -285,6 +340,10 @@ export default function TariffsPage() {
 
       const customer = customers.find(c => c.id === t.customer_id);
 
+      if (selectedCustomerIds.size > 0 && !selectedCustomerIds.has(t.customer_id)) {
+        return false;
+      }
+
       if (myAccountsOnly && customer && userProfile) {
         const isOwner = customer.csp_owner_id === userProfile.id;
         const isCollaborator = customer.collaborators?.includes(userProfile.id);
@@ -299,15 +358,26 @@ export default function TariffsPage() {
         : (carriers.find(c => c.id === t.carrier_id)?.name || '');
       const searchCarriers = carrierNames.toLowerCase();
       const cspEvent = cspEvents.find(e => e.id === t.csp_event_id);
-      const searchTermLower = searchTerm.toLowerCase();
+
+      let searchTermLower = searchTerm.toLowerCase();
+      let isCustomerSearch = false;
+
+      if (searchTermLower.startsWith('customer:')) {
+        isCustomerSearch = true;
+        searchTermLower = searchTermLower.substring(9).trim();
+      }
 
       const matchesSearch = !searchTerm || (
-        (customer?.name?.toLowerCase().includes(searchTermLower)) ||
-        searchCarriers.includes(searchTermLower) ||
-        (t.version?.toLowerCase().includes(searchTermLower)) ||
-        (t.tariff_reference_id?.toLowerCase().includes(searchTermLower)) ||
-        (t.tariff_family_id?.toLowerCase().includes(searchTermLower)) ||
-        (cspEvent?.title?.toLowerCase().includes(searchTermLower))
+        isCustomerSearch
+          ? (customer?.name?.toLowerCase().includes(searchTermLower))
+          : (
+            (customer?.name?.toLowerCase().includes(searchTermLower)) ||
+            searchCarriers.includes(searchTermLower) ||
+            (t.version?.toLowerCase().includes(searchTermLower)) ||
+            (t.tariff_reference_id?.toLowerCase().includes(searchTermLower)) ||
+            (t.tariff_family_id?.toLowerCase().includes(searchTermLower)) ||
+            (cspEvent?.title?.toLowerCase().includes(searchTermLower))
+          )
       );
 
       if (!matchesSearch) return false;
@@ -334,7 +404,7 @@ export default function TariffsPage() {
 
       return true;
     });
-  }, [tariffs, ownershipTab, statusFilter, searchTerm, customers, carriers, cspEvents, serviceTypeFilter, myAccountsOnly, userProfile]);
+  }, [tariffs, ownershipTab, statusFilter, searchTerm, customers, carriers, cspEvents, serviceTypeFilter, myAccountsOnly, userProfile, selectedCustomerIds]);
 
   const groupedTariffs = useMemo(() => {
     const groups = {};
@@ -866,6 +936,64 @@ export default function TariffsPage() {
             </Tooltip>
           </TooltipProvider>
 
+          <Popover open={customerFilterOpen} onOpenChange={setCustomerFilterOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant={selectedCustomerIds.size > 0 ? 'default' : 'outline'}
+                size="sm"
+                className="h-8 flex items-center gap-1"
+              >
+                <Briefcase className="w-3.5 h-3.5" />
+                Customer
+                {selectedCustomerIds.size > 0 && (
+                  <>
+                    : {selectedCustomerIds.size} selected
+                    <X
+                      className="w-3 h-3 ml-1"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedCustomerIds(new Set());
+                      }}
+                    />
+                  </>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[300px] p-0" align="start">
+              <Command>
+                <CommandInput placeholder="Search customers..." />
+                <CommandList>
+                  <CommandEmpty>No customers found.</CommandEmpty>
+                  <CommandGroup>
+                    {customers.map((customer) => (
+                      <CommandItem
+                        key={customer.id}
+                        onSelect={() => {
+                          const newSelection = new Set(selectedCustomerIds);
+                          if (newSelection.has(customer.id)) {
+                            newSelection.delete(customer.id);
+                          } else {
+                            newSelection.add(customer.id);
+                          }
+                          setSelectedCustomerIds(newSelection);
+                        }}
+                      >
+                        <CheckCircle
+                          className={`mr-2 h-4 w-4 ${
+                            selectedCustomerIds.has(customer.id)
+                              ? 'opacity-100'
+                              : 'opacity-0'
+                          }`}
+                        />
+                        {customer.name}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -882,7 +1010,6 @@ export default function TariffsPage() {
               <TooltipContent>Show only accounts you manage</TooltipContent>
             </Tooltip>
           </TooltipProvider>
-
 
           <TooltipProvider>
             <Tooltip>
@@ -905,6 +1032,32 @@ export default function TariffsPage() {
             </Tooltip>
           </TooltipProvider>
         </div>
+
+        {showSearchSuggestion && suggestedCustomer && (
+          <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex-1 text-sm text-blue-900">
+              Filter to customer: <span className="font-semibold">{suggestedCustomer.name}</span>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => {
+                setSelectedCustomerIds(new Set([suggestedCustomer.id]));
+                setShowSearchSuggestion(false);
+                setSearchTerm('');
+              }}
+            >
+              Apply Filter
+            </Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setShowSearchSuggestion(false)}
+            >
+              <X className="w-4 h-4" />
+            </Button>
+          </div>
+        )}
       </div>
 
       <Tabs value={ownershipTab} onValueChange={handleTabChange} className="mb-6">
@@ -1038,6 +1191,27 @@ export default function TariffsPage() {
                   Clear ({selectedForCompare.length})
                 </Button>
               )}
+
+              <div className="flex items-center gap-2 border-l pl-2 ml-2">
+                <span className="text-xs text-slate-600 font-medium">Group by:</span>
+                <Button
+                  variant={viewMode === 'family' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setViewMode('family')}
+                  className="h-8"
+                >
+                  Family
+                </Button>
+                <Button
+                  variant={viewMode === 'customer' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setViewMode('customer')}
+                  className="h-8"
+                >
+                  Customer
+                </Button>
+              </div>
+
               <div className="flex items-center gap-1 border-l pl-2 ml-2">
                 <TooltipProvider>
                   <Tooltip>
