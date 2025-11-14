@@ -100,8 +100,20 @@ export function EmailPollingSettings() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to check for replies');
+        let errorMessage = 'Failed to check for replies';
+        try {
+          const contentType = response.headers.get('content-type');
+          if (contentType && contentType.includes('application/json')) {
+            const errorData = await response.json();
+            errorMessage = errorData.error || errorMessage;
+          } else {
+            const textResponse = await response.text();
+            console.error('Non-JSON error response:', textResponse);
+          }
+        } catch (parseError) {
+          console.error('Error parsing response:', parseError);
+        }
+        throw new Error(errorMessage);
       }
 
       const result = await response.json();
