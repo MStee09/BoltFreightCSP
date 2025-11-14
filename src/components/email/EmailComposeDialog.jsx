@@ -412,6 +412,8 @@ export function EmailComposeDialog({
       const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
       const { data: { session } } = await supabase.auth.getSession();
 
+      const effectiveUserId = isImpersonating ? impersonatedUser.id : user.id;
+
       const response = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
         method: 'POST',
         headers: {
@@ -430,6 +432,7 @@ export function EmailComposeDialog({
           carrierId: carrier?.id,
           inReplyTo,
           threadId,
+          impersonatedUserId: isImpersonating ? effectiveUserId : null,
         })
       });
 

@@ -33,27 +33,31 @@ Deno.serve(async (req: Request) => {
       throw new Error('Unauthorized');
     }
 
-    const { 
-      to, 
+    const {
+      to,
       cc,
-      subject, 
-      body, 
-      cspEventId, 
+      subject,
+      body,
+      cspEventId,
       customerId,
       carrierId,
       trackReply = true,
       inReplyTo = null,
       threadId = null,
+      impersonatedUserId = null,
     } = await req.json();
 
     if (!to || to.length === 0) {
       throw new Error('Recipient email is required');
     }
 
+    // Use impersonated user ID if provided, otherwise use authenticated user
+    const effectiveUserId = impersonatedUserId || user.id;
+
     const { data: userProfile } = await supabaseClient
       .from('user_profiles')
       .select('email, full_name, email_signature')
-      .eq('id', user.id)
+      .eq('id', effectiveUserId)
       .maybeSingle();
 
     if (!userProfile) {
@@ -64,13 +68,13 @@ Deno.serve(async (req: Request) => {
     const { data: oauthTokens } = await supabaseClient
       .from('user_gmail_tokens')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', effectiveUserId)
       .maybeSingle();
 
     const { data: appPasswordCreds } = await supabaseClient
       .from('user_gmail_credentials')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', effectiveUserId)
       .maybeSingle();
 
     if (!oauthTokens && !appPasswordCreds) {
@@ -126,7 +130,7 @@ Deno.serve(async (req: Request) => {
             access_token: accessToken,
             token_expiry: new Date(Date.now() + refreshData.expires_in * 1000).toISOString(),
           })
-          .eq('user_id', user.id);
+          .eq('user_id', effectiveUserId);
       }
 
       // Use OAuth2 for SMTP
@@ -215,7 +219,7 @@ Deno.serve(async (req: Request) => {
           csp_event_id: cspEventId || null,
           customer_id: customerId || null,
           carrier_id: carrierId || null,
-          created_by: user.id,
+          created_by: effectiveUserId,
         })
         .select('token')
         .maybeSingle();
@@ -292,7 +296,7 @@ Deno.serve(async (req: Request) => {
         direction: 'outbound',
         sent_at: new Date().toISOString(),
         freightops_thread_token: foToken,
-        owner_id: user.id,
+        owner_id: effectiveUserId,
         is_thread_starter: !inReplyTo,
         visible_to_team: true,
       })
