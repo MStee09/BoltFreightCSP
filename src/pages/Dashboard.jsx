@@ -177,12 +177,12 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
-      <div className="p-4 lg:p-6 max-w-[1800px] mx-auto">
-        <div className="mb-4">
+      <div className="p-3 lg:p-4 max-w-[2000px] mx-auto">
+        <div className="mb-3">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl lg:text-3xl font-bold text-slate-900 mb-1">Command Center</h1>
-              <p className="text-sm text-slate-600">{format(new Date(), 'EEEE, MMMM d, yyyy')}</p>
+              <h1 className="text-xl lg:text-2xl font-bold text-slate-900 mb-0.5">Command Center</h1>
+              <p className="text-xs text-slate-600">{format(new Date(), 'EEEE, MMMM d, yyyy')}</p>
             </div>
             <Button
               onClick={handleClearMockData}
@@ -206,12 +206,12 @@ export default function Dashboard() {
           cspEvents={cspEvents}
         />
 
-        <div className="flex items-center gap-2 text-xs text-slate-500 mb-3">
+        <div className="flex items-center gap-2 text-xs text-slate-500 mb-2">
           <RefreshCw className="w-3.5 h-3.5" />
           <span>Data last updated {getTimeSinceSync()}</span>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
           <MetricCard
             title="Active Customers"
             value={customers.length}
