@@ -793,6 +793,10 @@ export default function TariffsPage() {
 
         const customer = customers.find(c => c.id === t.customer_id);
 
+        if (selectedCustomerIds.size > 0 && !selectedCustomerIds.has(t.customer_id)) {
+          return false;
+        }
+
         if (myAccountsOnly && customer && userProfile) {
           const isOwner = customer.csp_owner_id === userProfile.id;
           const isCollaborator = customer.collaborators?.includes(userProfile.id);
@@ -808,7 +812,7 @@ export default function TariffsPage() {
       counts[type.value] = uniqueFamilies.size;
     });
     return counts;
-  }, [tariffs, customers, myAccountsOnly, userProfile, serviceTypeFilter]);
+  }, [tariffs, customers, selectedCustomerIds, myAccountsOnly, userProfile, serviceTypeFilter]);
 
   const expiringCount = useMemo(() => {
     const today = new Date();
