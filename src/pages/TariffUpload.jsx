@@ -117,7 +117,7 @@ export default function TariffUploadPage() {
     const [carrierIds, setCarrierIds] = useState(preselectedCarrierIds);
     const [subCustomerIds, setSubCustomerIds] = useState([]);
     const [version, setVersion] = useState('');
-    const [ownershipType, setOwnershipType] = useState('Rocket');
+    const [ownershipType, setOwnershipType] = useState('');
     const [effectiveDate, setEffectiveDate] = useState(null);
     const [expiryDate, setExpiryDate] = useState(null);
     const [file, setFile] = useState(null);
@@ -282,7 +282,7 @@ export default function TariffUploadPage() {
                     <form onSubmit={handleSubmit} className="space-y-6">
                         <div className="space-y-2">
                             <Label htmlFor="ownership">Ownership</Label>
-                            <Select onValueChange={setOwnershipType} value={ownershipType}>
+                            <Select onValueChange={setOwnershipType} value={ownershipType || undefined}>
                                 <SelectTrigger id="ownership"><SelectValue placeholder="Select ownership type" /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="Customer Direct">Customer Direct</SelectItem>
