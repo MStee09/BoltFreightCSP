@@ -182,12 +182,18 @@ export default function TariffUploadPage() {
 
     const createTariffMutation = useMutation({
         mutationFn: async (data) => {
+            const ownershipTypeMap = {
+                'Customer Direct': 'customer_direct',
+                'Priority 1': data.isBlanket ? 'priority1_blanket' : 'customer_direct',
+                'Rocket': data.isBlanket ? 'rocket_blanket' : 'rocket_csp'
+            };
+
             const tariffData = {
                 customer_id: data.isBlanket ? null : data.customerId,
                 carrier_ids: data.carrierIds,
                 customer_ids: data.isBlanket ? data.subCustomerIds : [],
                 version: data.version,
-                ownership_type: data.ownershipType,
+                ownership_type: ownershipTypeMap[data.ownershipType] || 'customer_direct',
                 is_blanket_tariff: data.isBlanket,
                 effective_date: data.effectiveDate ? format(data.effectiveDate, 'yyyy-MM-dd') : null,
                 expiry_date: data.expiryDate ? format(data.expiryDate, 'yyyy-MM-dd') : null,
