@@ -878,11 +878,11 @@ export default function TariffsPage() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem onClick={() => setShowCspDialog(true)}>
+                <DropdownMenuItem onClick={() => navigate(createPageUrl('TariffUpload'))}>
                   <Upload className="w-4 h-4 mr-2" />
                   <div>
                     <div className="font-medium">Manual Upload</div>
-                    <div className="text-xs text-slate-500">Upload tariff document</div>
+                    <div className="text-xs text-slate-500">Upload tariff without CSP</div>
                   </div>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
