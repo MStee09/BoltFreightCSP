@@ -45,12 +45,22 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  const resetPassword = async (email) => {
+    return await User.resetPassword(email);
+  };
+
+  const updatePassword = async (newPassword) => {
+    return await User.updatePassword(newPassword);
+  };
+
   const value = {
     user,
     loading,
     signIn,
     signUp,
     signOut,
+    resetPassword,
+    updatePassword,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

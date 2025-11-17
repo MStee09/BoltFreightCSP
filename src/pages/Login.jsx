@@ -5,16 +5,29 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '../components/ui/card';
-import { Truck, AlertCircle } from 'lucide-react';
+import { Truck, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { Alert, AlertDescription } from '../components/ui/alert';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog';
 
 export default function Login() {
   const navigate = useNavigate();
-  const { signIn } = useAuth();
+  const { signIn, resetPassword } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState(false);
+  const [resetError, setResetError] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -29,6 +42,35 @@ export default function Login() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleForgotPassword = async (e) => {
+    e.preventDefault();
+    setResetError('');
+    setResetLoading(true);
+
+    try {
+      await resetPassword(resetEmail);
+      setResetSuccess(true);
+    } catch (err) {
+      setResetError(err.message || 'Failed to send reset email');
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  const handleOpenForgotPassword = () => {
+    setShowForgotPassword(true);
+    setResetEmail(email);
+    setResetSuccess(false);
+    setResetError('');
+  };
+
+  const handleCloseForgotPassword = () => {
+    setShowForgotPassword(false);
+    setResetEmail('');
+    setResetSuccess(false);
+    setResetError('');
   };
 
   return (
@@ -64,7 +106,16 @@ export default function Login() {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Password</Label>
+                <button
+                  type="button"
+                  onClick={handleOpenForgotPassword}
+                  className="text-xs text-blue-600 hover:underline"
+                >
+                  Forgot password?
+                </button>
+              </div>
               <Input
                 id="password"
                 type="password"
@@ -93,6 +144,72 @@ export default function Login() {
           </CardFooter>
         </form>
       </Card>
+
+      <Dialog open={showForgotPassword} onOpenChange={setShowForgotPassword}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reset Password</DialogTitle>
+            <DialogDescription>
+              Enter your email address and we'll send you a link to reset your password.
+            </DialogDescription>
+          </DialogHeader>
+          {resetSuccess ? (
+            <div className="py-6">
+              <Alert className="border-green-200 bg-green-50">
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <AlertDescription className="text-green-800">
+                  Password reset email sent! Check your inbox for instructions.
+                </AlertDescription>
+              </Alert>
+            </div>
+          ) : (
+            <form onSubmit={handleForgotPassword}>
+              <div className="space-y-4 py-4">
+                {resetError && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>{resetError}</AlertDescription>
+                  </Alert>
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="reset-email">Email</Label>
+                  <Input
+                    id="reset-email"
+                    type="email"
+                    placeholder="your@email.com"
+                    value={resetEmail}
+                    onChange={(e) => setResetEmail(e.target.value)}
+                    required
+                    disabled={resetLoading}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleCloseForgotPassword}
+                  disabled={resetLoading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="bg-blue-600 hover:bg-blue-700"
+                  disabled={resetLoading}
+                >
+                  {resetLoading ? 'Sending...' : 'Send Reset Link'}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+          {resetSuccess && (
+            <DialogFooter>
+              <Button onClick={handleCloseForgotPassword}>Close</Button>
+            </DialogFooter>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -19,6 +19,7 @@ import GmailCallback from "./GmailCallback";
 import Settings from "./Settings";
 import Login from "./Login";
 import Register from "./Register";
+import ResetPassword from "./ResetPassword";
 import { BrowserRouter as Router, Route, Routes, useLocation } from 'react-router-dom';
 
 function ProtectedRoute({ children }) {
@@ -94,6 +95,7 @@ function PagesContent() {
         <Routes>
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/gmail-callback" element={<GmailCallback />} />
 
             <Route path="/" element={
