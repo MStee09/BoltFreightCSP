@@ -185,7 +185,7 @@ export default function TariffUploadPage() {
             const tariffData = {
                 customer_id: data.isBlanket ? null : data.customerId,
                 carrier_ids: data.carrierIds,
-                sub_customer_ids: data.isBlanket ? data.subCustomerIds : [],
+                customer_ids: data.isBlanket ? data.subCustomerIds : [],
                 version: data.version,
                 ownership_type: data.ownershipType,
                 is_blanket_tariff: data.isBlanket,
