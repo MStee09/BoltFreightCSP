@@ -168,9 +168,11 @@ export function GmailSetupSimple() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://siujmppdeumvwwvyqcsq.supabase.co';
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNpdWptcHBkZXVtdnd3dnlxY3NxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjEwNTg5NjQsImV4cCI6MjA3NjYzNDk2NH0.MXDB0IkA0TOA-L7rrfakvnRcGVniSXIqqHRyTeG3cV0';
       const { data: { session } } = await supabase.auth.getSession();
+
+      const effectiveUserId = isImpersonating ? impersonatedUser.id : user.id;
 
       const testTrackingCode = `TEST-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
       const testSubject = 'CRM Email Integration Test';
@@ -189,6 +191,7 @@ export function GmailSetupSimple() {
           cc: [],
           subject: testSubject,
           body: testBody,
+          impersonatedUserId: isImpersonating ? effectiveUserId : null,
         })
       });
 
