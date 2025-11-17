@@ -183,7 +183,7 @@ export default function EditCspEventDialog({ isOpen, onOpenChange, eventId }) {
                                     <SelectValue placeholder="Select a customer" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {customers.map(c => (
+                                    {customers.sort((a, b) => a.name.localeCompare(b.name)).map(c => (
                                         <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
                                     ))}
                                 </SelectContent>

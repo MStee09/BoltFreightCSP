@@ -379,7 +379,7 @@ export default function EditTariffDialog({
                                     <SelectValue placeholder="Select a customer" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {customers.map(customer => (
+                                    {customers.sort((a, b) => a.name.localeCompare(b.name)).map(customer => (
                                         <SelectItem key={customer.id} value={customer.id}>
                                             {customer.name}
                                         </SelectItem>
@@ -401,7 +401,7 @@ export default function EditTariffDialog({
                                 </Button>
                             </div>
                             <div className="border rounded-lg p-4 space-y-2 max-h-48 overflow-y-auto">
-                                {customers.map(customer => (
+                                {customers.sort((a, b) => a.name.localeCompare(b.name)).map(customer => (
                                     <div key={customer.id} className="flex items-center gap-2">
                                         <Checkbox
                                             id={`customer-${customer.id}`}
@@ -424,7 +424,7 @@ export default function EditTariffDialog({
                                 <SelectValue placeholder="Select a carrier" />
                             </SelectTrigger>
                             <SelectContent>
-                                {carriers.map(carrier => (
+                                {carriers.sort((a, b) => a.name.localeCompare(b.name)).map(carrier => (
                                     <SelectItem key={carrier.id} value={carrier.id}>
                                         {carrier.name}
                                     </SelectItem>

@@ -117,7 +117,7 @@ export default function TariffUploadPage() {
     const [carrierIds, setCarrierIds] = useState(preselectedCarrierIds);
     const [subCustomerIds, setSubCustomerIds] = useState([]);
     const [version, setVersion] = useState('');
-    const [ownershipType, setOwnershipType] = useState('rocket_csp');
+    const [ownershipType, setOwnershipType] = useState('Rocket');
     const [effectiveDate, setEffectiveDate] = useState(null);
     const [expiryDate, setExpiryDate] = useState(null);
     const [file, setFile] = useState(null);
@@ -259,8 +259,12 @@ export default function TariffUploadPage() {
         });
     };
 
-    const carrierOptions = carriers.map(c => ({ value: c.id, label: c.name }));
-    const customerOptions = customers.map(c => ({ value: c.id, label: c.name }));
+    const carrierOptions = carriers
+        .map(c => ({ value: c.id, label: c.name }))
+        .sort((a, b) => a.label.localeCompare(b.label));
+    const customerOptions = customers
+        .map(c => ({ value: c.id, label: c.name }))
+        .sort((a, b) => a.label.localeCompare(b.label));
 
     return (
         <div className="p-6 lg:p-8 max-w-4xl mx-auto">
@@ -318,7 +322,9 @@ export default function TariffUploadPage() {
                                         <SelectTrigger id="customer"><SelectValue placeholder="Select a customer" /></SelectTrigger>
                                         <SelectContent>
                                             <SelectItem value={null}>No Customer Selected</SelectItem>
-                                            {customers.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                                            {customers
+                                                .sort((a, b) => a.name.localeCompare(b.name))
+                                                .map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                                         </SelectContent>
                                     </Select>
                                 </div>

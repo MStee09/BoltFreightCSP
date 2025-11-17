@@ -239,7 +239,7 @@ export default function CreateAwardedCspDialog({
                 <SelectValue placeholder="Select customer" />
               </SelectTrigger>
               <SelectContent>
-                {customers.map((customer) => (
+                {customers.sort((a, b) => a.name.localeCompare(b.name)).map((customer) => (
                   <SelectItem key={customer.id} value={customer.id}>
                     {customer.name}
                   </SelectItem>

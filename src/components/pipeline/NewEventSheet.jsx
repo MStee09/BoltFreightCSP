@@ -285,7 +285,7 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers: custome
                                         <span>Create New Customer</span>
                                     </div>
                                 </SelectItem>
-                                {customers.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                                {customers.sort((a, b) => a.name.localeCompare(b.name)).map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                             </SelectContent>
                         </Select>
                     </div>
@@ -335,7 +335,7 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers: custome
                             </SelectTrigger>
                             <SelectContent>
                                 {users.length > 0 ? (
-                                    users.map(u => <SelectItem key={u.id} value={u.email}>{u.email}</SelectItem>)
+                                    users.sort((a, b) => a.email.localeCompare(b.email)).map(u => <SelectItem key={u.id} value={u.email}>{u.email}</SelectItem>)
                                 ) : (
                                     <div className="p-2 text-sm text-slate-500">No users available</div>
                                 )}
