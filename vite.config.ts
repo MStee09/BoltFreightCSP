@@ -16,6 +16,7 @@ export default defineConfig({
   },
   build: {
     rollupOptions: {
+      external: ['@base44/sdk'],
       output: {
         entryFileNames: `assets/[name]-[hash]-${Date.now()}.js`,
         chunkFileNames: `assets/[name]-[hash]-${Date.now()}.js`,

@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Customer, Carrier, Tariff, CSPEvent, Task, Interaction, Alert, Shipment, LostOpportunity, ReportSnapshot } from '../api/entities';
 import { useNavigate, Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
+import { UploadFile } from '../api/integrations';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -130,19 +131,62 @@ export default function TariffUploadPage() {
     useEffect(() => {
         if (!isRocketOrP1) {
             setIsBlanket(false);
-            setSubCustomerIds([]); // Clear sub-customers if not blanket-eligible
+            setSubCustomerIds([]);
         }
     }, [isRocketOrP1]);
 
     const { data: customers = [] } = useQuery({ queryKey: ["customers"], queryFn: () => Customer.list(), initialData: [] });
     const { data: carriers = [] } = useQuery({ queryKey: ["carriers"], queryFn: () => Carrier.list(), initialData: [] });
+    const { data: existingTariffs = [] } = useQuery({ queryKey: ["tariffs"], queryFn: () => Tariff.list(), initialData: [] });
+
+    useEffect(() => {
+        if (carrierIds.length === 0 || !effectiveDate) {
+            return;
+        }
+
+        if (!isBlanket && !customerId) {
+            return;
+        }
+
+        let customerAbbrev;
+        if (isBlanket) {
+            customerAbbrev = ownershipType.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 10) || 'ROCKET';
+        } else {
+            const customer = customers.find(c => c.id === customerId);
+            if (!customer) return;
+            customerAbbrev = customer.name.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 10);
+        }
+
+        const carrier = carriers.find(c => c.id === carrierIds[0]);
+        if (!carrier) return;
+
+        const carrierAbbrev = carrier.name.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 10);
+        const year = effectiveDate.getFullYear();
+
+        const prefix = `${customerAbbrev}-${carrierAbbrev}-${year}-`;
+
+        const existingWithPrefix = existingTariffs.filter(t =>
+            t.version && t.version.startsWith(prefix)
+        );
+
+        const existingNumbers = existingWithPrefix.map(t => {
+            const match = t.version.match(/-(\d{3})$/);
+            return match ? parseInt(match[1], 10) : 0;
+        });
+
+        const nextNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) + 1 : 1;
+        const sequenceNumber = String(nextNumber).padStart(3, '0');
+
+        const generatedVersion = `${prefix}${sequenceNumber}`;
+        setVersion(generatedVersion);
+    }, [customerId, carrierIds, effectiveDate, isBlanket, ownershipType, customers, carriers, existingTariffs]);
 
     const createTariffMutation = useMutation({
         mutationFn: async (data) => {
             let file_url = null;
             let file_name = null;
             if (data.file) {
-                const uploadResult = await base44.integrations.Core.UploadFile({ file: data.file });
+                const uploadResult = await UploadFile({ file: data.file });
                 file_url = uploadResult.file_url;
                 file_name = data.file.name;
             }
