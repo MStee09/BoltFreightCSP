@@ -12,7 +12,7 @@ export default defineConfig({
     extensions: ['.js', '.jsx', '.ts', '.tsx'],
   },
   optimizeDeps: {
-    exclude: ['lucide-react'],
+    exclude: ['lucide-react', '@base44/sdk'],
   },
   build: {
     rollupOptions: {
