@@ -543,11 +543,23 @@ export function FloatingEmailComposer({
 
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
       const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+      if (!supabaseUrl || !anonKey) {
+        throw new Error('Supabase configuration is missing. Please check your environment variables.');
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        throw new Error('No active session. Please log in again.');
+      }
 
       const effectiveUserId = isImpersonating ? impersonatedUser.id : user.id;
 
-      const response = await fetch(`${supabaseUrl}/functions/v1/send-email`, {
+      const functionUrl = `${supabaseUrl}/functions/v1/send-email`;
+      console.log('📤 Sending email to:', functionUrl);
+
+      const response = await fetch(functionUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -578,16 +590,37 @@ export function FloatingEmailComposer({
           result = await response.json();
         } else {
           const textResponse = await response.text();
-          console.error('Non-JSON response:', textResponse);
+          console.error('❌ Non-JSON response from server:', {
+            status: response.status,
+            statusText: response.statusText,
+            contentType,
+            url: functionUrl,
+            responsePreview: textResponse.substring(0, 500)
+          });
+
+          // Check if it's an HTML error page
+          if (textResponse.includes('<!DOCTYPE') || textResponse.includes('<html')) {
+            throw new Error(`Server returned an error page (${response.status}). The email service may be unavailable. Please contact support.`);
+          }
+
           result = { error: textResponse };
         }
       } catch (parseError) {
         console.error('Error parsing response:', parseError);
+        if (parseError instanceof Error && parseError.message.includes('Server returned an error page')) {
+          throw parseError;
+        }
         result = { error: 'Failed to parse server response' };
       }
 
       // Check if request was successful
       if (!response.ok) {
+        console.error('❌ Email send failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: result.error,
+          url: functionUrl
+        });
         const errorMessage = result.error || `Server error (${response.status}). Please check your Gmail connection in Settings.`;
         throw new Error(errorMessage);
       }
