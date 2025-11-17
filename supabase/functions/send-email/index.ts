@@ -139,7 +139,46 @@ Deno.serve(async (req: Request) => {
         throw new Error('Gmail OAuth not configured. Please contact administrator.');
       }
 
-      // Use OAuth2 for SMTP with full credentials so nodemailer can refresh automatically
+      // Manually refresh the access token if needed
+      let accessToken = oauthTokens.access_token;
+
+      try {
+        console.log('🔄 Refreshing OAuth token for:', oauthTokens.email_address);
+
+        const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({
+            client_id: oauthSettings.setting_value.client_id,
+            client_secret: oauthSettings.setting_value.client_secret,
+            refresh_token: oauthTokens.refresh_token,
+            grant_type: 'refresh_token',
+          }),
+        });
+
+        if (tokenResponse.ok) {
+          const tokenData = await tokenResponse.json();
+          accessToken = tokenData.access_token;
+
+          // Update the token in the database
+          await clientForCredentials
+            .from('user_gmail_tokens')
+            .update({
+              access_token: accessToken,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', oauthTokens.id);
+
+          console.log('✅ Token refreshed successfully');
+        } else {
+          const errorData = await tokenResponse.text();
+          console.warn('⚠️ Token refresh failed, using existing token:', errorData);
+        }
+      } catch (refreshError) {
+        console.warn('⚠️ Token refresh error:', refreshError.message);
+      }
+
+      // Use OAuth2 for SMTP
       transporter = nodemailer.createTransport({
         host: 'smtp.gmail.com',
         port: 587,
@@ -150,7 +189,7 @@ Deno.serve(async (req: Request) => {
           clientId: oauthSettings.setting_value.client_id,
           clientSecret: oauthSettings.setting_value.client_secret,
           refreshToken: oauthTokens.refresh_token,
-          accessToken: oauthTokens.access_token,
+          accessToken: accessToken,
         },
       });
 
