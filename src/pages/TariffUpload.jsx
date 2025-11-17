@@ -192,7 +192,6 @@ export default function TariffUploadPage() {
                 effective_date: data.effectiveDate ? format(data.effectiveDate, 'yyyy-MM-dd') : null,
                 expiry_date: data.expiryDate ? format(data.expiryDate, 'yyyy-MM-dd') : null,
                 file_url: null,
-                file_name: data.file?.name || null,
                 csp_event_id: data.cspEventId || null,
                 status: data.cspEventId ? 'active' : 'proposed'
             };
