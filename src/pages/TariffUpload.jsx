@@ -343,11 +343,6 @@ export default function TariffUploadPage() {
                             </div>
                         </div>
 
-                        <div className="space-y-2">
-                            <Label htmlFor="version">Tariff Version</Label>
-                            <Input id="version" placeholder="e.g., Q4-2024-LTL, Rocket-Master-2024" value={version} onChange={e => setVersion(e.target.value)} />
-                        </div>
-                        
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="space-y-2">
                                 <Label htmlFor="effective-date">Effective Date</Label>
@@ -373,6 +368,24 @@ export default function TariffUploadPage() {
                                     <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={expiryDate} onSelect={setExpiryDate} /></PopoverContent>
                                 </Popover>
                             </div>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="version">Tariff Version</Label>
+                            <Input
+                                id="version"
+                                placeholder={
+                                    !isBlanket && !customerId
+                                        ? "Select customer, carrier, and effective date to auto-generate"
+                                        : carrierIds.length === 0
+                                        ? "Select carrier and effective date to auto-generate"
+                                        : !effectiveDate
+                                        ? "Select effective date to auto-generate"
+                                        : "Auto-generated version will appear here"
+                                }
+                                value={version}
+                                onChange={e => setVersion(e.target.value)}
+                            />
                         </div>
 
                         <div className="space-y-2">
