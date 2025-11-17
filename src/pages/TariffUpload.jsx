@@ -11,14 +11,14 @@ import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popove
 import { Calendar } from '../components/ui/calendar';
 import { Label } from '../components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
-import { UploadCloud, Calendar as CalendarIcon, ArrowLeft, File, X, Loader2, Check, ChevronsUpDown } from 'lucide-react';
+import { UploadCloud, Calendar as CalendarIcon, ArrowLeft, File, X, Loader2, Check, ChevronsUpDown, ExternalLink } from 'lucide-react';
 import { format } from 'date-fns';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "../components/ui/command"
 import { cn } from "../lib/utils";
 import { Badge } from "../components/ui/badge";
 import { Switch } from "../components/ui/switch"; // Added Switch import
 
-const MultiSelect = ({ options, selected, onChange, placeholder, searchPlaceholder }) => {
+const MultiSelect = ({ options, selected, onChange, placeholder, searchPlaceholder, onCreateNew }) => {
     const [open, setOpen] = useState(false);
 
     return (
@@ -43,7 +43,25 @@ const MultiSelect = ({ options, selected, onChange, placeholder, searchPlacehold
                 <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
                     <Command>
                         <CommandInput placeholder={searchPlaceholder || "Search..."} />
-                        <CommandEmpty>No results found.</CommandEmpty>
+                        <CommandEmpty>
+                            <div className="p-4 text-center space-y-2">
+                                <p className="text-sm text-slate-600">No carrier found</p>
+                                {onCreateNew && (
+                                    <button
+                                        onClick={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            setOpen(false);
+                                            onCreateNew();
+                                        }}
+                                        className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
+                                    >
+                                        <ExternalLink className="h-3 w-3" />
+                                        Create new carrier
+                                    </button>
+                                )}
+                            </div>
+                        </CommandEmpty>
                         <CommandGroup className="max-h-64 overflow-y-auto">
                             {options.map((option) => (
                                 <CommandItem
@@ -64,6 +82,20 @@ const MultiSelect = ({ options, selected, onChange, placeholder, searchPlacehold
                                     {option.label}
                                 </CommandItem>
                             ))}
+                            {onCreateNew && (
+                                <div className="border-t border-slate-200 mt-1 pt-1">
+                                    <CommandItem
+                                        onSelect={() => {
+                                            setOpen(false);
+                                            onCreateNew();
+                                        }}
+                                        className="text-blue-600 font-medium cursor-pointer"
+                                    >
+                                        <ExternalLink className="mr-2 h-4 w-4" />
+                                        Add New Carrier
+                                    </CommandItem>
+                                </div>
+                            )}
                         </CommandGroup>
                     </Command>
                 </PopoverContent>
@@ -235,7 +267,14 @@ export default function TariffUploadPage() {
                             {isBlanket ? (
                                 <div className="space-y-2 md:col-span-2">
                                     <Label htmlFor="sub-customers">Sub-Customers (Optional)</Label>
-                                    <MultiSelect options={customerOptions} selected={subCustomerIds} onChange={setSubCustomerIds} placeholder="Select one or more sub-customers" searchPlaceholder="Search customers..." />
+                                    <MultiSelect
+                                        options={customerOptions}
+                                        selected={subCustomerIds}
+                                        onChange={setSubCustomerIds}
+                                        placeholder="Select one or more sub-customers"
+                                        searchPlaceholder="Search customers..."
+                                        onCreateNew={() => navigate(createPageUrl('CustomerDetail?new=true'))}
+                                    />
                                 </div>
                             ) : (
                                 <div className="space-y-2">
@@ -252,7 +291,14 @@ export default function TariffUploadPage() {
 
                             <div className={`space-y-2 ${isBlanket ? 'md:col-span-2' : ''}`}>
                                 <Label htmlFor="carrier">Carrier(s)</Label>
-                                <MultiSelect options={carrierOptions} selected={carrierIds} onChange={setCarrierIds} placeholder="Select one or more carriers" searchPlaceholder="Search carriers..." />
+                                <MultiSelect
+                                    options={carrierOptions}
+                                    selected={carrierIds}
+                                    onChange={setCarrierIds}
+                                    placeholder="Select one or more carriers"
+                                    searchPlaceholder="Search carriers..."
+                                    onCreateNew={() => navigate(createPageUrl('CarrierDetail?new=true'))}
+                                />
                             </div>
                         </div>
 
