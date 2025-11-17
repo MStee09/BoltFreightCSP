@@ -7,7 +7,7 @@ import { Button } from '../ui/button';
 import { Skeleton } from '../ui/skeleton';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '../ui/collapsible';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
-import { ChevronRight, ExternalLink, FileText, RefreshCw, Eye } from 'lucide-react';
+import { ChevronRight, ExternalLink, FileText, RefreshCw, Eye, Plus } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { createPageUrl } from '../../utils';
 import CreateAwardedCspDialog from '../tariffs/CreateAwardedCspDialog';
@@ -336,14 +336,40 @@ const CustomerTariffTimeline = ({ customerId }) => {
     }
 
     if (tariffs.length === 0) {
-        return <div className="py-8 text-center text-slate-500 border border-dashed rounded-lg mt-4">No tariffs found for this customer.</div>;
+        return (
+            <div className="py-12 text-center border border-dashed rounded-lg mt-4">
+                <p className="text-slate-500 mb-4">No tariffs found for this customer.</p>
+                <Button
+                    onClick={() => navigate(createPageUrl('TariffUpload') + `?customerId=${customerId}`)}
+                    variant="outline"
+                    size="sm"
+                >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Tariff
+                </Button>
+            </div>
+        );
     }
 
     const hasLiveTariffs = Object.values(groupedTariffs).some(group => group.length > 0);
 
     return (
         <>
-            <div className="space-y-4 mt-4">
+            <div className="flex items-center justify-between mb-3 mt-4">
+                <div className="text-sm text-slate-500">
+                    {tariffs.length} {tariffs.length === 1 ? 'tariff' : 'tariffs'}
+                </div>
+                <Button
+                    onClick={() => navigate(createPageUrl('TariffUpload') + `?customerId=${customerId}`)}
+                    variant="outline"
+                    size="sm"
+                >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Tariff
+                </Button>
+            </div>
+
+            <div className="space-y-4">
                 {hasLiveTariffs && (
                     <div className="space-y-3">
                         {renderGroup('rocket_csp', 'Rocket CSP', groupedTariffs.rocket_csp)}
