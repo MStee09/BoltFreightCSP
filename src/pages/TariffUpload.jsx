@@ -4,7 +4,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Customer, Carrier, Tariff, CSPEvent, Task, Interaction, Alert, Shipment, LostOpportunity, ReportSnapshot } from '../api/entities';
 import { useNavigate, Link } from 'react-router-dom';
 import { createPageUrl } from '../utils';
-import { UploadFile } from '../api/integrations';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
@@ -183,14 +182,6 @@ export default function TariffUploadPage() {
 
     const createTariffMutation = useMutation({
         mutationFn: async (data) => {
-            let file_url = null;
-            let file_name = null;
-            if (data.file) {
-                const uploadResult = await UploadFile({ file: data.file });
-                file_url = uploadResult.file_url;
-                file_name = data.file.name;
-            }
-
             const tariffData = {
                 customer_id: data.isBlanket ? null : data.customerId,
                 carrier_ids: data.carrierIds,
@@ -200,8 +191,8 @@ export default function TariffUploadPage() {
                 is_blanket_tariff: data.isBlanket,
                 effective_date: data.effectiveDate ? format(data.effectiveDate, 'yyyy-MM-dd') : null,
                 expiry_date: data.expiryDate ? format(data.expiryDate, 'yyyy-MM-dd') : null,
-                file_url: file_url,
-                file_name: file_name,
+                file_url: null,
+                file_name: data.file?.name || null,
                 csp_event_id: data.cspEventId || null,
                 status: data.cspEventId ? 'active' : 'proposed'
             };
