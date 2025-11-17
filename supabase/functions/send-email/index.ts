@@ -69,7 +69,7 @@ Deno.serve(async (req: Request) => {
     // Use impersonated user ID if provided, otherwise use authenticated user
     const effectiveUserId = impersonatedUserId || user.id;
 
-    console.log('🔍 Email send request:', {
+    console.log('\ud83d\udd0d Email send request:', {
       authenticatedUserId: user.id,
       effectiveUserId,
       isImpersonating: !!impersonatedUserId
@@ -95,7 +95,7 @@ Deno.serve(async (req: Request) => {
       .eq('user_id', effectiveUserId)
       .maybeSingle();
 
-    console.log('📧 OAuth tokens query:', {
+    console.log('\ud83d\udce7 OAuth tokens query:', {
       effectiveUserId,
       hasTokens: !!oauthTokens,
       usingServiceRole: !!impersonatedUserId,
@@ -108,24 +108,16 @@ Deno.serve(async (req: Request) => {
       .eq('user_id', effectiveUserId)
       .maybeSingle();
 
-    console.log('🔑 App password query:', {
+    console.log('\ud83d\udd11 App password query:', {
       effectiveUserId,
       hasCreds: !!appPasswordCreds,
       error: appPasswordError?.message
     });
 
-    if (!oauthTokens && !appPasswordCreds) {
-      const errorDetails = {
-        oauthError: oauthError?.message,
-        appPasswordError: appPasswordError?.message,
-        effectiveUserId
-      };
-      console.error('❌ No Gmail credentials found:', errorDetails);
-      throw new Error(`Gmail not connected. Please connect your Gmail account in Settings. Debug: ${JSON.stringify(errorDetails)}`);
-    }
-
     let transporter;
-    let fromEmail;
+    let fromEmail = userProfile.email;
+    let shouldDeleteInvalidTokens = false;
+    let invalidTokenId = null;
 
     if (oauthTokens) {
       // Get OAuth credentials from system settings
@@ -143,7 +135,7 @@ Deno.serve(async (req: Request) => {
       let accessToken = oauthTokens.access_token;
 
       try {
-        console.log('🔄 Refreshing OAuth token for:', oauthTokens.email_address);
+        console.log('\ud83d\udd04 Refreshing OAuth token for:', oauthTokens.email_address);
 
         const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
           method: 'POST',
@@ -169,17 +161,31 @@ Deno.serve(async (req: Request) => {
             })
             .eq('id', oauthTokens.id);
 
-          console.log('✅ Token refreshed successfully');
+          console.log('\u2705 Token refreshed successfully');
         } else {
           const errorData = await tokenResponse.text();
-          console.warn('⚠️ Token refresh failed, using existing token:', errorData);
+          console.warn('\u26a0\ufe0f Token refresh failed, will delete invalid tokens:', errorData);
+          shouldDeleteInvalidTokens = true;
+          invalidTokenId = oauthTokens.id;
         }
       } catch (refreshError) {
-        console.warn('⚠️ Token refresh error:', refreshError.message);
+        console.warn('\u26a0\ufe0f Token refresh error:', refreshError.message);
+        shouldDeleteInvalidTokens = true;
+        invalidTokenId = oauthTokens.id;
       }
 
-      // Use OAuth2 for SMTP
-      transporter = nodemailer.createTransport({
+      // If token refresh failed, delete invalid tokens and fall back to admin credentials
+      if (shouldDeleteInvalidTokens) {
+        console.log('\ud83d\uddd1\ufe0f Deleting invalid OAuth tokens');
+        await clientForCredentials
+          .from('user_gmail_tokens')
+          .delete()
+          .eq('id', invalidTokenId);
+
+        // Don't create transporter here, fall through to use admin credentials below
+      } else {
+        // Use OAuth2 for SMTP
+        transporter = nodemailer.createTransport({
         host: 'smtp.gmail.com',
         port: 587,
         secure: false,
@@ -191,10 +197,12 @@ Deno.serve(async (req: Request) => {
           refreshToken: oauthTokens.refresh_token,
           accessToken: accessToken,
         },
-      });
+        });
+      }
+    }
 
-      fromEmail = oauthTokens.email_address;
-    } else if (appPasswordCreds) {
+    // If no transporter yet, try app password
+    if (!transporter && appPasswordCreds) {
       // Use App Password for SMTP
       transporter = nodemailer.createTransport({
         host: 'smtp.gmail.com',
@@ -205,8 +213,110 @@ Deno.serve(async (req: Request) => {
           pass: appPasswordCreds.app_password,
         },
       });
+    }
 
-      fromEmail = appPasswordCreds.email_address;
+    // If still no transporter, fall back to admin's credentials
+    if (!transporter) {
+      console.log('\u26a0\ufe0f No valid user credentials, falling back to admin credentials');
+
+      // Try to find an admin with working credentials
+      const { data: adminProfiles } = await supabaseServiceClient
+        .from('user_profiles')
+        .select('id')
+        .eq('role', 'admin')
+        .eq('is_active', true)
+        .limit(1);
+
+      if (adminProfiles && adminProfiles.length > 0) {
+        const adminId = adminProfiles[0].id;
+
+        // Try admin's OAuth first
+        const { data: adminOauthTokens } = await supabaseServiceClient
+          .from('user_gmail_tokens')
+          .select('*')
+          .eq('user_id', adminId)
+          .maybeSingle();
+
+        if (adminOauthTokens) {
+          const { data: oauthSettings } = await supabaseClient
+            .from('system_settings')
+            .select('setting_value')
+            .eq('setting_key', 'gmail_oauth_credentials')
+            .maybeSingle();
+
+          if (oauthSettings?.setting_value?.client_id) {
+            // Refresh admin's token
+            let adminAccessToken = adminOauthTokens.access_token;
+            try {
+              const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: new URLSearchParams({
+                  client_id: oauthSettings.setting_value.client_id,
+                  client_secret: oauthSettings.setting_value.client_secret,
+                  refresh_token: adminOauthTokens.refresh_token,
+                  grant_type: 'refresh_token',
+                }),
+              });
+
+              if (tokenResponse.ok) {
+                const tokenData = await tokenResponse.json();
+                adminAccessToken = tokenData.access_token;
+                await supabaseServiceClient
+                  .from('user_gmail_tokens')
+                  .update({
+                    access_token: adminAccessToken,
+                    updated_at: new Date().toISOString()
+                  })
+                  .eq('id', adminOauthTokens.id);
+              }
+            } catch (e) {
+              console.warn('Admin token refresh failed:', e.message);
+            }
+
+            transporter = nodemailer.createTransport({
+              host: 'smtp.gmail.com',
+              port: 587,
+              secure: false,
+              auth: {
+                type: 'OAuth2',
+                user: adminOauthTokens.email_address,
+                clientId: oauthSettings.setting_value.client_id,
+                clientSecret: oauthSettings.setting_value.client_secret,
+                refreshToken: adminOauthTokens.refresh_token,
+                accessToken: adminAccessToken,
+              },
+            });
+            console.log('\u2705 Using admin OAuth credentials as fallback');
+          }
+        }
+
+        // Try admin's app password if OAuth didn't work
+        if (!transporter) {
+          const { data: adminAppPassword } = await supabaseServiceClient
+            .from('user_gmail_credentials')
+            .select('*')
+            .eq('user_id', adminId)
+            .maybeSingle();
+
+          if (adminAppPassword) {
+            transporter = nodemailer.createTransport({
+              host: 'smtp.gmail.com',
+              port: 587,
+              secure: false,
+              auth: {
+                user: adminAppPassword.email_address,
+                pass: adminAppPassword.app_password,
+              },
+            });
+            console.log('\u2705 Using admin app password as fallback');
+          }
+        }
+      }
+
+      if (!transporter) {
+        throw new Error('Unable to send email. No valid SMTP credentials available. Please contact your administrator.');
+      }
     }
 
     const mailOptions: any = {
