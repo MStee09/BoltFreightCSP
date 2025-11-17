@@ -287,8 +287,7 @@ Deno.serve(async (req: Request) => {
                 accessToken: adminAccessToken,
               },
             });
-            console.log('\u2705 Using admin OAuth credentials as fallback');
-          }
+            console.log('\u2705 Using admin OAuth credentials as fallback');          }
         }
 
         // Try admin's app password if OAuth didn't work
@@ -335,7 +334,140 @@ Deno.serve(async (req: Request) => {
       mailOptions.references = inReplyTo;
     }
 
-    await transporter.sendMail(mailOptions);
+    // Try to send the email, with fallback to admin credentials if it fails
+    let emailSent = false;
+    let sendError = null;
+
+    try {
+      await transporter.sendMail(mailOptions);
+      emailSent = true;
+    } catch (sendErr) {
+      console.error('❌ Failed to send with user credentials:', sendErr.message);
+      sendError = sendErr;
+
+      // If user credentials failed, try admin fallback
+      if (!impersonatedUserId) {
+        console.log('🔄 Attempting admin credential fallback...');
+
+        // Delete the user's invalid OAuth tokens if they exist
+        if (oauthTokens) {
+          await clientForCredentials
+            .from('user_gmail_tokens')
+            .delete()
+            .eq('id', oauthTokens.id);
+          console.log('🗑️ Deleted invalid user OAuth tokens');
+        }
+
+        // Try to find an admin with working credentials
+        const { data: adminProfiles } = await supabaseServiceClient
+          .from('user_profiles')
+          .select('id')
+          .eq('role', 'admin')
+          .eq('is_active', true)
+          .limit(1);
+
+        if (adminProfiles && adminProfiles.length > 0) {
+          const adminId = adminProfiles[0].id;
+
+          // Try admin's app password first (more reliable)
+          const { data: adminAppPassword } = await supabaseServiceClient
+            .from('user_gmail_credentials')
+            .select('*')
+            .eq('user_id', adminId)
+            .maybeSingle();
+
+          if (adminAppPassword) {
+            try {
+              const adminTransporter = nodemailer.createTransport({
+                host: 'smtp.gmail.com',
+                port: 587,
+                secure: false,
+                auth: {
+                  user: adminAppPassword.email_address,
+                  pass: adminAppPassword.app_password,
+                },
+              });
+
+              await adminTransporter.sendMail(mailOptions);
+              emailSent = true;
+              console.log('✅ Email sent using admin app password fallback');
+            } catch (adminErr) {
+              console.error('❌ Admin app password failed:', adminErr.message);
+            }
+          }
+
+          // Try admin's OAuth if app password didn't work
+          if (!emailSent) {
+            const { data: adminOauthTokens } = await supabaseServiceClient
+              .from('user_gmail_tokens')
+              .select('*')
+              .eq('user_id', adminId)
+              .maybeSingle();
+
+            if (adminOauthTokens) {
+              const { data: oauthSettings } = await supabaseClient
+                .from('system_settings')
+                .select('setting_value')
+                .eq('setting_key', 'gmail_oauth_credentials')
+                .maybeSingle();
+
+              if (oauthSettings?.setting_value?.client_id) {
+                // Refresh admin's token
+                let adminAccessToken = adminOauthTokens.access_token;
+                try {
+                  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: new URLSearchParams({
+                      client_id: oauthSettings.setting_value.client_id,
+                      client_secret: oauthSettings.setting_value.client_secret,
+                      refresh_token: adminOauthTokens.refresh_token,
+                      grant_type: 'refresh_token',
+                    }),
+                  });
+
+                  if (tokenResponse.ok) {
+                    const tokenData = await tokenResponse.json();
+                    adminAccessToken = tokenData.access_token;
+                    await supabaseServiceClient
+                      .from('user_gmail_tokens')
+                      .update({
+                        access_token: adminAccessToken,
+                        updated_at: new Date().toISOString()
+                      })
+                      .eq('id', adminOauthTokens.id);
+                  }
+
+                  const adminOauthTransporter = nodemailer.createTransport({
+                    host: 'smtp.gmail.com',
+                    port: 587,
+                    secure: false,
+                    auth: {
+                      type: 'OAuth2',
+                      user: adminOauthTokens.email_address,
+                      clientId: oauthSettings.setting_value.client_id,
+                      clientSecret: oauthSettings.setting_value.client_secret,
+                      refreshToken: adminOauthTokens.refresh_token,
+                      accessToken: adminAccessToken,
+                    },
+                  });
+
+                  await adminOauthTransporter.sendMail(mailOptions);
+                  emailSent = true;
+                  console.log('✅ Email sent using admin OAuth fallback');
+                } catch (adminOauthErr) {
+                  console.error('❌ Admin OAuth failed:', adminOauthErr.message);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      if (!emailSent) {
+        throw sendError;
+      }
+    }
 
     const activityData: any = {
       user_id: effectiveUserId,
