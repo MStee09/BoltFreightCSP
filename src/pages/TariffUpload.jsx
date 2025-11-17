@@ -188,6 +188,11 @@ export default function TariffUploadPage() {
                 'Rocket': data.isBlanket ? 'rocket_blanket' : 'rocket_csp'
             };
 
+            // Auto-set status to active if effective date has passed
+            const effectiveDate = data.effectiveDate ? format(data.effectiveDate, 'yyyy-MM-dd') : null;
+            const effectiveDatePassed = effectiveDate && new Date(effectiveDate) <= new Date();
+            const status = effectiveDatePassed ? 'active' : (data.cspEventId ? 'active' : 'proposed');
+
             const tariffData = {
                 customer_id: data.isBlanket ? null : data.customerId,
                 carrier_ids: data.carrierIds,
@@ -195,11 +200,11 @@ export default function TariffUploadPage() {
                 version: data.version,
                 ownership_type: ownershipTypeMap[data.ownershipType] || 'customer_direct',
                 is_blanket_tariff: data.isBlanket,
-                effective_date: data.effectiveDate ? format(data.effectiveDate, 'yyyy-MM-dd') : null,
+                effective_date: effectiveDate,
                 expiry_date: data.expiryDate ? format(data.expiryDate, 'yyyy-MM-dd') : null,
                 file_url: null,
                 csp_event_id: data.cspEventId || null,
-                status: data.cspEventId ? 'active' : 'proposed'
+                status: status
             };
 
             const newTariff = await Tariff.create(tariffData);

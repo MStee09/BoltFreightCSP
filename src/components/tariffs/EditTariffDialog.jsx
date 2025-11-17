@@ -66,14 +66,22 @@ export default function EditTariffDialog({
 
         if (tariff) {
             setVersion(tariff.version || '');
-            setStatus(tariff.status || 'proposed');
+
+            // Auto-set status to active if effective date has passed
+            const effectiveDatePassed = tariff.effective_date && new Date(tariff.effective_date) <= new Date();
+            setStatus(effectiveDatePassed && tariff.status === 'proposed' ? 'active' : (tariff.status || 'proposed'));
+
             setOwnershipType(tariff.ownership_type || 'customer_direct');
             setMode(tariff.mode || '');
             setEffectiveDate(tariff.effective_date || '');
             setExpiryDate(tariff.expiry_date || '');
             setCustomerId(tariff.customer_id || '');
             setCustomerIds(tariff.customer_ids || []);
-            setCarrierId(tariff.carrier_id || '');
+
+            // Handle both carrier_id and carrier_ids (array)
+            const firstCarrierId = tariff.carrier_id || (tariff.carrier_ids && tariff.carrier_ids[0]) || '';
+            setCarrierId(firstCarrierId);
+
             setIsBlanketTariff(tariff.is_blanket_tariff || false);
             setCredentialUsername(tariff.credential_username || '');
             setCredentialPassword(tariff.credential_password || '');
@@ -82,7 +90,7 @@ export default function EditTariffDialog({
             setOriginalCarrierPortalUrl(tariff.carrier_portal_url || '');
         } else {
             setVersion('');
-            setStatus('active');
+            setStatus('proposed');
             setOwnershipType('rocket_csp');
             setMode('');
             setEffectiveDate('');
@@ -189,9 +197,15 @@ export default function EditTariffDialog({
             return;
         }
 
+        // Auto-set status to active if effective date has passed
+        let finalStatus = status;
+        if (effectiveDate && new Date(effectiveDate) <= new Date() && status === 'proposed') {
+            finalStatus = 'active';
+        }
+
         const data = {
             version,
-            status,
+            status: finalStatus,
             ownership_type: ownershipType,
             mode,
             effective_date: effectiveDate,
@@ -199,6 +213,7 @@ export default function EditTariffDialog({
             customer_id: customerId || null,
             customer_ids: customerIds,
             carrier_id: carrierId || null,
+            carrier_ids: carrierId ? [carrierId] : [],
             csp_event_id: preselectedCspEventId || tariff?.csp_event_id || null,
             is_blanket_tariff: isBlanketTariff,
             credential_username: credentialUsername,
