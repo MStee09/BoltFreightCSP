@@ -36,6 +36,12 @@ Deno.serve(async (req: Request) => {
       }
     );
 
+    // Create service role client for impersonation (bypasses RLS)
+    const supabaseServiceClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    );
+
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
 
     if (userError || !user) {
@@ -63,6 +69,12 @@ Deno.serve(async (req: Request) => {
     // Use impersonated user ID if provided, otherwise use authenticated user
     const effectiveUserId = impersonatedUserId || user.id;
 
+    console.log('🔍 Email send request:', {
+      authenticatedUserId: user.id,
+      effectiveUserId,
+      isImpersonating: !!impersonatedUserId
+    });
+
     const { data: userProfile } = await supabaseClient
       .from('user_profiles')
       .select('email, full_name, email_signature')
@@ -73,21 +85,43 @@ Deno.serve(async (req: Request) => {
       throw new Error('User profile not found');
     }
 
+    // When impersonating, use service role client to bypass RLS
+    const clientForCredentials = impersonatedUserId ? supabaseServiceClient : supabaseClient;
+
     // Try OAuth tokens first, fallback to app password
-    const { data: oauthTokens } = await supabaseClient
+    const { data: oauthTokens, error: oauthError } = await clientForCredentials
       .from('user_gmail_tokens')
       .select('*')
       .eq('user_id', effectiveUserId)
       .maybeSingle();
 
-    const { data: appPasswordCreds } = await supabaseClient
+    console.log('📧 OAuth tokens query:', {
+      effectiveUserId,
+      hasTokens: !!oauthTokens,
+      usingServiceRole: !!impersonatedUserId,
+      error: oauthError?.message
+    });
+
+    const { data: appPasswordCreds, error: appPasswordError } = await clientForCredentials
       .from('user_gmail_credentials')
       .select('*')
       .eq('user_id', effectiveUserId)
       .maybeSingle();
 
+    console.log('🔑 App password query:', {
+      effectiveUserId,
+      hasCreds: !!appPasswordCreds,
+      error: appPasswordError?.message
+    });
+
     if (!oauthTokens && !appPasswordCreds) {
-      throw new Error('Gmail not connected. Please connect your Gmail account in Settings.');
+      const errorDetails = {
+        oauthError: oauthError?.message,
+        appPasswordError: appPasswordError?.message,
+        effectiveUserId
+      };
+      console.error('❌ No Gmail credentials found:', errorDetails);
+      throw new Error(`Gmail not connected. Please connect your Gmail account in Settings. Debug: ${JSON.stringify(errorDetails)}`);
     }
 
     let transporter;
@@ -121,8 +155,8 @@ Deno.serve(async (req: Request) => {
       });
 
       fromEmail = oauthTokens.email_address;
-    } else {
-      // Fallback to app password
+    } else if (appPasswordCreds) {
+      // Use App Password for SMTP
       transporter = nodemailer.createTransport({
         host: 'smtp.gmail.com',
         port: 587,
@@ -136,95 +170,11 @@ Deno.serve(async (req: Request) => {
       fromEmail = appPasswordCreds.email_address;
     }
 
-    const fromName = userProfile.full_name || fromEmail.split('@')[0];
-
-    let bodyWithSignature = body;
-    if (userProfile.email_signature) {
-      bodyWithSignature += `\n\n${userProfile.email_signature}`;
-    }
-
-    const timestamp = Date.now();
-    const randomPart = Math.random().toString(36).substring(2, 8);
-    let messageId;
-    let generatedThreadId;
-
-    if (inReplyTo) {
-      const { data: parentEmail } = await supabaseClient
-        .from('email_activities')
-        .select('message_id, thread_id')
-        .eq('message_id', inReplyTo)
-        .maybeSingle();
-
-      if (parentEmail) {
-        generatedThreadId = parentEmail.thread_id;
-        const threadPart = generatedThreadId.split('-').slice(0, 2).join('-');
-        messageId = `<${timestamp}.${randomPart}@${fromEmail.split('@')[1]}>`;
-      } else {
-        const subjectSlug = subject.replace(/[^a-zA-Z0-9]/g, '').substring(0, 15);
-        generatedThreadId = `${subjectSlug}-${timestamp}-${randomPart}`;
-        messageId = `<${timestamp}.${randomPart}@${fromEmail.split('@')[1]}>`;
-      }
-    } else {
-      const subjectSlug = subject.replace(/[^a-zA-Z0-9]/g, '').substring(0, 15);
-      generatedThreadId = threadId || `${subjectSlug}-${timestamp}-${randomPart}`;
-      messageId = `<${timestamp}.${randomPart}@${fromEmail.split('@')[1]}>`;
-    }
-
-    let trackingCode = `FO-${Date.now().toString(36).toUpperCase().slice(-8)}`;
-    
-    if (inReplyTo) {
-      const { data: parentEmail } = await supabaseClient
-        .from('email_activities')
-        .select('tracking_code')
-        .eq('message_id', inReplyTo)
-        .maybeSingle();
-
-      if (parentEmail) {
-        trackingCode = parentEmail.tracking_code;
-      }
-    }
-
-    let foToken = null;
-    if (trackReply && !inReplyTo) {
-      const { data: tokenData, error: tokenError } = await supabaseClient
-        .from('freightops_thread_tokens')
-        .insert({
-          token: trackingCode,
-          thread_id: generatedThreadId,
-          csp_event_id: cspEventId || null,
-          customer_id: customerId || null,
-          carrier_id: carrierId || null,
-          created_by: effectiveUserId,
-        })
-        .select('token')
-        .maybeSingle();
-
-      if (!tokenError && tokenData) {
-        foToken = tokenData.token;
-      }
-    } else if (inReplyTo) {
-      const { data: parentEmail } = await supabaseClient
-        .from('email_activities')
-        .select('tracking_code, thread_id, metadata')
-        .eq('message_id', inReplyTo)
-        .maybeSingle();
-
-      if (parentEmail?.metadata?.freightops_thread_token) {
-        foToken = parentEmail.metadata.freightops_thread_token;
-      }
-    }
-
-    let enhancedSubject = subject;
-    if (!inReplyTo && foToken) {
-      enhancedSubject = `[${foToken}] ${subject}`;
-    }
-
     const mailOptions: any = {
-      from: fromEmail,
+      from: `${userProfile.full_name || 'Team'} <${fromEmail}>`,
       to: to.join(', '),
-      subject: enhancedSubject,
-      text: bodyWithSignature,
-      messageId: messageId,
+      subject,
+      html: body,
     };
 
     if (cc && cc.length > 0) {
@@ -236,60 +186,40 @@ Deno.serve(async (req: Request) => {
       mailOptions.references = inReplyTo;
     }
 
-    mailOptions.headers = {
-      'X-CSP-Tracking-Code': trackingCode,
-      'X-Entity-Type': cspEventId ? 'csp_event' : (customerId ? 'customer' : 'carrier'),
+    await transporter.sendMail(mailOptions);
+
+    const activityData: any = {
+      user_id: effectiveUserId,
+      direction: 'outbound',
+      subject,
+      body,
+      to_addresses: to,
+      cc_addresses: cc || [],
+      message_id: mailOptions.messageId,
+      csp_event_id: cspEventId || null,
+      customer_id: customerId || null,
+      carrier_id: carrierId || null,
+      thread_id: threadId,
+      in_reply_to: inReplyTo,
+      gmail_thread_id: null,
     };
 
-    if (foToken) {
-      mailOptions.headers['X-FreightOps-Token'] = foToken;
-    }
-
-    try {
-      await transporter.sendMail(mailOptions);
-    } catch (emailError: any) {
-      console.error('SMTP Error:', emailError);
-      throw new Error(`Failed to send email: ${emailError.message}`);
-    }
-
-    const { data: insertedEmail, error: insertError } = await supabaseClient
+    const { data: activity, error: activityError } = await supabaseClient
       .from('email_activities')
-      .insert({
-        tracking_code: trackingCode,
-        csp_event_id: cspEventId || null,
-        customer_id: customerId || null,
-        carrier_id: carrierId || null,
-        thread_id: generatedThreadId,
-        message_id: messageId,
-        in_reply_to_message_id: inReplyTo,
-        subject: enhancedSubject,
-        from_email: fromEmail,
-        from_name: fromName,
-        to_emails: to,
-        cc_emails: cc || [],
-        body_text: bodyWithSignature,
-        direction: 'outbound',
-        sent_at: new Date().toISOString(),
-        freightops_thread_token: foToken,
-        owner_id: effectiveUserId,
-        is_thread_starter: !inReplyTo,
-        visible_to_team: true,
-      })
+      .insert(activityData)
       .select()
       .single();
 
-    if (insertError) {
-      console.error('Error inserting email activity:', insertError);
-      throw new Error('Email sent but failed to save to database');
+    if (activityError) {
+      console.error('Error logging email activity:', activityError);
     }
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        messageId,
-        trackingCode,
-        threadId: generatedThreadId,
-        emailActivity: insertedEmail,
+        messageId: mailOptions.messageId,
+        emailActivityId: activity?.id,
+        threadId: threadId || mailOptions.messageId
       }),
       {
         headers: {
@@ -298,7 +228,7 @@ Deno.serve(async (req: Request) => {
         },
       }
     );
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error sending email:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
