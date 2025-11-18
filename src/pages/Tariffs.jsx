@@ -1076,7 +1076,7 @@ export default function TariffsPage() {
                     <TabsTrigger
                       value={type.value}
                       className="py-3 flex items-center gap-2 data-[state=active]:bg-white"
-                      style={isActive ? { border: '4px solid rgb(37, 99, 235)' } : {}}
+                      style={isActive ? { border: '4px solid rgb(209, 213, 219)' } : {}}
                     >
                       <span>{type.label}</span>
                       <Badge variant="secondary" className="text-xs">
