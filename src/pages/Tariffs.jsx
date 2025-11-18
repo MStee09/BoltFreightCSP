@@ -1151,7 +1151,7 @@ export default function TariffsPage() {
           <CardTitle className="text-lg flex items-center justify-between">
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-3">
-                <Badge variant="outline" className={`text-sm ${OWNERSHIP_TYPES.find(t => t.value === ownershipTab)?.color.replace('bg-', 'bg-').replace('border-l-4 border-l-', 'border-')}`}>
+                <Badge variant="outline" className={`text-sm border-4 font-semibold ${OWNERSHIP_TYPES.find(t => t.value === ownershipTab)?.color.replace('bg-', 'bg-').replace('border-l-4 border-l-', 'border-')}`}>
                   {OWNERSHIP_TYPES.find(t => t.value === ownershipTab)?.label}
                 </Badge>
                 <span className="text-sm font-normal text-slate-500">
