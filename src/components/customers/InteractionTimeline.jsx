@@ -341,8 +341,9 @@ const SystemCard = ({ activity }) => {
   const fromNow = formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true });
   const fullDate = format(new Date(activity.timestamp), 'MMM d, yyyy h:mm a');
 
-  // Get user attribution from metadata
-  const updatedBy = activity.metadata?.updated_by || activity.metadata?.created_by || activity.metadata?.deleted_by;
+  // Get user information
+  const userName = activity.user?.full_name || activity.user?.email || 'System';
+  const showUserAttribution = activity.user?.full_name || activity.user?.email;
 
   return (
     <Card className="border border-slate-200 bg-slate-100 hover:shadow-sm transition-shadow">
@@ -375,10 +376,10 @@ const SystemCard = ({ activity }) => {
               </p>
             )}
 
-            {updatedBy && (
+            {showUserAttribution && (
               <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
                 <User className="w-3 h-3" />
-                <span>By user ID: {updatedBy.substring(0, 8)}...</span>
+                <span>By {userName}</span>
               </p>
             )}
           </div>
@@ -420,7 +421,20 @@ export default function InteractionTimeline({ customerId, entityType }) {
 
   const { data: interactions = [], isLoading: interactionsLoading } = useQuery({
     queryKey: ['interactions', customerId, entityType],
-    queryFn: () => Interaction.filter({ entity_id: customerId, entity_type: entityType, order_by: '-created_date' }),
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('interactions')
+        .select(`
+          *,
+          user:user_profiles!interactions_user_id_fkey(id, full_name, email)
+        `)
+        .eq('entity_id', customerId)
+        .eq('entity_type', entityType)
+        .order('created_date', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    },
     enabled: !!customerId && !!entityType,
     initialData: []
   });
@@ -504,7 +518,8 @@ export default function InteractionTimeline({ customerId, entityType }) {
         summary: i.summary,
         details: i.details,
         timestamp: i.created_date,
-        metadata: i.metadata
+        metadata: i.metadata,
+        user: i.user
       })),
       ...Array.from(threadRepresentatives.values())
     ];
@@ -700,11 +715,11 @@ export default function InteractionTimeline({ customerId, entityType }) {
             variant={filterTypes.includes('system') || filterTypes.includes('ai') ? 'default' : 'outline'}
             size="sm"
             onClick={() => {
-              // Toggle system/ai filter (both together)
+              // Toggle system/ai filter (include all system-generated activity types)
               if (filterTypes.includes('system') || filterTypes.includes('ai')) {
                 setFilterTypes([]);
               } else {
-                setFilterTypes(['system', 'ai']);
+                setFilterTypes(['system', 'ai', 'create', 'update', 'tariff', 'document', 'calendar', 'csp_event', 'carrier']);
               }
             }}
             className="flex items-center gap-1"
