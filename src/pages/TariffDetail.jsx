@@ -254,12 +254,16 @@ export default function TariffDetailPage() {
                                 <span className={`px-2 py-1 text-xs font-medium rounded-full ${ {active: 'bg-green-100 text-green-800', proposed: 'bg-blue-100 text-blue-800', expired: 'bg-slate-100 text-slate-700', superseded: 'bg-purple-100 text-purple-700'}[tariff.status] || 'bg-gray-100'}`}>{tariff.status}</span>
                             </InfoItem>
                             <InfoItem label="Type" value={ownershipTypeLabel} />
+                            {tariff.ownership_type === 'rocket_csp' && tariff.rocket_csp_subtype && (
+                                <InfoItem label="Rocket CSP Type">
+                                    <Badge variant="default">
+                                        {tariff.rocket_csp_subtype === 'rocket_owned' && 'Rocket Owned'}
+                                        {tariff.rocket_csp_subtype === 'blanket' && 'Blanket Tariff'}
+                                        {tariff.rocket_csp_subtype === 'care_of' && 'C/O (Care Of)'}
+                                    </Badge>
+                                </InfoItem>
+                            )}
                             <InfoItem label="Service Type" value={tariff.mode || 'N/A'} />
-                            <InfoItem label="Blanket Tariff">
-                                <Badge variant={tariff.is_blanket_tariff ? "default" : "outline"}>
-                                    {tariff.is_blanket_tariff ? "Yes" : "No"}
-                                </Badge>
-                            </InfoItem>
                             <InfoItem label="Effective Date" value={tariff.effective_date ? format(new Date(tariff.effective_date), 'MMM d, yyyy') : 'N/A'} />
                             <InfoItem label="Expiry Date" value={tariff.expiry_date ? format(new Date(tariff.expiry_date), 'MMM d, yyyy') : 'N/A'} />
                             {!tariff.is_blanket_tariff && customer && <InfoItem label="Customer" value={customer.name} />}
