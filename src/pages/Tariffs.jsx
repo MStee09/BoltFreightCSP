@@ -1074,7 +1074,7 @@ export default function TariffsPage() {
                   <TooltipTrigger asChild>
                     <TabsTrigger
                       value={type.value}
-                      className="py-3 flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:border-4 data-[state=active]:border-blue-600"
+                      className="py-3 flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:!border-4 data-[state=active]:!border-blue-600 data-[state=active]:!border-solid"
                     >
                       <span>{type.label}</span>
                       <Badge variant="secondary" className="text-xs">
