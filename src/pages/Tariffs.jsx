@@ -1074,7 +1074,7 @@ export default function TariffsPage() {
                   <TooltipTrigger asChild>
                     <TabsTrigger
                       value={type.value}
-                      className="data-[state=active]:bg-white data-[state=active]:shadow-sm py-3 flex items-center gap-2"
+                      className="data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:ring-4 data-[state=active]:ring-blue-500 data-[state=active]:ring-offset-0 py-3 flex items-center gap-2"
                     >
                       <span>{type.label}</span>
                       <Badge variant="secondary" className="text-xs">
@@ -1151,7 +1151,7 @@ export default function TariffsPage() {
           <CardTitle className="text-lg flex items-center justify-between">
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-3">
-                <Badge variant="outline" className={`text-sm border-4 font-semibold ${OWNERSHIP_TYPES.find(t => t.value === ownershipTab)?.color.replace('bg-', 'bg-').replace('border-l-4 border-l-', 'border-')}`}>
+                <Badge variant="outline" className={`text-sm ${OWNERSHIP_TYPES.find(t => t.value === ownershipTab)?.color.replace('bg-', 'bg-').replace('border-l-4 border-l-', 'border-')}`}>
                   {OWNERSHIP_TYPES.find(t => t.value === ownershipTab)?.label}
                 </Badge>
                 <span className="text-sm font-normal text-slate-500">
