@@ -1065,7 +1065,7 @@ export default function TariffsPage() {
       </div>
 
       <Tabs value={ownershipTab} onValueChange={handleTabChange} className="mb-6">
-        <TabsList className="grid w-full grid-cols-4 h-auto p-1">
+        <TabsList className="grid w-full grid-cols-4 h-auto p-2">
           {OWNERSHIP_TYPES.map(type => {
             const count = getTabCounts[type.value] || 0;
             return (
@@ -1074,7 +1074,7 @@ export default function TariffsPage() {
                   <TooltipTrigger asChild>
                     <TabsTrigger
                       value={type.value}
-                      className="data-[state=active]:bg-white data-[state=active]:shadow-sm data-[state=active]:border-4 data-[state=active]:border-blue-600 py-3 flex items-center gap-2"
+                      className="py-3 flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:shadow-[0_0_0_4px_rgb(37,99,235)]"
                     >
                       <span>{type.label}</span>
                       <Badge variant="secondary" className="text-xs">
