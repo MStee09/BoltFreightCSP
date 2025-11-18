@@ -23,16 +23,20 @@ export default function StrategyScacMatch({ strategySummary }) {
         const unmatched = [];
 
         strategySummary.carrier_breakdown.forEach(item => {
-            const carrierName = item.carrier;
-            // Try to match by carrier name (case-insensitive)
-            const carrier = carriers.find(c =>
-                c.name?.toUpperCase() === carrierName.toUpperCase()
-            );
+            const carrierIdentifier = item.carrier;
+            const normalizedIdentifier = carrierIdentifier?.toUpperCase().trim();
+
+            // Try to match by SCAC code first, then by carrier name (case-insensitive, trimmed)
+            const carrier = carriers.find(c => {
+                const scacMatch = c.scac_code?.toUpperCase().trim() === normalizedIdentifier;
+                const nameMatch = c.name?.toUpperCase().trim() === normalizedIdentifier;
+                return scacMatch || nameMatch;
+            });
 
             if (carrier) {
-                matched.push({ scac: carrierName, carrier, shipments: item.shipments, percentage: item.percentage, spend: item.spend });
+                matched.push({ scac: carrierIdentifier, carrier, shipments: item.shipments, percentage: item.percentage, spend: item.spend });
             } else {
-                unmatched.push({ scac: carrierName, shipments: item.shipments, percentage: item.percentage, spend: item.spend });
+                unmatched.push({ scac: carrierIdentifier, shipments: item.shipments, percentage: item.percentage, spend: item.spend });
             }
         });
 

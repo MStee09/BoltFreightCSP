@@ -818,7 +818,7 @@ const AiSummaryPanel = ({ cspEvent }) => {
     });
 
     const getCarrierName = (scac) => {
-        const carrier = carriers.find(c => c.scac_code?.toUpperCase() === scac?.toUpperCase());
+        const carrier = carriers.find(c => c.scac_code?.toUpperCase().trim() === scac?.toUpperCase().trim());
         return carrier ? carrier.name : scac;
     };
 
@@ -1059,10 +1059,10 @@ const DataVisualizationPanel = ({ cspEvent }) => {
 
     const getCarrierName = (carrierIdentifier) => {
         if (!carrierIdentifier) return 'Unknown';
-        const identifier = carrierIdentifier.toUpperCase();
+        const identifier = carrierIdentifier.toUpperCase().trim();
         const carrier = carriers.find(c =>
-            c.scac_code?.toUpperCase() === identifier ||
-            c.name?.toUpperCase() === identifier
+            c.scac_code?.toUpperCase().trim() === identifier ||
+            c.name?.toUpperCase().trim() === identifier
         );
         return carrier ? carrier.name : carrierIdentifier;
     };
@@ -1074,10 +1074,10 @@ const DataVisualizationPanel = ({ cspEvent }) => {
         const missingSCACs = [];
         strategySummary.carrier_breakdown.forEach(item => {
             if (item.carrier && item.carrier !== 'Unknown') {
-                const identifier = item.carrier.toUpperCase();
+                const identifier = item.carrier.toUpperCase().trim();
                 const carrier = carriers.find(c =>
-                    c.scac_code?.toUpperCase() === identifier ||
-                    c.name?.toUpperCase() === identifier
+                    c.scac_code?.toUpperCase().trim() === identifier ||
+                    c.name?.toUpperCase().trim() === identifier
                 );
                 if (!carrier && !missingSCACs.includes(item.carrier)) {
                     missingSCACs.push(item.carrier);
