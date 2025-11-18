@@ -10,7 +10,7 @@ import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
 import { PlusCircle, Search, TrendingUp, TrendingDown, Star, Eye, FileText, BarChart3, ArrowUpDown, Filter, X, Trash2 } from "lucide-react";
 import { Skeleton } from "../components/ui/skeleton";
-import { format, formatDistanceToNow } from "date-fns";
+import { format, formatDistanceToNow, differenceInDays } from "date-fns";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import { supabase } from "../api/supabaseClient";
 import { useUserRole } from "../hooks/useUserRole";
@@ -121,8 +121,19 @@ export default function CustomersPage() {
   };
 
   const customerData = useMemo(() => {
+    const today = new Date();
     return customers.map(customer => {
-      const activeTariff = tariffs.find(t => t.customer_id === customer.id && t.status === 'active');
+      const customerTariffs = tariffs.filter(t => t.customer_id === customer.id);
+      const activeTariffs = customerTariffs.filter(t => {
+        const expiryDate = t.expiry_date ? new Date(t.expiry_date) : null;
+        return t.status === 'active' && (!expiryDate || expiryDate > today);
+      });
+      const expiringTariffs = customerTariffs.filter(t => {
+        const expiryDate = t.expiry_date ? new Date(t.expiry_date) : null;
+        const daysUntilExpiry = expiryDate ? differenceInDays(expiryDate, today) : null;
+        return t.status === 'active' && daysUntilExpiry !== null && daysUntilExpiry <= 90 && daysUntilExpiry > 0;
+      });
+      const activeTariff = activeTariffs[0];
       const nextCspEvent = cspEvents.find(e => e.customer_id === customer.id && e.status === 'in_progress');
       const renewalCspEvents = cspEvents.filter(e =>
         e.customer_id === customer.id &&
@@ -136,6 +147,8 @@ export default function CustomersPage() {
       return {
         ...customer,
         activeTariff: activeTariff,
+        activeTariffsCount: activeTariffs.length,
+        expiringTariffsCount: expiringTariffs.length,
         activeTariffDisplay: activeTariff ? `${activeTariff.version}` : 'N/A',
         nextCspEvent: nextCspEvent,
         renewalCspEvents: renewalCspEvents,
@@ -335,7 +348,7 @@ export default function CustomersPage() {
                     </button>
                   </TableHead>
                   <TableHead>Segment</TableHead>
-                  <TableHead>Active Tariff</TableHead>
+                  <TableHead>Active Tariffs</TableHead>
                   <TableHead>Next CSP Due</TableHead>
                   <TableHead>Usage %</TableHead>
                   <TableHead>
@@ -431,19 +444,20 @@ export default function CustomersPage() {
                         </Badge>
                       </TableCell>
                       <TableCell onClick={e => e.stopPropagation()}>
-                        {tariff ? (
-                          <button
-                            onClick={() => {
-                              setSelectedTariff(tariff);
-                              setShowTariffDrawer(true);
-                            }}
-                            className="cursor-pointer underline decoration-dotted underline-offset-4 text-blue-600 hover:text-blue-800"
-                          >
-                            {customer.activeTariffDisplay}
-                          </button>
-                        ) : (
-                          <span className="text-slate-400">N/A</span>
-                        )}
+                        <div className="flex items-center gap-2">
+                          {customer.activeTariffsCount > 0 ? (
+                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 font-medium">
+                              {customer.activeTariffsCount} Active
+                            </Badge>
+                          ) : (
+                            <span className="text-slate-400">N/A</span>
+                          )}
+                          {customer.expiringTariffsCount > 0 && (
+                            <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 font-medium">
+                              {customer.expiringTariffsCount} Expiring
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         {customer.renewalCspEvents?.length > 0 ? (
