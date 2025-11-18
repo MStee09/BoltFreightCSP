@@ -31,12 +31,12 @@ const OWNERSHIP_TYPES = [
 ];
 
 const STATUS_FILTERS = [
-  { value: 'all', label: 'All', tooltip: 'Show all tariffs regardless of status' },
-  { value: 'active', label: 'Active', tooltip: 'Currently active and in use for pricing' },
-  { value: 'proposed', label: 'Proposed', tooltip: 'Pending approval or implementation' },
-  { value: 'expiring', label: 'Expiring < 90d', tooltip: 'View tariffs expiring within 90 days — recommended for renewal action' },
-  { value: 'expired', label: 'Expired', tooltip: 'Past expiration date and no longer active' },
-  { value: 'superseded', label: 'Superseded', tooltip: 'Replaced by a newer version in the same family' }
+  { value: 'all', label: 'All', tooltip: 'Show all tariffs regardless of status', showCount: false },
+  { value: 'active', label: 'Active', tooltip: 'Currently active and in use for pricing', showCount: true },
+  { value: 'proposed', label: 'Proposed', tooltip: 'Pending approval or implementation', showCount: false },
+  { value: 'expiring', label: 'Expiring Soon', tooltip: 'View tariffs expiring within 90 days — recommended for renewal action', showCount: true, variant: 'warning' },
+  { value: 'expired', label: 'Expired', tooltip: 'Past expiration date and no longer active', showCount: false },
+  { value: 'superseded', label: 'Superseded', tooltip: 'Replaced by a newer version in the same family', showCount: false }
 ];
 
 const SERVICE_TYPE_FILTERS = [
@@ -1094,36 +1094,47 @@ export default function TariffsPage() {
 
       <div className="flex items-center justify-between mb-6">
         <div className="flex gap-2 flex-wrap">
-          {STATUS_FILTERS.map(filter => (
-            <TooltipProvider key={filter.value}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={statusFilter === filter.value ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => handleStatusFilterChange(filter.value)}
-                    className="h-8"
-                  >
-                    {filter.label}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>{filter.tooltip}</TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          ))}
+          {STATUS_FILTERS.map(filter => {
+            let count = 0;
+            if (filter.value === 'active') count = tabSummary.activeCount;
+            if (filter.value === 'expiring') count = tabSummary.expiringCount;
+
+            const isActive = statusFilter === filter.value;
+            const isWarning = filter.variant === 'warning';
+
+            return (
+              <TooltipProvider key={filter.value}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant={isActive ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handleStatusFilterChange(filter.value)}
+                      className={`h-8 flex items-center gap-2 ${
+                        isWarning && !isActive ? 'bg-yellow-50 text-yellow-800 border-yellow-300 hover:bg-yellow-100' : ''
+                      }`}
+                    >
+                      {isWarning && <AlertCircle className="w-3 h-3" />}
+                      {filter.label}
+                      {filter.showCount && count > 0 && (
+                        <Badge
+                          variant="secondary"
+                          className={`text-xs ml-1 ${
+                            isWarning && !isActive ? 'bg-yellow-200 text-yellow-900' : ''
+                          }`}
+                        >
+                          {count}
+                        </Badge>
+                      )}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>{filter.tooltip}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            );
+          })}
         </div>
         <div className="flex items-center gap-2">
-          {expiringCount > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => handleStatusFilterChange('expiring')}
-              className="flex items-center gap-1 bg-yellow-50 text-yellow-800 border-yellow-300 hover:bg-yellow-100 h-8"
-            >
-              <AlertCircle className="w-3 h-3" />
-              {expiringCount} Expiring Soon
-            </Button>
-          )}
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
