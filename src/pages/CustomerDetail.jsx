@@ -27,13 +27,17 @@ export default function CustomerDetail() {
     const customerId = searchParams.get('id');
     const isNew = searchParams.get('new') === 'true';
     const defaultTab = searchParams.get('tab') || 'overview';
-    const [isEditDialogOpen, setIsEditDialogOpen] = useState(isNew);
+    const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [emailViewMode, setEmailViewMode] = useState('threads');
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const { goBack } = useNavigation();
     const { openComposer } = useEmailComposer();
     const navigate = useNavigate();
     const queryClient = useQueryClient();
+
+    React.useEffect(() => {
+        setIsEditDialogOpen(isNew);
+    }, [isNew]);
 
     const { data: customer, isLoading } = useQuery({
         queryKey: ['customer', customerId],
