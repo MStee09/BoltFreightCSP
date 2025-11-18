@@ -1068,13 +1068,15 @@ export default function TariffsPage() {
         <TabsList className="grid w-full grid-cols-4 h-auto p-2">
           {OWNERSHIP_TYPES.map(type => {
             const count = getTabCounts[type.value] || 0;
+            const isActive = ownershipTab === type.value;
             return (
               <TooltipProvider key={type.value}>
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <TabsTrigger
                       value={type.value}
-                      className="py-3 flex items-center gap-2 data-[state=active]:bg-white data-[state=active]:!border-4 data-[state=active]:!border-blue-600 data-[state=active]:!border-solid"
+                      className="py-3 flex items-center gap-2 data-[state=active]:bg-white"
+                      style={isActive ? { border: '4px solid rgb(37, 99, 235)' } : {}}
                     >
                       <span>{type.label}</span>
                       <Badge variant="secondary" className="text-xs">
