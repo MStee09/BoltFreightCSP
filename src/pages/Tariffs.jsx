@@ -1065,7 +1065,7 @@ export default function TariffsPage() {
       </div>
 
       <Tabs value={ownershipTab} onValueChange={handleTabChange} className="mb-6">
-        <TabsList className="grid w-full grid-cols-4 h-auto p-2">
+        <TabsList className="grid w-full grid-cols-4 h-auto p-2 border-4 border-blue-600">
           {OWNERSHIP_TYPES.map(type => {
             const count = getTabCounts[type.value] || 0;
             return (
