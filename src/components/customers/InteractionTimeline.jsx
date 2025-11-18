@@ -422,18 +422,39 @@ export default function InteractionTimeline({ customerId, entityType }) {
   const { data: interactions = [], isLoading: interactionsLoading } = useQuery({
     queryKey: ['interactions', customerId, entityType],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Fetch interactions
+      const { data: interactionsData, error: interactionsError } = await supabase
         .from('interactions')
-        .select(`
-          *,
-          user:user_profiles!interactions_user_id_fkey(id, full_name, email)
-        `)
+        .select('*')
         .eq('entity_id', customerId)
         .eq('entity_type', entityType)
         .order('created_date', { ascending: false });
 
-      if (error) throw error;
-      return data || [];
+      if (interactionsError) throw interactionsError;
+      if (!interactionsData || interactionsData.length === 0) return [];
+
+      // Get unique user IDs
+      const userIds = [...new Set(interactionsData.map(i => i.user_id).filter(Boolean))];
+
+      // Fetch user profiles
+      const { data: usersData, error: usersError } = await supabase
+        .from('user_profiles')
+        .select('id, full_name, email')
+        .in('id', userIds);
+
+      if (usersError) throw usersError;
+
+      // Create user lookup map
+      const userMap = {};
+      (usersData || []).forEach(user => {
+        userMap[user.id] = user;
+      });
+
+      // Enrich interactions with user data
+      return interactionsData.map(interaction => ({
+        ...interaction,
+        user: userMap[interaction.user_id] || null
+      }));
     },
     enabled: !!customerId && !!entityType,
     initialData: []
