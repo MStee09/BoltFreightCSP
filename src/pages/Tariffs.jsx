@@ -739,6 +739,38 @@ export default function TariffsPage() {
     return 'bg-white';
   };
 
+  const getOwnershipBadge = (tariff) => {
+    const ownershipType = OWNERSHIP_TYPES.find(t => t.value === tariff.ownership_type);
+
+    if (tariff.ownership_type === 'rocket_csp' && tariff.rocket_csp_subtype) {
+      const subtypeLabels = {
+        'rocket_owned': 'Owned',
+        'blanket': 'Blanket',
+        'care_of': 'C/O'
+      };
+      const subtypeLabel = subtypeLabels[tariff.rocket_csp_subtype] || '';
+
+      return (
+        <div className="flex items-center gap-1.5">
+          <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs">
+            Rocket CSP
+          </Badge>
+          {subtypeLabel && (
+            <Badge variant="outline" className="bg-purple-100 text-purple-800 border-purple-300 text-xs font-semibold">
+              {subtypeLabel}
+            </Badge>
+          )}
+        </div>
+      );
+    }
+
+    return (
+      <Badge variant="outline" className={`${ownershipType?.color.includes('purple') ? 'bg-purple-50 text-purple-700 border-purple-200' : ownershipType?.color.includes('blue') ? 'bg-blue-50 text-blue-700 border-blue-200' : ownershipType?.color.includes('orange') ? 'bg-orange-50 text-orange-700 border-orange-200' : 'bg-green-50 text-green-700 border-green-200'} text-xs`}>
+        {ownershipType?.label}
+      </Badge>
+    );
+  };
+
   const getCspEventBadge = (tariff) => {
     if (tariff.csp_event_id) {
       const cspEvent = cspEvents.find(e => e.id === tariff.csp_event_id);
@@ -1881,7 +1913,7 @@ export default function TariffsPage() {
                                   {getStatusBadge(tariff)}
                                 </td>
                                 <td className="p-3">
-                                  {getCspEventBadge(tariff)}
+                                  {getOwnershipBadge(tariff)}
                                 </td>
                                 <td className="p-3 text-sm text-slate-600">
                                   {tariffCarriers.length > 0 ? (
