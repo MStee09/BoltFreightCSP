@@ -33,7 +33,8 @@ import {
   MousePointer,
   Settings,
   Sparkles,
-  ChevronUp
+  ChevronUp,
+  AtSign
 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
@@ -86,11 +87,117 @@ const LogInteractionForm = ({ entityId, entityType }) => {
   const queryClient = useQueryClient();
   const [summary, setSummary] = useState('');
   const [details, setDetails] = useState('');
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionSearch, setMentionSearch] = useState('');
+  const [mentionPosition, setMentionPosition] = useState(null);
+  const detailsRef = React.useRef(null);
+
+  const { data: userProfiles = [] } = useQuery({
+    queryKey: ['user_profiles'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('user_profiles')
+        .select('id, first_name, last_name, email')
+        .order('first_name');
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const filteredUsers = userProfiles.filter(user => {
+    const fullName = `${user.first_name} ${user.last_name}`.toLowerCase();
+    const search = mentionSearch.toLowerCase();
+    return fullName.includes(search) || user.email.toLowerCase().includes(search);
+  });
+
+  const handleDetailsChange = (e) => {
+    const value = e.target.value;
+    setDetails(value);
+
+    const cursorPos = e.target.selectionStart;
+    const textBeforeCursor = value.substring(0, cursorPos);
+    const lastAtSymbol = textBeforeCursor.lastIndexOf('@');
+
+    if (lastAtSymbol !== -1) {
+      const textAfterAt = textBeforeCursor.substring(lastAtSymbol + 1);
+      if (!textAfterAt.includes(' ') && textAfterAt.length <= 30) {
+        setMentionSearch(textAfterAt);
+        setMentionPosition(lastAtSymbol);
+        setShowMentions(true);
+        return;
+      }
+    }
+
+    setShowMentions(false);
+  };
+
+  const insertMention = (user) => {
+    const beforeMention = details.substring(0, mentionPosition);
+    const afterMention = details.substring(detailsRef.current.selectionStart);
+    const mention = `@${user.first_name} ${user.last_name}`;
+    const newDetails = beforeMention + mention + ' ' + afterMention;
+
+    setDetails(newDetails);
+    setShowMentions(false);
+    setMentionSearch('');
+
+    setTimeout(() => {
+      const newCursorPos = (beforeMention + mention + ' ').length;
+      detailsRef.current.setSelectionRange(newCursorPos, newCursorPos);
+      detailsRef.current.focus();
+    }, 0);
+  };
 
   const mutation = useMutation({
-    mutationFn: (newInteraction) => Interaction.create(newInteraction),
-    onSuccess: () => {
+    mutationFn: async (newInteraction) => {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const result = await Interaction.create(newInteraction);
+
+      const mentionPattern = /@([A-Za-z]+)\s+([A-Za-z]+)/g;
+      const mentions = [];
+      let match;
+      const fullText = `${summary} ${details}`;
+
+      while ((match = mentionPattern.exec(fullText)) !== null) {
+        const firstName = match[1];
+        const lastName = match[2];
+        const mentionedUser = userProfiles.find(
+          u => u.first_name.toLowerCase() === firstName.toLowerCase() &&
+               u.last_name.toLowerCase() === lastName.toLowerCase()
+        );
+        if (mentionedUser && !mentions.includes(mentionedUser.id)) {
+          mentions.push(mentionedUser.id);
+        }
+      }
+
+      if (mentions.length > 0) {
+        const notificationPromises = mentions.map(mentionedUserId =>
+          supabase.from('notifications').insert({
+            user_id: mentionedUserId,
+            type: 'mention',
+            title: 'You were mentioned in a note',
+            message: summary,
+            link: entityType === 'customer' ? `/customers/${entityId}` :
+                  entityType === 'carrier' ? `/carriers/${entityId}` :
+                  `/pipeline/${entityId}`,
+            metadata: {
+              entity_id: entityId,
+              entity_type: entityType,
+              note_summary: summary,
+              note_details: details,
+              mentioned_by: user?.id,
+            },
+          })
+        );
+        await Promise.all(notificationPromises);
+      }
+
+      return { result, mentions };
+    },
+    onSuccess: ({ mentions }) => {
       queryClient.invalidateQueries({ queryKey: ['timeline', entityId, entityType] });
+      queryClient.invalidateQueries(['notifications']);
       setSummary('');
       setDetails('');
     },
@@ -120,13 +227,34 @@ const LogInteractionForm = ({ entityId, entityType }) => {
           onChange={(e) => setSummary(e.target.value)}
           className="bg-white"
         />
-        <Textarea
-          placeholder="Add context, details, or next steps..."
-          value={details}
-          onChange={(e) => setDetails(e.target.value)}
-          rows={3}
-          className="bg-white"
-        />
+        <div className="relative">
+          <Textarea
+            ref={detailsRef}
+            placeholder="Add context, details, or next steps... Type @ to mention someone"
+            value={details}
+            onChange={handleDetailsChange}
+            rows={3}
+            className="bg-white"
+          />
+
+          {showMentions && filteredUsers.length > 0 && (
+            <Card className="absolute z-10 mt-1 max-h-48 overflow-y-auto w-full shadow-lg">
+              {filteredUsers.slice(0, 5).map(user => (
+                <button
+                  key={user.id}
+                  onClick={() => insertMention(user)}
+                  className="w-full px-3 py-2 text-left hover:bg-slate-100 flex items-center gap-2 text-sm"
+                >
+                  <AtSign className="w-3 h-3 text-slate-500" />
+                  <div>
+                    <p className="font-medium">{user.first_name} {user.last_name}</p>
+                    <p className="text-xs text-slate-500">{user.email}</p>
+                  </div>
+                </button>
+              ))}
+            </Card>
+          )}
+        </div>
         <div className="flex justify-end">
           <Button onClick={handleSubmit} disabled={mutation.isPending || !summary}>
             {mutation.isPending ? 'Logging...' : 'Log Note'}
