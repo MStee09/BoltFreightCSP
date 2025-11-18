@@ -12,11 +12,8 @@ import MetricCard from "../components/dashboard/MetricCard";
 import DailyFocusBanner from "../components/dashboard/DailyFocusBanner";
 import { PredictiveInsightsPanel } from "../components/dashboard/PredictiveInsights";
 import MyFollowUps from "../components/dashboard/MyFollowUps";
-import { Users, Truck, FileText, Trash2, RefreshCw } from "lucide-react";
+import { Users, Truck, FileText, RefreshCw } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
-import { Button } from "../components/ui/button";
-import { useToast } from "../components/ui/use-toast";
-import { clearMockData } from "../utils/mockData";
 import { supabase } from "../api/supabaseClient";
 
 function toArray(data) {
@@ -28,9 +25,7 @@ function toArray(data) {
 }
 
 export default function Dashboard() {
-  const [isLoadingMockData, setIsLoadingMockData] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState(new Date());
-  const { toast } = useToast();
   const queryClient = useQueryClient();
   const { userProfile } = useAuth();
 
@@ -142,26 +137,6 @@ export default function Dashboard() {
     return new Date(e.updated_date) < sevenDaysAgo;
   }).length;
 
-  const handleClearMockData = async () => {
-    setIsLoadingMockData(true);
-    const result = await clearMockData();
-    setIsLoadingMockData(false);
-
-    if (result.success) {
-      toast({
-        title: "Success!",
-        description: result.message,
-      });
-      queryClient.invalidateQueries();
-    } else {
-      toast({
-        title: "Error",
-        description: result.error,
-        variant: "destructive",
-      });
-    }
-  };
-
   const getTimeSinceSync = () => {
     const now = new Date();
     const diffMs = now - lastSyncTime;
@@ -179,21 +154,9 @@ export default function Dashboard() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
       <div className="p-3 lg:p-4 max-w-[2000px] mx-auto">
         <div className="mb-3">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-xl lg:text-2xl font-bold text-slate-900 mb-0.5">Command Center</h1>
-              <p className="text-xs text-slate-600">{format(new Date(), 'EEEE, MMMM d, yyyy')}</p>
-            </div>
-            <Button
-              onClick={handleClearMockData}
-              disabled={isLoadingMockData}
-              variant="outline"
-              size="sm"
-              className="gap-2"
-            >
-              <Trash2 className="w-4 h-4" />
-              Clear Mock Data
-            </Button>
+          <div>
+            <h1 className="text-xl lg:text-2xl font-bold text-slate-900 mb-0.5">Command Center</h1>
+            <p className="text-xs text-slate-600">{format(new Date(), 'EEEE, MMMM d, yyyy')}</p>
           </div>
         </div>
 
