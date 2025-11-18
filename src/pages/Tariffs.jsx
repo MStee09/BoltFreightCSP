@@ -584,7 +584,7 @@ export default function TariffsPage() {
           const cspEvent = tariff.csp_event_id ? cspEvents.find(e => e.id === tariff.csp_event_id) : null;
 
           return {
-            'Tariff ID': tariff.tariff_reference_id || tariff.version || '',
+            'Tariff ID': tariff.tariff_reference_id || '',
             'Customer': customer?.name || '',
             'Carrier(s)': carrierNames,
             'Status': tariff.status || '',
@@ -1522,7 +1522,7 @@ export default function TariffsPage() {
                                             {activeVersion && (
                                               <>
                                                 <span className="text-slate-500">|</span>
-                                                <span className="font-medium text-slate-700">{activeVersion.tariff_reference_id || activeVersion.version} Active</span>
+                                                <span className="font-medium text-slate-700">{activeVersion.tariff_reference_id} Active</span>
                                               </>
                                             )}
                                             {expiringVersion && (
@@ -1537,7 +1537,7 @@ export default function TariffsPage() {
                                             {proposedVersion && (
                                               <>
                                                 <span className="text-slate-500">|</span>
-                                                <span className="text-blue-700 font-medium">Next {proposedVersion.tariff_reference_id || proposedVersion.version}</span>
+                                                <span className="text-blue-700 font-medium">Next {proposedVersion.tariff_reference_id}</span>
                                               </>
                                             )}
                                             {ownershipTab === 'rocket_csp' && (
@@ -1738,7 +1738,7 @@ export default function TariffsPage() {
                                       {activeVersion && (
                                         <div className="flex flex-col gap-1">
                                           <span className="text-slate-500 font-medium">Active Tariff</span>
-                                          <span className="text-slate-900 font-semibold">{activeVersion.tariff_reference_id || activeVersion.version}</span>
+                                          <span className="text-slate-900 font-semibold">{activeVersion.tariff_reference_id}</span>
                                         </div>
                                       )}
                                       {expiringVersion && (
@@ -1755,7 +1755,7 @@ export default function TariffsPage() {
                                       {proposedVersion && (
                                         <div className="flex flex-col gap-1">
                                           <span className="text-slate-500 font-medium">Next Proposed</span>
-                                          <span className="text-blue-700 font-semibold">{proposedVersion.tariff_reference_id || proposedVersion.version}</span>
+                                          <span className="text-blue-700 font-semibold">{proposedVersion.tariff_reference_id}</span>
                                         </div>
                                       )}
                                       {cspEvent && (
@@ -1834,7 +1834,7 @@ export default function TariffsPage() {
                                       to={createPageUrl(`TariffDetail?id=${tariff.id}`)}
                                       className="text-slate-900 hover:text-blue-600 hover:underline"
                                     >
-                                      {tariff.tariff_reference_id || tariff.version || 'No ID'}
+                                      {tariff.tariff_reference_id || 'No ID'}
                                     </Link>
                                     {sopCount > 0 && (
                                       <Badge variant="outline" className="text-xs h-5 px-1.5">
@@ -2034,7 +2034,7 @@ export default function TariffsPage() {
                                         )}
                                         <DropdownMenuSeparator />
                                         <DropdownMenuItem
-                                          onClick={() => handleDeleteTariff(tariff.id, tariff.tariff_reference_id || tariff.version)}
+                                          onClick={() => handleDeleteTariff(tariff.id, tariff.tariff_reference_id)}
                                           className="text-red-600 focus:text-red-600"
                                         >
                                           <Trash2 className="w-4 h-4 mr-2" />

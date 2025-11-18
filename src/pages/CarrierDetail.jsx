@@ -424,7 +424,7 @@ const CarrierTariffs = ({ carrierId, highlightId }) => {
                                     onClick={() => window.location.href = createPageUrl(`TariffDetail?id=${tariff.id}`)}
                                 >
                                     <TableCell className="font-medium">{customer?.name || (tariff.is_blanket_tariff ? 'Blanket' : 'N/A')}</TableCell>
-                                    <TableCell>{tariff.tariff_reference_id || tariff.version}</TableCell>
+                                    <TableCell>{tariff.tariff_reference_id}</TableCell>
                                     <TableCell>{getStatusBadge(tariff.status)}</TableCell>
                                     <TableCell>{daysLeft !== null && daysLeft >= 0 ? `${daysLeft} days` : 'Expired'}</TableCell>
                                     <TableCell>{formatDistanceToNow(new Date(tariff.updated_date), { addSuffix: true })}</TableCell>

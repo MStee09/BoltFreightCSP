@@ -77,7 +77,7 @@ export default function TariffSummaryDrawer({ isOpen, onOpenChange, tariff }) {
             <div>
               <div className="text-sm text-slate-500 mb-1">Tariff ID</div>
               <div className="text-lg font-semibold text-slate-900">
-                {tariff.tariff_reference_id || tariff.version || 'No ID'}
+                {tariff.tariff_reference_id || 'No ID'}
               </div>
             </div>
             {getStatusBadge()}

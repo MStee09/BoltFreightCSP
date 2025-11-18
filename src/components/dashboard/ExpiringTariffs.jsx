@@ -58,7 +58,7 @@ export default function ExpiringTariffs({ tariffs, customers, carriers }) {
                         {customer?.name || 'Unknown Customer'}
                       </p>
                       <p className="text-sm text-slate-600">
-                        {carrier?.name || 'Unknown Carrier'} • v{tariff.version}
+                        {carrier?.name || 'Unknown Carrier'} • {tariff.tariff_reference_id}
                       </p>
                     </div>
                     <Badge className={`${getUrgencyColor(daysLeft)} border font-semibold`}>

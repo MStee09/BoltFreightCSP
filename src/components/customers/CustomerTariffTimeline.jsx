@@ -161,7 +161,7 @@ const CustomerTariffTimeline = ({ customerId }) => {
                         {carrierName}
                     </h3>
                     <p className="text-sm text-slate-500 font-mono mb-1">
-                        {tariff.tariff_reference_id || tariff.version || 'No ID'}
+                        {tariff.tariff_reference_id || 'No ID'}
                     </p>
                     {isExpiring && (
                         <p className="text-xs text-yellow-700 mb-2">

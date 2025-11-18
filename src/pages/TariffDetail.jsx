@@ -190,7 +190,7 @@ export default function TariffDetailPage() {
                     <div className="flex items-center gap-3">
                         {tariff.is_blanket_tariff && <BookMarked className="w-8 h-8 text-blue-600"/>}
                         <div>
-                            <h1 className="text-3xl font-bold text-slate-900">{tariff.tariff_reference_id || tariff.version}</h1>
+                            <h1 className="text-3xl font-bold text-slate-900">{tariff.tariff_reference_id || 'Untitled Tariff'}</h1>
                         </div>
                     </div>
                     <p className="text-slate-600 mt-2">{headerDescription}</p>
@@ -249,7 +249,7 @@ export default function TariffDetailPage() {
                     <Card>
                         <CardHeader><CardTitle>Key Information</CardTitle></CardHeader>
                         <CardContent className="grid grid-cols-2 md:grid-cols-3 gap-6">
-                            <InfoItem label="Version" value={tariff.version} />
+                            <InfoItem label="Tariff ID" value={tariff.tariff_reference_id || 'N/A'} />
                             <InfoItem label="Status">
                                 <span className={`px-2 py-1 text-xs font-medium rounded-full ${ {active: 'bg-green-100 text-green-800', proposed: 'bg-blue-100 text-blue-800', expired: 'bg-slate-100 text-slate-700', superseded: 'bg-purple-100 text-purple-700'}[tariff.status] || 'bg-gray-100'}`}>{tariff.status}</span>
                             </InfoItem>

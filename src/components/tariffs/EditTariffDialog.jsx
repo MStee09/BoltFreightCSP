@@ -28,7 +28,6 @@ export default function EditTariffDialog({
     const queryClient = useQueryClient();
     const navigate = useNavigate();
 
-    const [version, setVersion] = useState('');
     const [status, setStatus] = useState('active');
     const [ownershipType, setOwnershipType] = useState('rocket_csp');
     const [mode, setMode] = useState('');
@@ -65,8 +64,6 @@ export default function EditTariffDialog({
         if (!open) return;
 
         if (tariff) {
-            setVersion(tariff.version || '');
-
             // Auto-set status to active if effective date has passed
             const effectiveDatePassed = tariff.effective_date && new Date(tariff.effective_date) <= new Date();
             setStatus(effectiveDatePassed && tariff.status === 'proposed' ? 'active' : (tariff.status || 'proposed'));
@@ -89,7 +86,6 @@ export default function EditTariffDialog({
             setCarrierPortalUrl(tariff.carrier_portal_url || '');
             setOriginalCarrierPortalUrl(tariff.carrier_portal_url || '');
         } else {
-            setVersion('');
             setStatus('proposed');
             setOwnershipType('rocket_csp');
             setMode('');
@@ -204,7 +200,6 @@ export default function EditTariffDialog({
         }
 
         const data = {
-            version,
             status: finalStatus,
             ownership_type: ownershipType,
             mode,
@@ -276,16 +271,6 @@ export default function EditTariffDialog({
 
                 <form onSubmit={handleSubmit} className="space-y-6 pointer-events-auto">
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="version">Version *</Label>
-                            <Input
-                                id="version"
-                                value={version}
-                                onChange={(e) => setVersion(e.target.value)}
-                                required
-                            />
-                        </div>
-
                         <div className="space-y-2">
                             <Label htmlFor="status">Status *</Label>
                             <Select value={status} onValueChange={setStatus}>
