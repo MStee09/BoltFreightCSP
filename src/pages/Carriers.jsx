@@ -9,7 +9,7 @@ import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
 import { PlusCircle, Search, ArrowRight, Filter, X, ArrowUpDown, Star, Trash2 } from "lucide-react";
 import { Skeleton } from "../components/ui/skeleton";
-import { format } from "date-fns";
+import { format, differenceInDays } from "date-fns";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../components/ui/tooltip";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../components/ui/dropdown-menu";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../components/ui/alert-dialog";
@@ -115,15 +115,25 @@ export default function CarriersPage() {
   };
 
   const carrierData = useMemo(() => {
+    const today = new Date();
     return carriers.map(carrier => {
-      const activeTariffsCount = tariffs.filter(t =>
-        (t.carrier_id === carrier.id || (t.carrier_ids && t.carrier_ids.includes(carrier.id))) &&
-        t.status === 'active'
-      ).length;
+      const carrierTariffs = tariffs.filter(t =>
+        t.carrier_id === carrier.id || (t.carrier_ids && t.carrier_ids.includes(carrier.id))
+      );
+      const activeTariffs = carrierTariffs.filter(t => {
+        const expiryDate = t.expiry_date ? new Date(t.expiry_date) : null;
+        return t.status === 'active' && (!expiryDate || expiryDate > today);
+      });
+      const expiringTariffs = carrierTariffs.filter(t => {
+        const expiryDate = t.expiry_date ? new Date(t.expiry_date) : null;
+        const daysUntilExpiry = expiryDate ? differenceInDays(expiryDate, today) : null;
+        return t.status === 'active' && daysUntilExpiry !== null && daysUntilExpiry <= 90 && daysUntilExpiry > 0;
+      });
 
       return {
         ...carrier,
-        activeTariffsCount
+        activeTariffsCount: activeTariffs.length,
+        expiringTariffsCount: expiringTariffs.length
       };
     });
   }, [carriers, tariffs]);
@@ -377,16 +387,20 @@ export default function CarriersPage() {
                       </div>
                     </TableCell>
                     <TableCell onClick={e => e.stopPropagation()}>
-                      {carrier.activeTariffsCount > 0 ? (
-                        <button
-                          onClick={() => navigate(createPageUrl(`Tariffs?carrier=${carrier.id}`))}
-                          className="cursor-pointer underline decoration-dotted underline-offset-4 text-blue-600 hover:text-blue-800"
-                        >
-                          {carrier.activeTariffsCount}
-                        </button>
-                      ) : (
-                        <span className="text-slate-400">0</span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {carrier.activeTariffsCount > 0 ? (
+                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 font-medium">
+                            {carrier.activeTariffsCount} Active
+                          </Badge>
+                        ) : (
+                          <span className="text-slate-400">0</span>
+                        )}
+                        {carrier.expiringTariffsCount > 0 && (
+                          <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 font-medium">
+                            {carrier.expiringTariffsCount} Expiring
+                          </Badge>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       {carrier.coverage_type ? (
