@@ -300,6 +300,53 @@ export default function TariffDetailPage() {
                         </Card>
                     )}
 
+                    <Card>
+                        <CardHeader><CardTitle>Billing Information</CardTitle></CardHeader>
+                        <CardContent>
+                            {tariff.billing_company_name || tariff.billing_contact_name ? (
+                                <div className="space-y-6">
+                                    <div>
+                                        <h4 className="text-sm font-semibold text-slate-700 mb-3">Company & Address</h4>
+                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                                            <InfoItem label="Company Name" value={tariff.billing_company_name} />
+                                            <div className="col-span-2">
+                                                <InfoItem label="Address">
+                                                    {tariff.billing_address_line1 || tariff.billing_city ? (
+                                                        <div className="text-sm">
+                                                            {tariff.billing_address_line1 && <div>{tariff.billing_address_line1}</div>}
+                                                            {tariff.billing_address_line2 && <div>{tariff.billing_address_line2}</div>}
+                                                            {(tariff.billing_city || tariff.billing_state || tariff.billing_postal_code) && (
+                                                                <div>
+                                                                    {tariff.billing_city && `${tariff.billing_city}, `}
+                                                                    {tariff.billing_state && `${tariff.billing_state} `}
+                                                                    {tariff.billing_postal_code}
+                                                                </div>
+                                                            )}
+                                                            {tariff.billing_country && <div>{tariff.billing_country}</div>}
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-sm text-slate-600">N/A</span>
+                                                    )}
+                                                </InfoItem>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="border-t pt-4">
+                                        <h4 className="text-sm font-semibold text-slate-700 mb-3">Billing Contact</h4>
+                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-6">
+                                            <InfoItem label="Contact Name" value={tariff.billing_contact_name} />
+                                            <InfoItem label="Email" value={tariff.billing_contact_email} />
+                                            <InfoItem label="Phone" value={tariff.billing_contact_phone} />
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : (
+                                <p className="text-sm text-slate-500 italic">No billing information on file</p>
+                            )}
+                        </CardContent>
+                    </Card>
+
                     {tariff.notes && (
                         <Card>
                             <CardHeader><CardTitle>Notes</CardTitle></CardHeader>

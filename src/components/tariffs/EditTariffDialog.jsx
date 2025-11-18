@@ -48,6 +48,16 @@ export default function EditTariffDialog({
     const [updateReason, setUpdateReason] = useState('');
     const [ownershipChangeWarning, setOwnershipChangeWarning] = useState(false);
     const [activeTariffWarning, setActiveTariffWarning] = useState('');
+    const [billingCompanyName, setBillingCompanyName] = useState('');
+    const [billingAddressLine1, setBillingAddressLine1] = useState('');
+    const [billingAddressLine2, setBillingAddressLine2] = useState('');
+    const [billingCity, setBillingCity] = useState('');
+    const [billingState, setBillingState] = useState('');
+    const [billingPostalCode, setBillingPostalCode] = useState('');
+    const [billingCountry, setBillingCountry] = useState('USA');
+    const [billingContactName, setBillingContactName] = useState('');
+    const [billingContactEmail, setBillingContactEmail] = useState('');
+    const [billingContactPhone, setBillingContactPhone] = useState('');
 
     const { data: customers = [] } = useQuery({
         queryKey: ['customers'],
@@ -87,6 +97,16 @@ export default function EditTariffDialog({
             setShipperNumber(tariff.shipper_number || '');
             setCarrierPortalUrl(tariff.carrier_portal_url || '');
             setOriginalCarrierPortalUrl(tariff.carrier_portal_url || '');
+            setBillingCompanyName(tariff.billing_company_name || '');
+            setBillingAddressLine1(tariff.billing_address_line1 || '');
+            setBillingAddressLine2(tariff.billing_address_line2 || '');
+            setBillingCity(tariff.billing_city || '');
+            setBillingState(tariff.billing_state || '');
+            setBillingPostalCode(tariff.billing_postal_code || '');
+            setBillingCountry(tariff.billing_country || 'USA');
+            setBillingContactName(tariff.billing_contact_name || '');
+            setBillingContactEmail(tariff.billing_contact_email || '');
+            setBillingContactPhone(tariff.billing_contact_phone || '');
         } else {
             setStatus('proposed');
             setOwnershipType('rocket_csp');
@@ -103,6 +123,16 @@ export default function EditTariffDialog({
             setShipperNumber('');
             setCarrierPortalUrl('');
             setOriginalCarrierPortalUrl('');
+            setBillingCompanyName('');
+            setBillingAddressLine1('');
+            setBillingAddressLine2('');
+            setBillingCity('');
+            setBillingState('');
+            setBillingPostalCode('');
+            setBillingCountry('USA');
+            setBillingContactName('');
+            setBillingContactEmail('');
+            setBillingContactPhone('');
         }
 
         setUpdateReason('');
@@ -227,6 +257,16 @@ export default function EditTariffDialog({
             credential_password: credentialPassword,
             shipper_number: shipperNumber,
             carrier_portal_url: carrierPortalUrl,
+            billing_company_name: billingCompanyName || null,
+            billing_address_line1: billingAddressLine1 || null,
+            billing_address_line2: billingAddressLine2 || null,
+            billing_city: billingCity || null,
+            billing_state: billingState || null,
+            billing_postal_code: billingPostalCode || null,
+            billing_country: billingCountry || 'USA',
+            billing_contact_name: billingContactName || null,
+            billing_contact_email: billingContactEmail || null,
+            billing_contact_phone: billingContactPhone || null,
             updated_reason: updateReason || null,
         };
         updateMutation.mutate(data);
@@ -515,6 +555,119 @@ export default function EditTariffDialog({
                                     Test link
                                 </a>
                             )}
+                        </div>
+                    </div>
+
+                    <div className="space-y-4 border-t pt-4">
+                        <h3 className="text-sm font-semibold text-slate-700">Billing Information</h3>
+                        <p className="text-xs text-slate-500">Invoice routing and payment contact details</p>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="col-span-2 space-y-2">
+                                <Label htmlFor="billing_company_name">Company Name</Label>
+                                <Input
+                                    id="billing_company_name"
+                                    value={billingCompanyName}
+                                    onChange={(e) => setBillingCompanyName(e.target.value)}
+                                    placeholder="e.g., ABC Logistics Inc."
+                                />
+                            </div>
+
+                            <div className="col-span-2 space-y-2">
+                                <Label htmlFor="billing_address_line1">Address Line 1</Label>
+                                <Input
+                                    id="billing_address_line1"
+                                    value={billingAddressLine1}
+                                    onChange={(e) => setBillingAddressLine1(e.target.value)}
+                                    placeholder="Street address"
+                                />
+                            </div>
+
+                            <div className="col-span-2 space-y-2">
+                                <Label htmlFor="billing_address_line2">Address Line 2</Label>
+                                <Input
+                                    id="billing_address_line2"
+                                    value={billingAddressLine2}
+                                    onChange={(e) => setBillingAddressLine2(e.target.value)}
+                                    placeholder="Suite, floor, etc. (optional)"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="billing_city">City</Label>
+                                <Input
+                                    id="billing_city"
+                                    value={billingCity}
+                                    onChange={(e) => setBillingCity(e.target.value)}
+                                    placeholder="City"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="billing_state">State</Label>
+                                <Input
+                                    id="billing_state"
+                                    value={billingState}
+                                    onChange={(e) => setBillingState(e.target.value)}
+                                    placeholder="State"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="billing_postal_code">ZIP/Postal Code</Label>
+                                <Input
+                                    id="billing_postal_code"
+                                    value={billingPostalCode}
+                                    onChange={(e) => setBillingPostalCode(e.target.value)}
+                                    placeholder="ZIP code"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="billing_country">Country</Label>
+                                <Input
+                                    id="billing_country"
+                                    value={billingCountry}
+                                    onChange={(e) => setBillingCountry(e.target.value)}
+                                    placeholder="Country"
+                                />
+                            </div>
+
+                            <div className="col-span-2 border-t pt-4 mt-2">
+                                <h4 className="text-sm font-medium text-slate-700 mb-3">Billing Contact</h4>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="billing_contact_name">Contact Name</Label>
+                                <Input
+                                    id="billing_contact_name"
+                                    value={billingContactName}
+                                    onChange={(e) => setBillingContactName(e.target.value)}
+                                    placeholder="Full name"
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="billing_contact_phone">Phone</Label>
+                                <Input
+                                    id="billing_contact_phone"
+                                    type="tel"
+                                    value={billingContactPhone}
+                                    onChange={(e) => setBillingContactPhone(e.target.value)}
+                                    placeholder="(555) 123-4567"
+                                />
+                            </div>
+
+                            <div className="col-span-2 space-y-2">
+                                <Label htmlFor="billing_contact_email">Email</Label>
+                                <Input
+                                    id="billing_contact_email"
+                                    type="email"
+                                    value={billingContactEmail}
+                                    onChange={(e) => setBillingContactEmail(e.target.value)}
+                                    placeholder="billing@company.com"
+                                />
+                            </div>
                         </div>
                     </div>
 
