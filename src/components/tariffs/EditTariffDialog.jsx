@@ -30,6 +30,7 @@ export default function EditTariffDialog({
 
     const [status, setStatus] = useState('active');
     const [ownershipType, setOwnershipType] = useState('rocket_csp');
+    const [rocketCspSubtype, setRocketCspSubtype] = useState('rocket_owned');
     const [mode, setMode] = useState('');
     const [effectiveDate, setEffectiveDate] = useState('');
     const [expiryDate, setExpiryDate] = useState('');
@@ -69,6 +70,7 @@ export default function EditTariffDialog({
             setStatus(effectiveDatePassed && tariff.status === 'proposed' ? 'active' : (tariff.status || 'proposed'));
 
             setOwnershipType(tariff.ownership_type || 'customer_direct');
+            setRocketCspSubtype(tariff.rocket_csp_subtype || 'rocket_owned');
             setMode(tariff.mode || '');
             setEffectiveDate(tariff.effective_date || '');
             setExpiryDate(tariff.expiry_date || '');
@@ -88,6 +90,7 @@ export default function EditTariffDialog({
         } else {
             setStatus('proposed');
             setOwnershipType('rocket_csp');
+            setRocketCspSubtype('rocket_owned');
             setMode('');
             setEffectiveDate('');
             setExpiryDate('');
@@ -126,6 +129,14 @@ export default function EditTariffDialog({
             setOwnershipChangeWarning(false);
         }
     }, [ownershipType, tariff]);
+
+    useEffect(() => {
+        if (ownershipType === 'rocket_csp' && rocketCspSubtype === 'blanket') {
+            setIsBlanketTariff(true);
+        } else if (ownershipType !== 'rocket_csp') {
+            setIsBlanketTariff(false);
+        }
+    }, [ownershipType, rocketCspSubtype]);
 
     useEffect(() => {
         if (status === 'active' && tariff?.tariff_family_id) {
@@ -202,6 +213,7 @@ export default function EditTariffDialog({
         const data = {
             status: finalStatus,
             ownership_type: ownershipType,
+            rocket_csp_subtype: ownershipType === 'rocket_csp' ? rocketCspSubtype : null,
             mode,
             effective_date: effectiveDate,
             expiry_date: expiryDate || null,
@@ -321,6 +333,27 @@ export default function EditTariffDialog({
                             )}
                         </div>
 
+                        {ownershipType === 'rocket_csp' && (
+                            <div className="space-y-2">
+                                <Label htmlFor="rocket_csp_subtype">Rocket CSP Type *</Label>
+                                <Select value={rocketCspSubtype} onValueChange={setRocketCspSubtype}>
+                                    <SelectTrigger>
+                                        <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="rocket_owned">Rocket Owned CSP</SelectItem>
+                                        <SelectItem value="blanket">Blanket Tariff</SelectItem>
+                                        <SelectItem value="care_of">C/O (Care Of)</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <p className="text-xs text-slate-500">
+                                    {rocketCspSubtype === 'rocket_owned' && 'Rocket negotiated and owns this tariff'}
+                                    {rocketCspSubtype === 'blanket' && 'Multi-customer blanket tariff'}
+                                    {rocketCspSubtype === 'care_of' && 'Customer-owned with Rocket managing and adding margin'}
+                                </p>
+                            </div>
+                        )}
+
                         <div className="space-y-2">
                             <Label htmlFor="mode">Service Type *</Label>
                             <Select value={mode} onValueChange={setMode}>
@@ -336,17 +369,6 @@ export default function EditTariffDialog({
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                            <div className="flex items-center gap-2 h-10">
-                                <Checkbox
-                                    id="is_blanket_tariff"
-                                    checked={isBlanketTariff}
-                                    onCheckedChange={setIsBlanketTariff}
-                                />
-                                <Label htmlFor="is_blanket_tariff" className="cursor-pointer">Blanket Tariff</Label>
-                            </div>
-                        </div>
-
                         <div className="space-y-2">
                             <Label htmlFor="effective_date">Effective Date *</Label>
                             <Input
