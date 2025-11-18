@@ -341,6 +341,9 @@ const SystemCard = ({ activity }) => {
   const fromNow = formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true });
   const fullDate = format(new Date(activity.timestamp), 'MMM d, yyyy h:mm a');
 
+  // Get user attribution from metadata
+  const updatedBy = activity.metadata?.updated_by || activity.metadata?.created_by || activity.metadata?.deleted_by;
+
   return (
     <Card className="border border-slate-200 bg-slate-100 hover:shadow-sm transition-shadow">
       <CardContent className="p-4">
@@ -369,6 +372,13 @@ const SystemCard = ({ activity }) => {
             {activity.details && (
               <p className="text-xs text-slate-600 italic whitespace-pre-wrap mt-2">
                 {activity.details}
+              </p>
+            )}
+
+            {updatedBy && (
+              <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
+                <User className="w-3 h-3" />
+                <span>By user ID: {updatedBy.substring(0, 8)}...</span>
               </p>
             )}
           </div>
@@ -588,10 +598,10 @@ export default function InteractionTimeline({ customerId, entityType }) {
     interactions.forEach(item => {
       if (item.interaction_type === 'note') {
         counts.note += 1;
-      } else if (item.interaction_type === 'system' || item.metadata?.source === 'system') {
-        counts.system += 1;
       } else if (item.interaction_type === 'ai' || item.metadata?.source === 'ai') {
         counts.ai += 1;
+      } else if (['create', 'update', 'tariff', 'document', 'calendar', 'csp_event', 'carrier', 'system'].includes(item.interaction_type) || item.metadata?.source === 'system') {
+        counts.system += 1;
       } else {
         counts.note += 1;
       }
@@ -748,7 +758,7 @@ export default function InteractionTimeline({ customerId, entityType }) {
                         })) : null}
                       />
                     );
-                  } else if (activity.activityType === 'system' || activity.activityType === 'ai' || activity.metadata?.source === 'system' || activity.metadata?.source === 'ai') {
+                  } else if (['system', 'ai', 'create', 'update', 'tariff', 'document', 'calendar', 'csp_event', 'carrier'].includes(activity.activityType) || activity.metadata?.source === 'system' || activity.metadata?.source === 'ai') {
                     return <SystemCard key={activity.id} activity={activity} />;
                   } else {
                     return <NoteCard key={activity.id} activity={activity} />;
@@ -782,7 +792,7 @@ export default function InteractionTimeline({ customerId, entityType }) {
                         })) : null}
                       />
                     );
-                  } else if (activity.activityType === 'system' || activity.activityType === 'ai' || activity.metadata?.source === 'system' || activity.metadata?.source === 'ai') {
+                  } else if (['system', 'ai', 'create', 'update', 'tariff', 'document', 'calendar', 'csp_event', 'carrier'].includes(activity.activityType) || activity.metadata?.source === 'system' || activity.metadata?.source === 'ai') {
                     return <SystemCard key={activity.id} activity={activity} />;
                   } else {
                     return <NoteCard key={activity.id} activity={activity} />;
@@ -816,7 +826,7 @@ export default function InteractionTimeline({ customerId, entityType }) {
                         })) : null}
                       />
                     );
-                  } else if (activity.activityType === 'system' || activity.activityType === 'ai' || activity.metadata?.source === 'system' || activity.metadata?.source === 'ai') {
+                  } else if (['system', 'ai', 'create', 'update', 'tariff', 'document', 'calendar', 'csp_event', 'carrier'].includes(activity.activityType) || activity.metadata?.source === 'system' || activity.metadata?.source === 'ai') {
                     return <SystemCard key={activity.id} activity={activity} />;
                   } else {
                     return <NoteCard key={activity.id} activity={activity} />;
