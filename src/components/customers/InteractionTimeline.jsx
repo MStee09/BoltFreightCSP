@@ -389,25 +389,14 @@ const SystemCard = ({ activity }) => {
 };
 
 export default function InteractionTimeline({ customerId, entityType }) {
-  const filterStorageKey = `timeline-filter-${entityType}`;
-  const [filterTypes, setFilterTypes] = useState(() => {
-    try {
-      const stored = localStorage.getItem(filterStorageKey);
-      return stored ? JSON.parse(stored) : [];
-    } catch {
-      return [];
-    }
-  });
+  // Always default to "All Activity" (empty array = no filter)
+  const [filterTypes, setFilterTypes] = useState([]);
   const [replyToEmail, setReplyToEmail] = useState(null);
   const [currentUserEmail, setCurrentUserEmail] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showOnlyMyActivity, setShowOnlyMyActivity] = useState(false);
   const { openComposer } = useEmailComposer();
   const { isAdmin, isElite, userProfile } = useUserRole();
-
-  useEffect(() => {
-    localStorage.setItem(filterStorageKey, JSON.stringify(filterTypes));
-  }, [filterTypes, filterStorageKey]);
 
   useEffect(() => {
     const getUserEmail = async () => {
