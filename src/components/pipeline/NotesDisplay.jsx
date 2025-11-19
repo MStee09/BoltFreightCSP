@@ -1,0 +1,103 @@
+import React from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '../../api/supabaseClient';
+import { Card } from '../ui/card';
+import { Badge } from '../ui/badge';
+import { MessageSquare, User } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+
+export default function NotesDisplay({ entityType, entityId }) {
+  const { data: notes = [], isLoading } = useQuery({
+    queryKey: ['notes', entityType, entityId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('notes')
+        .select(`
+          *,
+          user:created_by (
+            id,
+            email
+          ),
+          user_profile:created_by (
+            first_name,
+            last_name
+          )
+        `)
+        .eq('entity_type', entityType)
+        .eq('entity_id', entityId)
+        .eq('is_deleted', false)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const notesWithProfiles = await Promise.all(
+        (data || []).map(async (note) => {
+          const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('first_name, last_name')
+            .eq('id', note.created_by)
+            .maybeSingle();
+
+          return {
+            ...note,
+            author_name: profile
+              ? `${profile.first_name} ${profile.last_name}`.trim()
+              : note.user?.email || 'Unknown User'
+          };
+        })
+      );
+
+      return notesWithProfiles;
+    },
+    enabled: !!(entityType && entityId)
+  });
+
+  if (isLoading) {
+    return (
+      <div className="space-y-2">
+        <div className="h-16 bg-slate-100 rounded animate-pulse" />
+      </div>
+    );
+  }
+
+  if (notes.length === 0) {
+    return (
+      <div className="text-xs text-slate-400 italic py-2">
+        No notes yet
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {notes.map(note => (
+        <Card key={note.id} className="p-3 bg-amber-50 border-amber-200">
+          <div className="flex items-start gap-2">
+            <MessageSquare className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="text-xs gap-1">
+                    <User className="w-3 h-3" />
+                    {note.author_name}
+                  </Badge>
+                  {note.note_type !== 'general' && (
+                    <Badge variant="outline" className="text-xs">
+                      {note.note_type.replace('_', ' ')}
+                    </Badge>
+                  )}
+                </div>
+                <span className="text-xs text-slate-500 flex-shrink-0">
+                  {formatDistanceToNow(new Date(note.created_at), { addSuffix: true })}
+                </span>
+              </div>
+              <p className="text-sm text-slate-700 whitespace-pre-wrap break-words">
+                {note.content}
+              </p>
+            </div>
+          </div>
+        </Card>
+      ))}
+    </div>
+  );
+}

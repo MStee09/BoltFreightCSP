@@ -79,23 +79,40 @@ export default function InlineNoteEditor({ carrierAssignment, onCancel }) {
 
   const saveNoteMutation = useMutation({
     mutationFn: async () => {
-      const currentNotes = carrierAssignment.notes || '';
-      const timestamp = new Date().toISOString();
       const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
 
-      const newNote = `[${new Date(timestamp).toLocaleString()}] ${note}`;
-      const updatedNotes = currentNotes ? `${currentNotes}\n${newNote}` : newNote;
+      const { data: userProfile } = await supabase
+        .from('user_profiles')
+        .select('first_name, last_name')
+        .eq('id', user.id)
+        .maybeSingle();
 
+      const userName = userProfile
+        ? `${userProfile.first_name} ${userProfile.last_name}`.trim()
+        : 'Unknown User';
+
+      // Create structured note entry
+      const { data: newNoteData, error: noteError } = await supabase
+        .from('notes')
+        .insert({
+          entity_type: 'csp_event_carrier',
+          entity_id: carrierAssignment.id,
+          content: note,
+          note_type: 'general',
+          created_by: user.id,
+          csp_event_id: carrierAssignment.csp_event_id,
+          customer_id: carrierAssignment.csp_event?.customer_id,
+          carrier_id: carrierAssignment.carrier_id
+        })
+        .select()
+        .single();
+
+      if (noteError) throw noteError;
+
+      // Update latest_note on carrier assignment for quick preview
       await CSPEventCarrier.update(carrierAssignment.id, {
-        notes: updatedNotes
-      });
-
-      await supabase.from('activity_timeline').insert({
-        entity_type: 'csp_event_carrier',
-        entity_id: carrierAssignment.id,
-        activity_type: 'note_added',
-        user_id: user?.id,
-        details: { note, carrier_id: carrierAssignment.carrier_id }
+        latest_note: note.length > 100 ? note.substring(0, 100) + '...' : note
       });
 
       const mentionPattern = /@([A-Za-z]+)\s+([A-Za-z]+)/g;
@@ -134,9 +151,9 @@ export default function InlineNoteEditor({ carrierAssignment, onCancel }) {
         await Promise.all(notificationPromises);
       }
 
-      return { updatedNotes, mentions };
+      return { newNoteData, mentions, userName };
     },
-    onSuccess: ({ mentions }) => {
+    onSuccess: ({ mentions, userName }) => {
       queryClient.invalidateQueries(['csp_event_carriers']);
       queryClient.invalidateQueries(['notifications']);
 

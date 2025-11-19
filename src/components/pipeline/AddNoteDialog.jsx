@@ -97,16 +97,21 @@ export default function AddNoteDialog({ eventCarrier, open, onOpenChange }) {
         }
       }
 
-      await supabase.from('customer_carrier_activities').insert({
+      // Create structured note with full attribution
+      const { error: noteError } = await supabase.from('notes').insert({
+        entity_type: 'csp_event_carrier',
+        entity_id: eventCarrier.id,
+        content: note,
+        note_type: 'general',
+        created_by: user?.id,
+        csp_event_id: eventCarrier.csp_event_id,
         customer_id: eventCarrier.csp_event?.customer_id,
         carrier_id: eventCarrier.carrier_id,
-        csp_event_id: eventCarrier.csp_event_id,
-        csp_event_carrier_id: eventCarrier.id,
-        activity_type: 'note',
-        description: note,
-        user_id: user?.id || '00000000-0000-0000-0000-000000000000',
       });
 
+      if (noteError) throw noteError;
+
+      // Update latest_note for quick preview
       await supabase.from('csp_event_carriers').update({
         latest_note: note.length > 100 ? note.substring(0, 100) + '...' : note,
       }).eq('id', eventCarrier.id);

@@ -34,6 +34,7 @@ import { AwardCarrierConfirmDialog } from './AwardCarrierConfirmDialog';
 import { AwardSuccessDialog } from './AwardSuccessDialog';
 import NotAwardDialog from './NotAwardDialog';
 import InlineNoteEditor from './InlineNoteEditor';
+import NotesDisplay from './NotesDisplay';
 import CreateProposedTariffsDialog from './CreateProposedTariffsDialog';
 import ManageCarriersDialog from './ManageCarriersDialog';
 import { useEmailComposer } from '../../contexts/EmailComposerContext';
@@ -608,20 +609,29 @@ export default function CspCarriersTab({ cspEvent }) {
                             </div>
                           )}
 
-                          {editingNoteCarrier?.id === carrierData.id ? (
-                            <InlineNoteEditor
-                              carrierAssignment={carrierData}
-                              onCancel={() => setEditingNoteCarrier(null)}
+                          <div className="mt-3 border-t pt-3">
+                            <NotesDisplay
+                              entityType="csp_event_carrier"
+                              entityId={carrierData.id}
                             />
-                          ) : (
-                            <button
-                              onClick={() => setEditingNoteCarrier(carrierData)}
-                              className="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1 mt-2"
-                            >
-                              <Plus className="w-3 h-3" />
-                              Add Note
-                            </button>
-                          )}
+
+                            {editingNoteCarrier?.id === carrierData.id ? (
+                              <div className="mt-2">
+                                <InlineNoteEditor
+                                  carrierAssignment={carrierData}
+                                  onCancel={() => setEditingNoteCarrier(null)}
+                                />
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => setEditingNoteCarrier(carrierData)}
+                                className="text-xs text-slate-500 hover:text-slate-700 flex items-center gap-1 mt-2"
+                              >
+                                <Plus className="w-3 h-3" />
+                                Add Note
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
 
