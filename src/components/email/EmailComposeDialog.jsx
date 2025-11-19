@@ -12,6 +12,7 @@ import { Send, X, FileText, Reply, Calendar, CheckSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/api/supabaseClient';
 import { useImpersonation } from '@/contexts/ImpersonationContext';
+import { getUserGmailEmail } from '@/utils/gmailHelpers';
 
 export function EmailComposeDialog({
   open,
@@ -123,14 +124,10 @@ export function EmailComposeDialog({
       if (user) {
         const effectiveUserId = isImpersonating ? impersonatedUser.id : user.id;
 
-        const { data: credentials } = await supabase
-          .from('user_gmail_credentials')
-          .select('email_address')
-          .eq('user_id', effectiveUserId)
-          .maybeSingle();
+        const emailAddress = await getUserGmailEmail(effectiveUserId);
 
-        if (credentials) {
-          setUserEmail(credentials.email_address);
+        if (emailAddress) {
+          setUserEmail(emailAddress);
         }
       }
     } catch (error) {
@@ -396,13 +393,9 @@ export function EmailComposeDialog({
         throw new Error('Not authenticated');
       }
 
-      const { data: credentials } = await supabase
-        .from('user_gmail_credentials')
-        .select('email_address')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      const emailAddress = await getUserGmailEmail(user.id);
 
-      if (!credentials) {
+      if (!emailAddress) {
         toast.error('Gmail not connected. Please connect your Gmail account in Settings.');
         setSending(false);
         return;

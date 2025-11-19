@@ -16,6 +16,7 @@ import { supabase } from '@/api/supabaseClient';
 import { useQueryClient } from '@tanstack/react-query';
 import { Customer, Carrier, CSPEventCarrier, CarrierContact, CSPEvent } from '@/api/entities';
 import { useImpersonation } from '@/contexts/ImpersonationContext';
+import { getUserGmailEmail } from '@/utils/gmailHelpers';
 
 export function FloatingEmailComposer({
   draftId,
@@ -275,16 +276,12 @@ export function FloatingEmailComposer({
         }
       }
 
-      // Fallback to Gmail credentials if email not in profile
+      // Fallback to Gmail if email not in profile
       if (!profile?.email) {
-        const { data: credentials } = await supabase
-          .from('user_gmail_credentials')
-          .select('email_address')
-          .eq('user_id', effectiveUserId)
-          .maybeSingle();
+        const emailAddress = await getUserGmailEmail(effectiveUserId);
 
-        if (credentials) {
-          setUserEmail(credentials.email_address);
+        if (emailAddress) {
+          setUserEmail(emailAddress);
         }
       }
     } catch (error) {

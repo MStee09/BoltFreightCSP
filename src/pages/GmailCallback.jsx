@@ -183,6 +183,25 @@ export default function GmailCallback() {
         throw new Error('Failed to save Gmail credentials - permission denied');
       }
 
+      console.log('Gmail tokens saved successfully:', {
+        userId: insertedData[0].user_id,
+        email: insertedData[0].email_address
+      });
+
+      // Verify the data was actually saved by reading it back
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('user_gmail_tokens')
+        .select('email_address')
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (verifyError || !verifyData) {
+        console.error('Verification failed - data not found after save:', verifyError);
+        throw new Error('Failed to verify Gmail credentials were saved');
+      }
+
+      console.log('Verification passed - Gmail credentials confirmed in database');
+
       setStatus('success');
       setMessage('Gmail connected successfully!');
 

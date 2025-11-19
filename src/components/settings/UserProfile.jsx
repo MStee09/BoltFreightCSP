@@ -9,6 +9,7 @@ import { User, Mail, Phone, Briefcase, Building2, FileSignature } from 'lucide-r
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useImpersonation } from '@/contexts/ImpersonationContext';
+import { getUserGmailEmail } from '@/utils/gmailHelpers';
 
 export function UserProfile() {
   const { isImpersonating, impersonatedUser } = useImpersonation();
@@ -46,23 +47,10 @@ export function UserProfile() {
 
       const effectiveUserId = isImpersonating ? impersonatedUser.id : user.id;
 
-      // Check both OAuth tokens and app password credentials
-      const { data: tokenCreds } = await supabase
-        .from('user_gmail_tokens')
-        .select('email_address')
-        .eq('user_id', effectiveUserId)
-        .maybeSingle();
-
-      const { data: appPasswordCreds } = await supabase
-        .from('user_gmail_credentials')
-        .select('email_address')
-        .eq('user_id', effectiveUserId)
-        .maybeSingle();
-
-      if (tokenCreds) {
-        setEmail(tokenCreds.email_address);
-      } else if (appPasswordCreds) {
-        setEmail(appPasswordCreds.email_address);
+      // Get Gmail email using helper (checks both OAuth and app password)
+      const gmailEmail = await getUserGmailEmail(effectiveUserId);
+      if (gmailEmail) {
+        setEmail(gmailEmail);
       }
 
       const { data, error } = await supabase

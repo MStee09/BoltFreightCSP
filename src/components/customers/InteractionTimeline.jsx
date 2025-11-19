@@ -5,6 +5,7 @@ import { supabase } from '@/api/supabaseClient';
 import { Interaction } from '../../api/entities';
 import { useEmailComposer } from '@/contexts/EmailComposerContext';
 import { useUserRole } from '@/hooks/useUserRole';
+import { getUserGmailEmail } from '@/utils/gmailHelpers';
 import { Avatar, AvatarFallback } from '../ui/avatar';
 import { Switch } from '../ui/switch';
 import { Label } from '../ui/label';
@@ -531,14 +532,10 @@ export default function InteractionTimeline({ customerId, entityType }) {
     const getUserEmail = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data: credentials } = await supabase
-          .from('user_gmail_credentials')
-          .select('email_address')
-          .eq('user_id', user.id)
-          .maybeSingle();
+        const emailAddress = await getUserGmailEmail(user.id);
 
-        if (credentials) {
-          setCurrentUserEmail(credentials.email_address);
+        if (emailAddress) {
+          setCurrentUserEmail(emailAddress);
         } else {
           setCurrentUserEmail(user.email);
         }
