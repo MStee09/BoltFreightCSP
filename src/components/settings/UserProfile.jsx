@@ -22,6 +22,7 @@ export function UserProfile() {
   });
   const [isSaving, setIsSaving] = useState(false);
   const [email, setEmail] = useState('');
+  const [hasGmailConnected, setHasGmailConnected] = useState(false);
   const queryClient = useQueryClient();
 
   const formatPhoneNumber = (value) => {
@@ -47,12 +48,6 @@ export function UserProfile() {
 
       const effectiveUserId = isImpersonating ? impersonatedUser.id : user.id;
 
-      // Get Gmail email using helper (checks both OAuth and app password)
-      const gmailEmail = await getUserGmailEmail(effectiveUserId);
-      if (gmailEmail) {
-        setEmail(gmailEmail);
-      }
-
       const { data, error } = await supabase
         .from('user_profiles')
         .select('*')
@@ -60,6 +55,21 @@ export function UserProfile() {
         .maybeSingle();
 
       if (error && error.code !== 'PGRST116') throw error;
+
+      // Get Gmail email using helper (checks both OAuth and app password)
+      const gmailEmail = await getUserGmailEmail(effectiveUserId);
+      if (gmailEmail) {
+        setEmail(gmailEmail);
+        setHasGmailConnected(true);
+      } else if (data?.email) {
+        // Fallback to profile email if no Gmail connected
+        setEmail(data.email);
+        setHasGmailConnected(false);
+      } else {
+        setEmail('');
+        setHasGmailConnected(false);
+      }
+
       return data;
     }
   });
@@ -214,20 +224,22 @@ export function UserProfile() {
           </Label>
           <Input
             id="email"
-            value={email || 'No email connected'}
+            value={email || 'No email set'}
             disabled
             className="bg-muted"
           />
-          {email ? (
+          {hasGmailConnected ? (
             <p className="text-xs text-muted-foreground">
-              Email is managed through Gmail integration
+              Connected via Gmail integration - can send and receive emails
+            </p>
+          ) : email ? (
+            <p className="text-xs text-amber-600">
+              Email on file, but Gmail not connected. Go to Integrations tab to connect Gmail for sending/receiving emails.
             </p>
           ) : (
-            <div className="flex items-center gap-2">
-              <p className="text-xs text-amber-600">
-                Gmail not connected. Go to Settings → Email Setup to connect Gmail.
-              </p>
-            </div>
+            <p className="text-xs text-amber-600">
+              No email set. Go to Integrations tab to connect Gmail.
+            </p>
           )}
         </div>
 
