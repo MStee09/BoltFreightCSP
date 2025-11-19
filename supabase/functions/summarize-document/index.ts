@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
+import * as pdfjs from "npm:pdfjs-dist@4.8.69";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -28,54 +29,46 @@ function intelligentTruncate(text: string, maxTokens: number = 20000): string {
   return beginning + "\n\n... [middle section truncated] ...\n\n" + middle + "\n\n... [content truncated] ...\n\n" + end;
 }
 
-async function extractTextFromPDFWithVision(arrayBuffer: ArrayBuffer, openaiKey: string): Promise<string> {
+async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<string> {
   try {
-    console.log('Using GPT-4 Vision to extract text from PDF...');
+    console.log('Using pdfjs-dist to extract text...');
     
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-    
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": "Bearer " + openaiKey,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: "Extract ALL text from this tariff document PDF. Return the complete text content without any analysis or summary. Include all carrier names, rates, dates, locations, terms, and conditions exactly as they appear."
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:application/pdf;base64,${base64}`,
-                  detail: "high"
-                }
-              }
-            ]
-          }
-        ],
-        max_tokens: 4000,
-      }),
+    const loadingTask = pdfjs.getDocument({
+      data: new Uint8Array(arrayBuffer),
+      useWorkerFetch: false,
+      isEvalSupported: false,
+      useSystemFonts: true,
     });
+    
+    const pdf = await loadingTask.promise;
+    console.log('PDF loaded, pages:', pdf.numPages);
+    
+    let fullText = '';
+    const maxPages = Math.min(pdf.numPages, 50);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Vision API error:', response.status, errorText);
-      throw new Error("Vision API failed: " + errorText);
+    for (let i = 1; i <= maxPages; i++) {
+      try {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items
+          .map((item: any) => {
+            if ('str' in item) {
+              return item.str;
+            }
+            return '';
+          })
+          .join(' ');
+        
+        fullText += `\n\n=== Page ${i} ===\n\n` + pageText;
+        console.log(`Extracted page ${i}, total length: ${fullText.length}`);
+      } catch (pageError) {
+        console.error(`Error on page ${i}:`, pageError);
+      }
     }
 
-    const result = await response.json();
-    const extractedText = result.choices[0]?.message?.content || '';
-    console.log('Vision extracted text length:', extractedText.length);
-    return extractedText;
+    return fullText;
   } catch (error) {
-    console.error('Vision extraction error:', error);
+    console.error('PDF extraction error:', error);
     throw error;
   }
 }
@@ -164,12 +157,7 @@ Deno.serve(async (req: Request) => {
 
     if (isPDF) {
       const arrayBuffer = await fileData.arrayBuffer();
-      
-      if (arrayBuffer.byteLength > 20 * 1024 * 1024) {
-        throw new Error("PDF file too large (max 20MB for Vision API)");
-      }
-      
-      extractedText = await extractTextFromPDFWithVision(arrayBuffer, openaiKey);
+      extractedText = await extractTextFromPDF(arrayBuffer);
     } else {
       try {
         extractedText = await fileData.text();
