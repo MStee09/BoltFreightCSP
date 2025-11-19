@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSearchParams, Link, useLocation } from 'react-router-dom';
 import { Customer, Carrier, Tariff, CSPEvent, Task, Interaction, Alert, Shipment, LostOpportunity, ReportSnapshot } from '../api/entities';
+import { supabase } from '../api/supabaseClient';
 import { createPageUrl } from '../utils';
 import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
@@ -18,21 +19,61 @@ import { BackButton } from '../components/navigation/BackButton';
 import LinkedCspSummaryCard from '../components/tariffs/LinkedCspSummaryCard';
 import RenewalStatusBadge from '../components/tariffs/RenewalStatusBadge';
 import TariffActivityTimeline from '../components/tariffs/TariffActivityTimeline';
+import { useToast } from '../components/ui/use-toast';
+
+const MOCK_USER_ID = '00000000-0000-0000-0000-000000000000';
 
 const TariffDocumentManager = ({ tariff }) => {
     const queryClient = useQueryClient();
+    const { toast } = useToast();
     const [file, setFile] = useState(null);
     const [isDragging, setIsDragging] = useState(false);
 
     const mutation = useMutation({
         mutationFn: async (newFile) => {
-            console.error('File upload not implemented');
-            throw new Error('File upload functionality requires base44 SDK');
+            const fileName = `${Date.now()}_${newFile.name}`;
+            const filePath = `${MOCK_USER_ID}/${fileName}`;
+
+            const { error: uploadError } = await supabase.storage
+                .from('documents')
+                .upload(filePath, newFile);
+
+            if (uploadError) throw uploadError;
+
+            await Tariff.update(tariff.id, {
+                file_url: filePath,
+                file_name: newFile.name
+            });
+
+            await Interaction.create({
+                entity_type: 'tariff',
+                entity_id: tariff.id,
+                interaction_type: 'document_upload',
+                summary: `Tariff Document Uploaded: ${newFile.name}`,
+                details: `Uploaded tariff document for ${tariff.tariff_name || 'tariff'}.`,
+                metadata: {
+                    file_name: newFile.name,
+                    file_size: newFile.size
+                }
+            });
+
+            return { filePath, fileName: newFile.name };
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['tariff', tariff.id] });
+            toast({
+                title: "Success!",
+                description: "Tariff document uploaded successfully.",
+            });
             setFile(null);
         },
+        onError: (error) => {
+            toast({
+                title: "Error",
+                description: error.message || "Failed to upload document.",
+                variant: "destructive",
+            });
+        }
     });
 
     const handleFileChange = (e) => e.target.files && e.target.files[0] && setFile(e.target.files[0]);
@@ -46,6 +87,33 @@ const TariffDocumentManager = ({ tariff }) => {
         }
     };
     const handleUpload = () => file && mutation.mutate(file);
+
+    const handleDownload = async () => {
+        if (!tariff.file_url) return;
+
+        try {
+            const { data, error } = await supabase.storage
+                .from('documents')
+                .download(tariff.file_url);
+
+            if (error) throw error;
+
+            const url = URL.createObjectURL(data);
+            const a = window.document.createElement('a');
+            a.href = url;
+            a.download = tariff.file_name || 'tariff-document.pdf';
+            window.document.body.appendChild(a);
+            a.click();
+            window.document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            toast({
+                title: "Error",
+                description: "Failed to download document.",
+                variant: "destructive",
+            });
+        }
+    };
 
     return (
         <Card id="documents-section">
@@ -62,8 +130,8 @@ const TariffDocumentManager = ({ tariff }) => {
                                     <p className="font-medium text-sm">{tariff.file_name || 'Tariff Document'}</p>
                                 </div>
                             </div>
-                            <Button variant="outline" size="sm" asChild>
-                                <a href={tariff.file_url} target="_blank" rel="noopener noreferrer"><Download className="w-4 h-4 mr-2"/>Download</a>
+                            <Button variant="outline" size="sm" onClick={handleDownload}>
+                                <Download className="w-4 h-4 mr-2"/>Download
                             </Button>
                         </div>
                          <p className="text-sm text-slate-600 text-center">To replace this document, upload a new one below.</p>
