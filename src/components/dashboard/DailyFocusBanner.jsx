@@ -6,19 +6,21 @@ import { Badge } from '../ui/badge';
 import { Sparkles, AlertCircle, TrendingUp, Clock, RefreshCw, CheckCircle2, Users, FileText } from 'lucide-react';
 import { format } from 'date-fns';
 import { supabase } from '../../api/supabaseClient';
+import { useImpersonation } from '@/contexts/ImpersonationContext';
 
 export default function DailyFocusBanner({ alerts, expiringTariffs, idleNegotiations, todayTasks, customers, cspEvents }) {
   const navigate = useNavigate();
+  const { isImpersonating, impersonatedUser } = useImpersonation();
   const [aiSummary, setAiSummary] = useState('');
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
+  const [firstName, setFirstName] = useState('');
   const hasGeneratedToday = useRef(false);
   const todayDate = format(new Date(), 'yyyy-MM-dd');
 
   const greeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return 'Good Morning';
-    if (hour < 18) return 'Good Afternoon';
-    return 'Good Evening';
+    const timeGreeting = hour < 12 ? 'Good Morning' : hour < 18 ? 'Good Afternoon' : 'Good Evening';
+    return firstName ? `${timeGreeting}, ${firstName}` : timeGreeting;
   };
 
   const priorities = [];
@@ -133,6 +135,33 @@ export default function DailyFocusBanner({ alerts, expiringTariffs, idleNegotiat
       setIsLoadingSummary(false);
     }
   };
+
+  // Fetch user's first name
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const effectiveUserId = isImpersonating ? impersonatedUser?.id : user.id;
+        if (!effectiveUserId) return;
+
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('first_name')
+          .eq('id', effectiveUserId)
+          .maybeSingle();
+
+        if (profile?.first_name) {
+          setFirstName(profile.first_name);
+        }
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+      }
+    };
+
+    fetchUserProfile();
+  }, [isImpersonating, impersonatedUser]);
 
   // Auto-generate summary on dashboard load (once per day)
   useEffect(() => {
