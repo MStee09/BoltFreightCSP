@@ -699,7 +699,7 @@ export default function TariffDetailPage() {
     }
 
     const headerDescription = tariff.is_blanket_tariff
-        ? `Blanket tariff${carrier ? ` with ${carrier.name}` : ''}`
+        ? `Blanket Tariff for ${customer?.name || 'Unknown Customer'}${carrier ? ` with ${carrier.name}` : ''}`
         : `For ${customer?.name || '...'}${carrier ? ` with ${carrier.name}` : ''}`;
 
     return (

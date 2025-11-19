@@ -66,7 +66,7 @@ export default function ExpiringTariffs({ tariffs, customers, carriers }) {
                         {displayName}
                       </p>
                       <p className="text-sm text-slate-600">
-                        {isBlanket ? 'Blanket Tariff' : carrier?.name || 'Unknown Carrier'} • {tariff.tariff_reference_id}
+                        {isBlanket ? `Blanket Tariff for ${customer?.name || 'Unknown Customer'}` : carrier?.name || 'Unknown Carrier'} • {tariff.tariff_reference_id}
                       </p>
                     </div>
                     <Badge className={`${getUrgencyColor(daysLeft)} border font-semibold`}>
