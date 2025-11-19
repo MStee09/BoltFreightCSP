@@ -19,6 +19,7 @@ Deno.serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const openaiKey = Deno.env.get("OPENAI_API_KEY");
+    const llamaParseKey = Deno.env.get("LLAMAPARSE_API_KEY");
     
     if (!openaiKey) {
       throw new Error("OpenAI API key not configured");
@@ -45,80 +46,81 @@ Deno.serve(async (req: Request) => {
       throw new Error("No document attached to this tariff");
     }
 
-    console.log('Creating signed URL for file:', tariff.file_url);
-
-    const { data: signedUrlData, error: signedError } = await supabase.storage
-      .from("documents")
-      .createSignedUrl(tariff.file_url, 600);
-
-    if (signedError || !signedUrlData?.signedUrl) {
-      throw new Error('Failed to create signed URL');
-    }
-
-    const publicUrl = signedUrlData.signedUrl;
-    console.log('Using public URL for analysis');
-
     const fileName = tariff.file_name || tariff.file_url.split('/').pop() || 'document';
     const fileExtension = fileName.split('.').pop()?.toLowerCase();
     const isPDF = fileExtension === 'pdf';
 
-    console.log('File type:', fileExtension);
+    console.log('Processing file:', fileName, 'Type:', fileExtension);
 
-    let summary = '';
+    let extractedText = '';
 
-    if (isPDF) {
-      console.log('Processing PDF with OpenAI vision...');
+    if (isPDF && llamaParseKey) {
+      console.log('Using LlamaParse for PDF extraction...');
       
       try {
-        const promptText = 'You are a logistics and transportation expert. Analyze this tariff document PDF and provide a detailed, comprehensive summary. IMPORTANT: Extract SPECIFIC information from the document - actual rates, dates, percentages, dollar amounts, contact names, etc. Do NOT give generic templates. Required Analysis: 1. Carrier & Service Details: Exact carrier name as shown in document, Service types offered, Transportation modes. 2. Rate Structure: Specific rates, Pricing tiers with actual numbers, Fuel surcharge percentage or formula, Any minimum charges. 3. Geographic Coverage: Specific states, regions, zip codes, or cities, Lane descriptions, Service area boundaries. 4. Effective Dates: Exact start date, Exact end date, Contract duration, Renewal terms. 5. Key Terms & Conditions: Payment terms, Liability limits, Insurance requirements, Claims procedures. 6. Notable Features: Volume discounts, Performance incentives, Special services included, Restrictions or exclusions. Provide a detailed summary with all specific information you can extract.';
-        
-        const parseResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
+        const { data: signedUrlData } = await supabase.storage
+          .from("documents")
+          .createSignedUrl(tariff.file_url, 3600);
+
+        if (!signedUrlData?.signedUrl) {
+          throw new Error('Could not create signed URL');
+        }
+
+        const llamaResponse = await fetch('https://api.cloud.llamaindex.ai/api/parsing/upload', {
+          method: 'POST',
           headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + openaiKey,
+            'Authorization': 'Bearer ' + llamaParseKey,
+            'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: "gpt-4o",
-            messages: [
-              {
-                role: "user",
-                content: [
-                  {
-                    type: "text",
-                    text: promptText
-                  },
-                  {
-                    type: "image_url",
-                    image_url: {
-                      url: publicUrl,
-                      detail: "high"
-                    }
-                  }
-                ]
-              }
-            ],
-            max_tokens: 4000,
-            temperature: 0.1
+            url: signedUrlData.signedUrl,
+            parsing_instruction: 'Extract all text, tables, and structured data from this tariff document. Preserve rates, dates, and numerical information.',
           }),
         });
 
-        if (!parseResponse.ok) {
-          const errorText = await parseResponse.text();
-          console.error('PDF parsing error:', errorText);
-          throw new Error('Failed to parse PDF');
+        if (llamaResponse.ok) {
+          const result = await llamaResponse.json();
+          const jobId = result.id;
+          
+          let jobComplete = false;
+          let attempts = 0;
+          
+          while (!jobComplete && attempts < 30) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            const statusResponse = await fetch('https://api.cloud.llamaindex.ai/api/parsing/job/' + jobId, {
+              headers: {
+                'Authorization': 'Bearer ' + llamaParseKey,
+              },
+            });
+            
+            const statusData = await statusResponse.json();
+            
+            if (statusData.status === 'SUCCESS') {
+              const resultResponse = await fetch('https://api.cloud.llamaindex.ai/api/parsing/job/' + jobId + '/result/markdown', {
+                headers: {
+                  'Authorization': 'Bearer ' + llamaParseKey,
+                },
+              });
+              
+              extractedText = await resultResponse.text();
+              jobComplete = true;
+              console.log('LlamaParse extraction successful, length:', extractedText.length);
+            } else if (statusData.status === 'ERROR') {
+              console.error('LlamaParse job failed');
+              break;
+            }
+            
+            attempts++;
+          }
         }
-
-        const parseResult = await parseResponse.json();
-        summary = parseResult.choices[0]?.message?.content || "Unable to parse PDF";
-        
-        console.log('Successfully parsed PDF, summary length:', summary.length);
-      } catch (parseError) {
-        console.error('PDF parsing failed:', parseError);
-        throw parseError;
+      } catch (e) {
+        console.error('LlamaParse failed:', e);
       }
-    } else {
-      console.log('Processing non-PDF document...');
+    }
+
+    if (!extractedText || extractedText.length < 200) {
+      console.log('Falling back to direct file download and basic text extraction...');
       
       const { data: fileData, error: downloadError } = await supabase.storage
         .from("documents")
@@ -128,43 +130,83 @@ Deno.serve(async (req: Request) => {
         throw downloadError;
       }
 
-      const documentText = await fileData.text();
-      const truncatedText = documentText.slice(0, 80000);
-
-      const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer " + openaiKey,
-        },
-        body: JSON.stringify({
-          model: "gpt-4o",
-          messages: [
-            {
-              role: "system",
-              content: "You are a logistics and transportation expert. Analyze tariff documents and provide clear, detailed summaries with SPECIFIC information - actual rates, dates, amounts."
-            },
-            {
-              role: "user",
-              content: "Analyze this tariff document and provide a comprehensive summary with SPECIFIC details: 1. Carrier & Service Details 2. Rate Structure (actual rates) 3. Geographic Coverage (specific areas) 4. Effective Dates (exact dates) 5. Key Terms & Conditions 6. Notable Features. Document: " + truncatedText
-            }
-          ],
-          temperature: 0.2,
-          max_tokens: 3000,
-        }),
-      });
-
-      if (!openaiResponse.ok) {
-        throw new Error('OpenAI API error');
+      if (isPDF) {
+        const arrayBuffer = await fileData.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
+        
+        const decoder = new TextDecoder('utf-8', { fatal: false });
+        const rawText = decoder.decode(uint8Array);
+        
+        const textMatches = rawText.match(/[\x20-\x7E\s]{10,}/g);
+        if (textMatches && textMatches.length > 0) {
+          extractedText = textMatches.join('\n').slice(0, 100000);
+          console.log('Extracted text using basic method, length:', extractedText.length);
+        }
+      } else {
+        extractedText = await fileData.text();
       }
-
-      const aiResult = await openaiResponse.json();
-      summary = aiResult.choices[0]?.message?.content || "Unable to generate summary";
     }
 
-    if (summary.includes('corrupted') || summary.includes('improperly formatted') || summary.includes('cannot extract')) {
-      throw new Error('PDF appears to be corrupted or unreadable');
+    console.log('Final extracted text length:', extractedText.length);
+    console.log('First 500 chars:', extractedText.slice(0, 500));
+
+    if (!extractedText || extractedText.trim().length < 100) {
+      const errorSummary = 'This document could not be automatically processed. The PDF may be: (1) A scanned image without OCR text layer, (2) Password protected or encrypted, (3) Corrupted. Please try: (1) Converting the PDF to text using Adobe Acrobat or similar tool, (2) Uploading as an Excel or CSV file instead, (3) Using a different version of the document. Contact support if you need help processing this specific document type.';
+      
+      await supabase
+        .from("tariffs")
+        .update({
+          ai_summary: errorSummary,
+          ai_summary_generated_at: new Date().toISOString(),
+        })
+        .eq("id", tariffId);
+
+      return new Response(
+        JSON.stringify({ success: true, summary: errorSummary, warning: 'Document could not be parsed' }),
+        {
+          headers: {
+            ...corsHeaders,
+            "Content-Type": "application/json",
+          },
+        }
+      );
     }
+
+    const truncatedText = extractedText.slice(0, 80000);
+
+    console.log('Sending to OpenAI for analysis...');
+
+    const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + openaiKey,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: "You are a logistics and transportation expert. Analyze tariff documents and provide clear, detailed summaries with SPECIFIC information extracted from the document."
+          },
+          {
+            role: "user",
+            content: "Analyze this tariff document and provide a comprehensive summary with SPECIFIC details you can find. If certain sections are not present in the document, say 'Not specified in document' for that section. Sections: 1. Carrier & Service Details (actual carrier name), 2. Rate Structure (actual rates and numbers), 3. Geographic Coverage (specific locations), 4. Effective Dates (exact dates), 5. Key Terms & Conditions (specific terms), 6. Notable Features. Document text: " + truncatedText
+          }
+        ],
+        temperature: 0.2,
+        max_tokens: 3000,
+      }),
+    });
+
+    if (!openaiResponse.ok) {
+      const errorText = await openaiResponse.text();
+      console.error('OpenAI error:', errorText);
+      throw new Error('OpenAI API error');
+    }
+
+    const aiResult = await openaiResponse.json();
+    const summary = aiResult.choices[0]?.message?.content || "Unable to generate summary";
 
     await supabase
       .from("tariffs")
@@ -190,8 +232,7 @@ Deno.serve(async (req: Request) => {
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: error.message,
-        details: 'If the PDF is scanned or image-based, it may not be processable. Try uploading a text-based PDF or Excel file instead.'
+        error: error.message
       }),
       {
         status: 500,

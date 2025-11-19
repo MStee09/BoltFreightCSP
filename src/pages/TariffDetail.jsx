@@ -9,7 +9,7 @@ import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Skeleton } from '../components/ui/skeleton';
-import { ArrowLeft, Edit, File, UploadCloud, Download, X, Loader2, BookMarked, ArrowRight, Users, Pencil, Check, Eye, ExternalLink, Sparkles, MessageSquare, Send } from 'lucide-react';
+import { ArrowLeft, Edit, File, UploadCloud, Download, X, Loader2, BookMarked, ArrowRight, Users, Pencil, Check, Eye, ExternalLink, Sparkles, MessageSquare, Send, Bug } from 'lucide-react';
 import { Input } from '../components/ui/input';
 import { Badge } from "../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
@@ -165,6 +165,39 @@ const TariffDocumentManager = ({ tariff }) => {
             toast({
                 title: "Error",
                 description: error.message || "Failed to generate summary.",
+                variant: "destructive",
+            });
+        }
+    });
+
+    const debugMutation = useMutation({
+        mutationFn: async () => {
+            const { data, error } = await supabase.functions.invoke('debug-pdf-extraction', {
+                body: { tariffId: tariff.id }
+            });
+
+            if (error) throw error;
+            return data;
+        },
+        onSuccess: (data) => {
+            const debugWindow = window.open('', '_blank');
+            if (debugWindow) {
+                debugWindow.document.write(`
+                    <html>
+                        <head><title>PDF Debug Info</title></head>
+                        <body style="font-family: monospace; padding: 20px; background: #1e1e1e; color: #d4d4d4;">
+                            <h2 style="color: #4fc3f7;">PDF Extraction Debug Information</h2>
+                            <pre style="background: #2d2d2d; padding: 15px; border-radius: 5px; overflow-x: auto; white-space: pre-wrap;">${JSON.stringify(data, null, 2)}</pre>
+                        </body>
+                    </html>
+                `);
+                debugWindow.document.close();
+            }
+        },
+        onError: (error) => {
+            toast({
+                title: "Error",
+                description: error.message || "Failed to debug document.",
                 variant: "destructive",
             });
         }
@@ -335,6 +368,19 @@ const TariffDocumentManager = ({ tariff }) => {
                                         <Sparkles className="w-4 h-4 mr-2"/>
                                         {tariff.ai_summary ? 'Regenerate' : 'Generate'} AI Summary
                                     </>
+                                )}
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => debugMutation.mutate()}
+                                disabled={debugMutation.isPending}
+                                title="Debug PDF text extraction"
+                            >
+                                {debugMutation.isPending ? (
+                                    <Loader2 className="w-4 h-4 animate-spin"/>
+                                ) : (
+                                    <Bug className="w-4 h-4"/>
                                 )}
                             </Button>
                             <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
