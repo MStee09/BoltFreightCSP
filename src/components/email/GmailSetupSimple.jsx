@@ -211,13 +211,35 @@ export function GmailSetupSimple() {
           console.error('Error parsing response:', parseError);
           errorMessage = `Server error (${response.status}). The send-email function may not be deployed or configured correctly.`;
         }
+
+        // Show user-friendly error in toast
         throw new Error(errorMessage);
       }
 
-      toast.success(`Test email sent to ${emailAddress}! Check your inbox.`, { duration: 5000 });
+      toast.success(`Test email sent successfully to ${emailAddress}!`, {
+        description: 'Check your inbox. If you don\'t see it, check your spam folder.',
+        duration: 5000
+      });
     } catch (error) {
       console.error('Error sending test email:', error);
-      toast.error(`Failed to send test email: ${error.message}`);
+
+      // Show specific error messages
+      if (error.message.includes('expired or is invalid')) {
+        toast.error('Gmail Connection Expired', {
+          description: 'Your Gmail connection needs to be refreshed. Please disconnect and reconnect your account.',
+          duration: 8000
+        });
+      } else if (error.message.includes('Invalid credentials')) {
+        toast.error('Authentication Failed', {
+          description: 'Unable to authenticate with Gmail. Please reconnect your account.',
+          duration: 8000
+        });
+      } else {
+        toast.error('Failed to Send Test Email', {
+          description: error.message,
+          duration: 6000
+        });
+      }
     } finally {
       setSendingTest(false);
     }

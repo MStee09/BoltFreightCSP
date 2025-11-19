@@ -23,7 +23,6 @@ Deno.serve(async (req: Request) => {
 
     const token = authHeader.replace('Bearer ', '');
 
-    // Create client with user's token to respect RLS
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -36,7 +35,6 @@ Deno.serve(async (req: Request) => {
       }
     );
 
-    // Create service role client for impersonation (bypasses RLS)
     const supabaseServiceClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -66,10 +64,9 @@ Deno.serve(async (req: Request) => {
       throw new Error('Recipient email is required');
     }
 
-    // Use impersonated user ID if provided, otherwise use authenticated user
     const effectiveUserId = impersonatedUserId || user.id;
 
-    console.log('\ud83d\udd0d Email send request:', {
+    console.log('🔍 Email send request:', {
       authenticatedUserId: user.id,
       effectiveUserId,
       isImpersonating: !!impersonatedUserId
@@ -85,17 +82,15 @@ Deno.serve(async (req: Request) => {
       throw new Error('User profile not found');
     }
 
-    // When impersonating, use service role client to bypass RLS
     const clientForCredentials = impersonatedUserId ? supabaseServiceClient : supabaseClient;
 
-    // Try OAuth tokens first, fallback to app password
     const { data: oauthTokens, error: oauthError } = await clientForCredentials
       .from('user_gmail_tokens')
       .select('*')
       .eq('user_id', effectiveUserId)
       .maybeSingle();
 
-    console.log('\ud83d\udce7 OAuth tokens query:', {
+    console.log('📧 OAuth tokens query:', {
       effectiveUserId,
       hasTokens: !!oauthTokens,
       usingServiceRole: !!impersonatedUserId,
@@ -108,7 +103,7 @@ Deno.serve(async (req: Request) => {
       .eq('user_id', effectiveUserId)
       .maybeSingle();
 
-    console.log('\ud83d\udd11 App password query:', {
+    console.log('🔑 App password query:', {
       effectiveUserId,
       hasCreds: !!appPasswordCreds,
       error: appPasswordError?.message
@@ -116,11 +111,8 @@ Deno.serve(async (req: Request) => {
 
     let transporter;
     let fromEmail = userProfile.email;
-    let shouldDeleteInvalidTokens = false;
-    let invalidTokenId = null;
 
     if (oauthTokens) {
-      // Get OAuth credentials from system settings
       const { data: oauthSettings } = await supabaseClient
         .from('system_settings')
         .select('setting_value')
@@ -131,11 +123,11 @@ Deno.serve(async (req: Request) => {
         throw new Error('Gmail OAuth not configured. Please contact administrator.');
       }
 
-      // Manually refresh the access token if needed
       let accessToken = oauthTokens.access_token;
+      let tokenRefreshed = false;
 
       try {
-        console.log('\ud83d\udd04 Refreshing OAuth token for:', oauthTokens.email_address);
+        console.log('🔄 Refreshing OAuth token for:', oauthTokens.email_address);
 
         const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
           method: 'POST',
@@ -152,7 +144,6 @@ Deno.serve(async (req: Request) => {
           const tokenData = await tokenResponse.json();
           accessToken = tokenData.access_token;
 
-          // Update the token in the database
           await clientForCredentials
             .from('user_gmail_tokens')
             .update({
@@ -161,31 +152,35 @@ Deno.serve(async (req: Request) => {
             })
             .eq('id', oauthTokens.id);
 
-          console.log('\u2705 Token refreshed successfully');
+          tokenRefreshed = true;
+          console.log('✅ Token refreshed successfully');
         } else {
-          const errorData = await tokenResponse.text();
-          console.warn('\u26a0\ufe0f Token refresh failed, will delete invalid tokens:', errorData);
-          shouldDeleteInvalidTokens = true;
-          invalidTokenId = oauthTokens.id;
+          const errorData = await tokenResponse.json();
+          console.warn('⚠️ Token refresh failed:', errorData);
+          
+          // ONLY delete tokens if the refresh token itself is revoked/invalid
+          if (errorData.error === 'invalid_grant') {
+            console.log('🗑️ Refresh token is permanently invalid, deleting...');
+            await clientForCredentials
+              .from('user_gmail_tokens')
+              .delete()
+              .eq('id', oauthTokens.id);
+            
+            throw new Error('Your Gmail connection has expired or is invalid. Please reconnect your Gmail account in Settings to send emails.');
+          }
+          // For other errors (network, temporary issues), just log and try to use existing token
+          console.log('⚠️ Temporary refresh error, attempting to use existing token');
         }
       } catch (refreshError) {
-        console.warn('\u26a0\ufe0f Token refresh error:', refreshError.message);
-        shouldDeleteInvalidTokens = true;
-        invalidTokenId = oauthTokens.id;
+        // Only throw if we already deleted tokens above
+        if (refreshError.message.includes('expired or is invalid')) {
+          throw refreshError;
+        }
+        console.warn('⚠️ Token refresh error (will try existing token):', refreshError.message);
       }
 
-      // If token refresh failed, delete invalid tokens and fall back to admin credentials
-      if (shouldDeleteInvalidTokens) {
-        console.log('\ud83d\uddd1\ufe0f Deleting invalid OAuth tokens');
-        await clientForCredentials
-          .from('user_gmail_tokens')
-          .delete()
-          .eq('id', invalidTokenId);
-
-        // Don't create transporter here, fall through to use admin credentials below
-      } else {
-        // Use OAuth2 for SMTP
-        transporter = nodemailer.createTransport({
+      // Try to create transporter with OAuth
+      transporter = nodemailer.createTransport({
         host: 'smtp.gmail.com',
         port: 587,
         secure: false,
@@ -197,13 +192,11 @@ Deno.serve(async (req: Request) => {
           refreshToken: oauthTokens.refresh_token,
           accessToken: accessToken,
         },
-        });
-      }
+      });
+      fromEmail = oauthTokens.email_address;
     }
 
-    // If no transporter yet, try app password
     if (!transporter && appPasswordCreds) {
-      // Use App Password for SMTP
       transporter = nodemailer.createTransport({
         host: 'smtp.gmail.com',
         port: 587,
@@ -213,13 +206,12 @@ Deno.serve(async (req: Request) => {
           pass: appPasswordCreds.app_password,
         },
       });
+      fromEmail = appPasswordCreds.email_address;
     }
 
-    // If still no transporter, fall back to admin's credentials
     if (!transporter) {
-      console.log('\u26a0\ufe0f No valid user credentials, falling back to admin credentials');
+      console.log('⚠️ No valid user credentials, falling back to admin credentials');
 
-      // Try to find an admin with working credentials
       const { data: adminProfiles } = await supabaseServiceClient
         .from('user_profiles')
         .select('id')
@@ -230,7 +222,6 @@ Deno.serve(async (req: Request) => {
       if (adminProfiles && adminProfiles.length > 0) {
         const adminId = adminProfiles[0].id;
 
-        // Try admin's OAuth first
         const { data: adminOauthTokens } = await supabaseServiceClient
           .from('user_gmail_tokens')
           .select('*')
@@ -245,7 +236,6 @@ Deno.serve(async (req: Request) => {
             .maybeSingle();
 
           if (oauthSettings?.setting_value?.client_id) {
-            // Refresh admin's token
             let adminAccessToken = adminOauthTokens.access_token;
             try {
               const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
@@ -287,10 +277,11 @@ Deno.serve(async (req: Request) => {
                 accessToken: adminAccessToken,
               },
             });
-            console.log('\u2705 Using admin OAuth credentials as fallback');          }
+            fromEmail = adminOauthTokens.email_address;
+            console.log('✅ Using admin OAuth credentials as fallback');
+          }
         }
 
-        // Try admin's app password if OAuth didn't work
         if (!transporter) {
           const { data: adminAppPassword } = await supabaseServiceClient
             .from('user_gmail_credentials')
@@ -308,13 +299,14 @@ Deno.serve(async (req: Request) => {
                 pass: adminAppPassword.app_password,
               },
             });
-            console.log('\u2705 Using admin app password as fallback');
+            fromEmail = adminAppPassword.email_address;
+            console.log('✅ Using admin app password as fallback');
           }
         }
       }
 
       if (!transporter) {
-        throw new Error('Unable to send email. No valid SMTP credentials available. Please contact your administrator.');
+        throw new Error('Unable to send email. No valid SMTP credentials available. Please connect your Gmail account in Settings → Integrations.');
       }
     }
 
@@ -334,31 +326,33 @@ Deno.serve(async (req: Request) => {
       mailOptions.references = inReplyTo;
     }
 
-    // Try to send the email, with fallback to admin credentials if it fails
     let emailSent = false;
     let sendError = null;
 
     try {
       await transporter.sendMail(mailOptions);
       emailSent = true;
+      console.log('✅ Email sent successfully');
     } catch (sendErr) {
       console.error('❌ Failed to send with user credentials:', sendErr.message);
       sendError = sendErr;
 
-      // If user credentials failed, try admin fallback
+      // If user credentials failed and we're not impersonating, try admin fallback
       if (!impersonatedUserId) {
         console.log('🔄 Attempting admin credential fallback...');
 
-        // Delete the user's invalid OAuth tokens if they exist
-        if (oauthTokens) {
+        // ONLY delete OAuth tokens if it's specifically an auth error
+        if (oauthTokens && sendErr.message && 
+            (sendErr.message.includes('Invalid credentials') || 
+             sendErr.message.includes('Invalid login') ||
+             sendErr.message.includes('535'))) {
+          console.log('🗑️ Authentication failed, deleting invalid OAuth tokens');
           await clientForCredentials
             .from('user_gmail_tokens')
             .delete()
             .eq('id', oauthTokens.id);
-          console.log('🗑️ Deleted invalid user OAuth tokens');
         }
 
-        // Try to find an admin with working credentials
         const { data: adminProfiles } = await supabaseServiceClient
           .from('user_profiles')
           .select('id')
@@ -369,7 +363,6 @@ Deno.serve(async (req: Request) => {
         if (adminProfiles && adminProfiles.length > 0) {
           const adminId = adminProfiles[0].id;
 
-          // Try admin's app password first (more reliable)
           const { data: adminAppPassword } = await supabaseServiceClient
             .from('user_gmail_credentials')
             .select('*')
@@ -396,7 +389,6 @@ Deno.serve(async (req: Request) => {
             }
           }
 
-          // Try admin's OAuth if app password didn't work
           if (!emailSent) {
             const { data: adminOauthTokens } = await supabaseServiceClient
               .from('user_gmail_tokens')
@@ -412,7 +404,6 @@ Deno.serve(async (req: Request) => {
                 .maybeSingle();
 
               if (oauthSettings?.setting_value?.client_id) {
-                // Refresh admin's token
                 let adminAccessToken = adminOauthTokens.access_token;
                 try {
                   const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
@@ -465,7 +456,12 @@ Deno.serve(async (req: Request) => {
       }
 
       if (!emailSent) {
-        throw sendError;
+        // Provide user-friendly error message
+        const errorMsg = sendError.message || 'Unknown error';
+        if (errorMsg.includes('Invalid credentials') || errorMsg.includes('535')) {
+          throw new Error('Your Gmail connection has expired or is invalid. Please reconnect your Gmail account in Settings to send emails.');
+        }
+        throw new Error(`Failed to send email: ${errorMsg}`);
       }
     }
 
