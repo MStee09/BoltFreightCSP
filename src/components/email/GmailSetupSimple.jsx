@@ -91,6 +91,40 @@ export function GmailSetupSimple() {
       return;
     }
 
+    // Check if user already has tokens - if so, revoke them on Google's side first
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+      const effectiveUserId = isImpersonating ? impersonatedUser.id : user.id;
+
+      const { data: existingTokens } = await supabase
+        .from('user_gmail_tokens')
+        .select('access_token, refresh_token')
+        .eq('user_id', effectiveUserId)
+        .maybeSingle();
+
+      if (existingTokens?.access_token) {
+        console.log('🗑️ Revoking existing Google authorization...');
+        try {
+          // Revoke the token on Google's side to ensure we get a fresh refresh token
+          await fetch(`https://oauth2.googleapis.com/revoke?token=${existingTokens.access_token}`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded'
+            }
+          });
+          console.log('✅ Google authorization revoked');
+        } catch (revokeError) {
+          console.warn('Failed to revoke on Google side:', revokeError);
+        }
+
+        // Delete from our database
+        await supabase
+          .from('user_gmail_tokens')
+          .delete()
+          .eq('user_id', effectiveUserId);
+      }
+    }
+
     // Load the full OAuth credentials (including client_secret) to pass to callback
     const { data: credData } = await supabase
       .from('system_settings')
@@ -145,6 +179,12 @@ export function GmailSetupSimple() {
       'Go to: https://console.cloud.google.com/apis/credentials\nClick your OAuth 2.0 Client ID → Add URI under "Authorized redirect URIs"'
     );
 
+    // Add a unique state parameter to force Google to issue a fresh refresh token
+    const state = btoa(JSON.stringify({
+      timestamp: Date.now(),
+      random: Math.random().toString(36)
+    }));
+
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
       `client_id=${encodeURIComponent(googleClientId)}&` +
       `redirect_uri=${encodeURIComponent(redirectUri)}&` +
@@ -152,7 +192,7 @@ export function GmailSetupSimple() {
       `scope=${encodeURIComponent(scope)}&` +
       `access_type=offline&` +
       `prompt=consent&` +
-      `include_granted_scopes=true`;
+      `state=${encodeURIComponent(state)}`;
 
     // Always use redirect flow since localStorage doesn't work across credentialless contexts
     // Store return path to come back here after OAuth

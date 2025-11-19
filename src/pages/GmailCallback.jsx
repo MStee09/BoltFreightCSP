@@ -135,9 +135,16 @@ export default function GmailCallback() {
       });
 
       if (!tokens.refresh_token) {
-        console.error('❌ No refresh token received. This usually means the user has already authorized this app.');
-        console.log('💡 Solution: User should revoke access at https://myaccount.google.com/permissions and try again');
-        throw new Error('No refresh token received from Google. Please revoke access to this app from your Google Account settings (https://myaccount.google.com/permissions) and reconnect.');
+        console.error('❌ No refresh token received from Google');
+        console.error('This usually means:');
+        console.error('1. User has already authorized this app');
+        console.error('2. Google OAuth consent screen needs to force re-authorization');
+        console.error('');
+        console.error('To fix: Go to https://myaccount.google.com/permissions');
+        console.error('Find "CSP Freight CRM" and click "Remove Access"');
+        console.error('Then reconnect from Settings → Integrations');
+
+        throw new Error('Google did not provide a refresh token. This app may have been previously authorized. Please go to https://myaccount.google.com/permissions, remove "CSP Freight CRM" access, then reconnect.');
       }
 
       setMessage('Fetching Gmail profile...');
