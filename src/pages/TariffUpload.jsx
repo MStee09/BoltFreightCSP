@@ -18,7 +18,7 @@ import { cn } from "../lib/utils";
 import { Badge } from "../components/ui/badge";
 import { Switch } from "../components/ui/switch"; // Added Switch import
 
-const MultiSelect = ({ options, selected, onChange, placeholder, searchPlaceholder, onCreateNew }) => {
+const MultiSelect = ({ options, selected, onChange, placeholder, searchPlaceholder, onCreateNew, emptyText = "No results found", createNewText = "Create new" }) => {
     const [open, setOpen] = useState(false);
 
     return (
@@ -45,7 +45,7 @@ const MultiSelect = ({ options, selected, onChange, placeholder, searchPlacehold
                         <CommandInput placeholder={searchPlaceholder || "Search..."} />
                         <CommandEmpty>
                             <div className="p-4 text-center space-y-2">
-                                <p className="text-sm text-slate-600">No carrier found</p>
+                                <p className="text-sm text-slate-600">{emptyText}</p>
                                 {onCreateNew && (
                                     <button
                                         onClick={(e) => {
@@ -57,7 +57,7 @@ const MultiSelect = ({ options, selected, onChange, placeholder, searchPlacehold
                                         className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
                                     >
                                         <ExternalLink className="h-3 w-3" />
-                                        Create new carrier
+                                        {createNewText}
                                     </button>
                                 )}
                             </div>
@@ -92,7 +92,7 @@ const MultiSelect = ({ options, selected, onChange, placeholder, searchPlacehold
                                         className="text-blue-600 font-medium cursor-pointer"
                                     >
                                         <ExternalLink className="mr-2 h-4 w-4" />
-                                        Add New Carrier
+                                        {createNewText}
                                     </CommandItem>
                                 </div>
                             )}
@@ -323,6 +323,8 @@ export default function TariffUploadPage() {
                                         placeholder="Select one or more sub-customers"
                                         searchPlaceholder="Search customers..."
                                         onCreateNew={() => navigate(createPageUrl('CustomerDetail?new=true'))}
+                                        emptyText="No customer found"
+                                        createNewText="Add New Customer"
                                     />
                                 </div>
                             ) : (
