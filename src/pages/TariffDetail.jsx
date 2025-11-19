@@ -41,8 +41,7 @@ const TariffDocumentManager = ({ tariff }) => {
             if (uploadError) throw uploadError;
 
             await Tariff.update(tariff.id, {
-                file_url: filePath,
-                file_name: newFile.name
+                file_url: filePath
             });
 
             await Interaction.create({
