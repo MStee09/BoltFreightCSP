@@ -7,6 +7,27 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
+function estimateTokens(text: string): number {
+  return Math.ceil(text.length / 4);
+}
+
+function intelligentTruncate(text: string, maxTokens: number = 20000): string {
+  const maxChars = maxTokens * 4;
+  
+  if (text.length <= maxChars) {
+    return text;
+  }
+  
+  const beginning = text.slice(0, Math.floor(maxChars * 0.4));
+  const end = text.slice(-Math.floor(maxChars * 0.4));
+  const middle = text.slice(
+    Math.floor(text.length * 0.45),
+    Math.floor(text.length * 0.45) + Math.floor(maxChars * 0.2)
+  );
+  
+  return beginning + "\n\n... [middle section truncated] ...\n\n" + middle + "\n\n... [content truncated] ...\n\n" + end;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -21,12 +42,6 @@ Deno.serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const openaiKey = Deno.env.get("OPENAI_API_KEY");
-    
-    console.log('Environment check:', {
-      hasSupabaseUrl: !!supabaseUrl,
-      hasSupabaseKey: !!supabaseKey,
-      hasOpenaiKey: !!openaiKey
-    });
     
     if (!supabaseUrl || !supabaseKey) {
       throw new Error("Supabase credentials not configured");
@@ -106,7 +121,7 @@ Deno.serve(async (req: Request) => {
         
         const textMatches = rawText.match(/[\x20-\x7E\s]{10,}/g);
         if (textMatches && textMatches.length > 0) {
-          extractedText = textMatches.join('\n').slice(0, 100000);
+          extractedText = textMatches.join('\n');
           console.log('Text extracted, length:', extractedText.length);
         } else {
           console.log('No text matches found in PDF');
@@ -150,8 +165,9 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const truncatedText = extractedText.slice(0, 80000);
-    console.log('Sending to OpenAI, text length:', truncatedText.length);
+    const truncatedText = intelligentTruncate(extractedText, 20000);
+    const estimatedTokens = estimateTokens(truncatedText);
+    console.log('Sending to OpenAI, estimated tokens:', estimatedTokens);
 
     const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -160,19 +176,19 @@ Deno.serve(async (req: Request) => {
         "Authorization": "Bearer " + openaiKey,
       },
       body: JSON.stringify({
-        model: "gpt-4o",
+        model: "gpt-4o-mini",
         messages: [
           {
             role: "system",
-            content: "You are a logistics and transportation expert. Analyze tariff documents and provide clear, detailed summaries with SPECIFIC information extracted from the document."
+            content: "You are a logistics and transportation expert. Analyze tariff documents and provide clear, detailed summaries with SPECIFIC information extracted from the document. Focus on extracting concrete details like carrier names, rates, locations, dates, and terms."
           },
           {
             role: "user",
-            content: "Analyze this tariff document and provide a comprehensive summary with SPECIFIC details you can find. If certain sections are not present in the document, say 'Not specified in document' for that section. Sections: 1. Carrier & Service Details (actual carrier name), 2. Rate Structure (actual rates and numbers), 3. Geographic Coverage (specific locations), 4. Effective Dates (exact dates), 5. Key Terms & Conditions (specific terms), 6. Notable Features. Document text: " + truncatedText
+            content: "Analyze this tariff document and provide a comprehensive summary with SPECIFIC details. Extract and organize the following:\n\n1. **Carrier & Service Details**: Carrier name, service type, mode\n2. **Rate Structure**: Base rates, surcharges, minimums (with actual numbers)\n3. **Geographic Coverage**: Origin/destination locations, service areas\n4. **Effective Dates**: Start date, end date, validity period\n5. **Key Terms**: Payment terms, liability limits, special conditions\n6. **Notable Features**: Unique clauses, exceptions, special services\n\nFor each section, extract SPECIFIC data from the document. If a section is not found, state 'Not specified in document'.\n\nDocument text:\n\n" + truncatedText
           }
         ],
-        temperature: 0.2,
-        max_tokens: 3000,
+        temperature: 0.1,
+        max_tokens: 2000,
       }),
     });
 
