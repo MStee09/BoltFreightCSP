@@ -1,6 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
-import * as pdfjs from "npm:pdfjs-dist@4.8.69";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,65 +11,59 @@ function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
 }
 
-function intelligentTruncate(text: string, maxTokens: number = 20000): string {
+function intelligentTruncate(text: string, maxTokens: number = 25000): string {
   const maxChars = maxTokens * 4;
   
   if (text.length <= maxChars) {
     return text;
   }
   
-  const beginning = text.slice(0, Math.floor(maxChars * 0.4));
-  const end = text.slice(-Math.floor(maxChars * 0.4));
-  const middle = text.slice(
-    Math.floor(text.length * 0.45),
-    Math.floor(text.length * 0.45) + Math.floor(maxChars * 0.2)
-  );
-  
-  return beginning + "\n\n... [middle section truncated] ...\n\n" + middle + "\n\n... [content truncated] ...\n\n" + end;
+  return text.slice(0, maxChars);
 }
 
-async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<string> {
-  try {
-    console.log('Using pdfjs-dist to extract text...');
-    
-    const loadingTask = pdfjs.getDocument({
-      data: new Uint8Array(arrayBuffer),
-      useWorkerFetch: false,
-      isEvalSupported: false,
-      useSystemFonts: true,
-    });
-    
-    const pdf = await loadingTask.promise;
-    console.log('PDF loaded, pages:', pdf.numPages);
-    
-    let fullText = '';
-    const maxPages = Math.min(pdf.numPages, 50);
-
-    for (let i = 1; i <= maxPages; i++) {
-      try {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items
-          .map((item: any) => {
-            if ('str' in item) {
-              return item.str;
+async function sendToGPT4Vision(base64Pdf: string, openaiKey: string, pageNum: number = 1): Promise<string> {
+  console.log(`Sending page ${pageNum} to GPT-4o for OCR...`);
+  
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + openaiKey,
+    },
+    body: JSON.stringify({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "Extract ALL text from this document page. Return ONLY the raw text content, preserving structure, tables, and formatting. Do not add any commentary or analysis."
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: `data:application/pdf;base64,${base64Pdf}`,
+                detail: "high"
+              }
             }
-            return '';
-          })
-          .join(' ');
-        
-        fullText += `\n\n=== Page ${i} ===\n\n` + pageText;
-        console.log(`Extracted page ${i}, total length: ${fullText.length}`);
-      } catch (pageError) {
-        console.error(`Error on page ${i}:`, pageError);
-      }
-    }
+          ]
+        }
+      ],
+      max_tokens: 4000,
+    }),
+  });
 
-    return fullText;
-  } catch (error) {
-    console.error('PDF extraction error:', error);
-    throw error;
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('GPT-4o OCR error:', response.status, errorText);
+    throw new Error("GPT-4o OCR failed: " + errorText);
   }
+
+  const result = await response.json();
+  const extractedText = result.choices[0]?.message?.content || '';
+  console.log(`Extracted ${extractedText.length} characters from page ${pageNum}`);
+  return extractedText;
 }
 
 Deno.serve(async (req: Request) => {
@@ -82,7 +75,7 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    console.log('Starting summarize-document function...');
+    console.log('=== Starting summarize-document function ===');
     
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -153,11 +146,26 @@ Deno.serve(async (req: Request) => {
       throw new Error("Failed to download file: " + downloadError.message);
     }
 
-    console.log('File downloaded, size:', fileData?.size || 0, 'bytes');
+    const fileSize = fileData?.size || 0;
+    console.log('File downloaded, size:', fileSize, 'bytes');
+
+    if (fileSize > 20 * 1024 * 1024) {
+      throw new Error("File too large (max 20MB)");
+    }
 
     if (isPDF) {
+      console.log('Converting PDF to base64...');
       const arrayBuffer = await fileData.arrayBuffer();
-      extractedText = await extractTextFromPDF(arrayBuffer);
+      const uint8Array = new Uint8Array(arrayBuffer);
+      const base64 = btoa(String.fromCharCode(...uint8Array));
+      console.log('Base64 length:', base64.length);
+      
+      try {
+        extractedText = await sendToGPT4Vision(base64, openaiKey);
+      } catch (visionError) {
+        console.error('Vision API failed:', visionError);
+        throw new Error("Failed to extract text from PDF: " + visionError.message);
+      }
     } else {
       try {
         extractedText = await fileData.text();
@@ -168,11 +176,11 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    console.log('Final extracted text length:', extractedText.length);
+    console.log('Total extracted text length:', extractedText.length);
 
     if (!extractedText || extractedText.trim().length < 100) {
-      console.log('Insufficient text extracted, returning error summary');
-      const errorSummary = 'This document could not be automatically processed. The PDF may be: (1) A scanned image without OCR text layer, (2) Password protected or encrypted, (3) Corrupted. Please try: (1) Converting the PDF to text using Adobe Acrobat or similar tool, (2) Uploading as an Excel or CSV file instead, (3) Using a different version of the document.';
+      console.log('Insufficient text extracted');
+      const errorSummary = '⚠️ **Document Processing Failed**\n\nThis document could not be automatically processed. Possible reasons:\n\n1. **Scanned Image**: The PDF is a scanned image without a text layer\n2. **Encrypted/Protected**: The file is password protected\n3. **Corrupted File**: The PDF structure is damaged\n\n**Recommended Actions:**\n- Re-scan the document with OCR enabled\n- Use Adobe Acrobat to add a text layer\n- Try uploading the document in a different format (Excel, CSV, DOCX)\n- Contact support if this issue persists';
       
       await supabase
         .from("tariffs")
@@ -193,9 +201,9 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const truncatedText = intelligentTruncate(extractedText, 20000);
+    const truncatedText = intelligentTruncate(extractedText, 25000);
     const estimatedTokens = estimateTokens(truncatedText);
-    console.log('Sending to OpenAI for summary, estimated tokens:', estimatedTokens);
+    console.log('Sending to GPT-4o-mini for analysis, estimated tokens:', estimatedTokens);
 
     const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -208,15 +216,56 @@ Deno.serve(async (req: Request) => {
         messages: [
           {
             role: "system",
-            content: "You are a logistics and transportation expert. Analyze tariff documents and provide clear, detailed summaries with SPECIFIC information extracted from the document. Focus on extracting concrete details like carrier names, rates, locations, dates, and terms."
+            content: "You are an expert logistics analyst specializing in carrier tariff documents. Extract and organize specific information from tariff documents into a clear, structured summary. Always include actual numbers, dates, locations, and rates found in the document."
           },
           {
             role: "user",
-            content: "Analyze this tariff document and provide a comprehensive summary with SPECIFIC details. Extract and organize the following:\n\n1. **Carrier & Service Details**: Carrier name, service type, mode\n2. **Rate Structure**: Base rates, surcharges, minimums (with actual numbers)\n3. **Geographic Coverage**: Origin/destination locations, service areas\n4. **Effective Dates**: Start date, end date, validity period\n5. **Key Terms**: Payment terms, liability limits, special conditions\n6. **Notable Features**: Unique clauses, exceptions, special services\n\nFor each section, extract SPECIFIC data from the document. If a section is not found, state 'Not specified in document'.\n\nDocument text:\n\n" + truncatedText
+            content: `Analyze this carrier tariff document and create a comprehensive summary with ALL SPECIFIC DETAILS extracted from the text.
+
+Organize your analysis into these sections:
+
+## 1. Carrier & Service Information
+- Carrier name and contact details
+- Service types offered (with codes/names)
+- Transportation mode(s)
+
+## 2. Rate Structure
+- Base rates by zone/weight (include actual numbers from tables)
+- Minimum charges
+- Surcharges and accessorial fees (with amounts)
+
+## 3. Geographic Coverage  
+- Origin locations/terminals
+- Destination zones
+- Service area definitions
+- Remote area fees
+
+## 4. Contract Terms
+- Effective date and termination date
+- Payment terms and conditions
+- Fuel surcharge methodology
+- Declared value/liability limits
+
+## 5. Special Services & Fees
+- White glove/threshold delivery options
+- Assembly services
+- Weekend/holiday delivery fees
+- Storage, returns, and other accessorial charges
+
+## 6. Important Notes
+- Dimensional weight calculations
+- Unique clauses or restrictions
+- Notable exceptions
+
+Extract EXACT values, dates, and amounts from the document. If specific information is not found, state "Not specified in document".
+
+Document text:
+
+${truncatedText}`
           }
         ],
         temperature: 0.1,
-        max_tokens: 2000,
+        max_tokens: 3000,
       }),
     });
 
@@ -230,7 +279,9 @@ Deno.serve(async (req: Request) => {
     const aiResult = await openaiResponse.json();
     const summary = aiResult.choices[0]?.message?.content || "Unable to generate summary";
 
-    console.log('Saving summary to database, length:', summary.length);
+    console.log('Summary generated, length:', summary.length);
+    console.log('Saving to database...');
+    
     const { error: updateError } = await supabase
       .from("tariffs")
       .update({
@@ -244,7 +295,7 @@ Deno.serve(async (req: Request) => {
       throw new Error("Failed to save summary: " + updateError.message);
     }
 
-    console.log('Summary saved successfully');
+    console.log('=== Summary saved successfully ===');
 
     return new Response(
       JSON.stringify({ success: true, summary }),
@@ -256,7 +307,7 @@ Deno.serve(async (req: Request) => {
       }
     );
   } catch (error) {
-    console.error("Fatal error:", error);
+    console.error("=== FATAL ERROR ===", error);
     return new Response(
       JSON.stringify({ 
         success: false, 
