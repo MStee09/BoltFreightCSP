@@ -242,7 +242,7 @@ export default function TariffUploadPage() {
         
         let missingFields = [];
         if (!version) missingFields.push("Tariff Version");
-        if (carrierIds.length === 0) missingFields.push("Carrier(s)");
+        if (carrierIds.length === 0) missingFields.push("Carrier");
         if (!effectiveDate) missingFields.push("Effective Date");
         if (!expiryDate) missingFields.push("Expiry Date");
         
@@ -341,15 +341,15 @@ export default function TariffUploadPage() {
                             )}
 
                             <div className={`space-y-2 ${isBlanket ? 'md:col-span-2' : ''}`}>
-                                <Label htmlFor="carrier">Carrier(s)</Label>
-                                <MultiSelect
-                                    options={carrierOptions}
-                                    selected={carrierIds}
-                                    onChange={setCarrierIds}
-                                    placeholder="Select one or more carriers"
-                                    searchPlaceholder="Search carriers..."
-                                    onCreateNew={() => navigate(createPageUrl('CarrierDetail?new=true'))}
-                                />
+                                <Label htmlFor="carrier">Carrier</Label>
+                                <Select onValueChange={(value) => setCarrierIds([value])} value={carrierIds[0] || ""}>
+                                    <SelectTrigger id="carrier"><SelectValue placeholder="Select a carrier" /></SelectTrigger>
+                                    <SelectContent>
+                                        {carriers
+                                            .sort((a, b) => a.name.localeCompare(b.name))
+                                            .map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
 
