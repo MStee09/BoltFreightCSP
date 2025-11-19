@@ -214,13 +214,21 @@ export function UserProfile() {
           </Label>
           <Input
             id="email"
-            value={email}
+            value={email || 'No email connected'}
             disabled
             className="bg-muted"
           />
-          <p className="text-xs text-muted-foreground">
-            Email is managed through Gmail integration
-          </p>
+          {email ? (
+            <p className="text-xs text-muted-foreground">
+              Email is managed through Gmail integration
+            </p>
+          ) : (
+            <div className="flex items-center gap-2">
+              <p className="text-xs text-amber-600">
+                Gmail not connected. Go to Settings → Email Setup to connect Gmail.
+              </p>
+            </div>
+          )}
         </div>
 
         <div className="space-y-2">
