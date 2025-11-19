@@ -21,6 +21,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { CSP_STAGES, formatCspStage } from '../../utils';
 import { ScrollArea } from '../ui/scroll-area';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '../ui/dialog';
+import { CarrierBlockerWarning } from './CarrierBlockerWarning';
 
 const MOCK_USER_ID = '00000000-0000-0000-0000-000000000000';
 
@@ -289,6 +290,9 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers: custome
                             </SelectContent>
                         </Select>
                     </div>
+                    {newEvent.customer_id && newEvent.customer_id !== 'CREATE_NEW' && (
+                        <CarrierBlockerWarning customerId={newEvent.customer_id} selectedCarrierIds={[]} />
+                    )}
                     <div className="space-y-2">
                         <Label htmlFor="mode">Mode</Label>
                         <Select onValueChange={value => handleValueChange('mode', value)} value={newEvent.mode}>

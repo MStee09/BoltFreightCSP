@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { Carrier, CSPEventCarrier, CarrierContact } from '../../api/entities';
+import { Carrier, CSPEventCarrier, CarrierContact, CSPEvent } from '../../api/entities';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -14,6 +14,7 @@ import { Search, Plus, Mail, Phone, User, X, ExternalLink } from 'lucide-react';
 import { Separator } from '../ui/separator';
 import { ScrollArea } from '../ui/scroll-area';
 import { createPageUrl } from '../../utils';
+import { CarrierBlockerWarning } from './CarrierBlockerWarning';
 
 export default function ManageCarriersDialog({ isOpen, onOpenChange, cspEventId }) {
     const queryClient = useQueryClient();
@@ -27,6 +28,12 @@ export default function ManageCarriersDialog({ isOpen, onOpenChange, cspEventId 
         queryKey: ['carriers'],
         queryFn: () => Carrier.list(),
         enabled: isOpen
+    });
+
+    const { data: cspEvent } = useQuery({
+        queryKey: ['csp_event', cspEventId],
+        queryFn: () => CSPEvent.get(cspEventId),
+        enabled: !!cspEventId && isOpen
     });
 
     const { data: eventCarrierAssignments = [] } = useQuery({
@@ -167,6 +174,15 @@ export default function ManageCarriersDialog({ isOpen, onOpenChange, cspEventId 
                         Add carriers to this CSP event to begin the bid process
                     </DialogDescription>
                 </DialogHeader>
+
+                {cspEvent?.customer_id && (
+                    <div className="mb-4">
+                        <CarrierBlockerWarning
+                            customerId={cspEvent.customer_id}
+                            selectedCarrierIds={Array.from(selectedCarriers)}
+                        />
+                    </div>
+                )}
 
                 <div className="grid grid-cols-2 gap-6 flex-1 min-h-0">
                     <div className="flex flex-col space-y-4 min-h-0">

@@ -14,6 +14,8 @@ import CustomerOverviewTab from '../components/customers/CustomerOverviewTab';
 import EditCustomerDialog from '../components/customers/EditCustomerDialog';
 import DocumentsTab from '../components/customers/DocumentsTab';
 import CustomerTariffTimeline from '../components/customers/CustomerTariffTimeline';
+import { AICarrierStrategyPanel } from '../components/customers/AICarrierStrategyPanel';
+import { CustomerDirectTimeline } from '../components/customers/CustomerDirectTimeline';
 import { EmailThreadView } from '../components/email/EmailThreadView';
 import { EmailThreadBadge } from '../components/email/EmailThreadBadge';
 import { useEmailComposer } from '../contexts/EmailComposerContext';
@@ -42,6 +44,18 @@ export default function CustomerDetail() {
     const { data: customer, isLoading } = useQuery({
         queryKey: ['customer', customerId],
         queryFn: () => Customer.get(customerId),
+        enabled: !!customerId && !isNew,
+    });
+
+    const { data: tariffs = [] } = useQuery({
+        queryKey: ['tariffs', customerId],
+        queryFn: () => Tariff.list({ customer_id: customerId }),
+        enabled: !!customerId && !isNew,
+    });
+
+    const { data: carriers = [] } = useQuery({
+        queryKey: ['carriers'],
+        queryFn: () => Carrier.list(),
         enabled: !!customerId && !isNew,
     });
 
@@ -168,10 +182,16 @@ export default function CustomerDetail() {
                         <TabsTrigger value="documents">Documents</TabsTrigger>
                     </TabsList>
                     <TabsContent value="overview">
-                        <CustomerOverviewTab customer={customer} />
+                        <div className="space-y-6">
+                            <AICarrierStrategyPanel customerId={customerId} tariffs={tariffs} />
+                            <CustomerOverviewTab customer={customer} />
+                        </div>
                     </TabsContent>
                     <TabsContent value="tariffs">
-                        <CustomerTariffTimeline customerId={customerId} />
+                        <div className="space-y-6">
+                            <CustomerDirectTimeline tariffs={tariffs} carriers={carriers} />
+                            <CustomerTariffTimeline customerId={customerId} />
+                        </div>
                     </TabsContent>
                     <TabsContent value="emails">
                         <div className="space-y-4">
