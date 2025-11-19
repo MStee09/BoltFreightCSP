@@ -9,13 +9,14 @@ import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Skeleton } from '../components/ui/skeleton';
-import { ArrowLeft, Edit, File, UploadCloud, Download, X, Loader2, BookMarked, ArrowRight, Users, Pencil, Check, Eye, ExternalLink, Sparkles, MessageSquare, Send, Bug } from 'lucide-react';
+import { ArrowLeft, Edit, File, UploadCloud, Download, X, Loader2, BookMarked, ArrowRight, Users, Pencil, Check, Eye, ExternalLink, Sparkles, MessageSquare, Send, Bug, Trash2 } from 'lucide-react';
 import { Input } from '../components/ui/input';
 import { Badge } from "../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Textarea } from '../components/ui/textarea';
 import { ScrollArea } from '../components/ui/scroll-area';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '../components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/alert-dialog';
 import EditTariffDialog from '../components/tariffs/EditTariffDialog';
 import TariffSopsTab from '../components/tariffs/TariffSopsTab';
 import { BackButton } from '../components/navigation/BackButton';
@@ -609,7 +610,10 @@ export default function TariffDetailPage() {
     const [searchParams] = useSearchParams();
     const location = useLocation();
     const tariffId = searchParams.get('id');
+    const queryClient = useQueryClient();
+    const { toast } = useToast();
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [activeTab, setActiveTab] = useState('overview');
 
     const { data: tariff, isLoading: isLoadingTariff } = useQuery({
@@ -639,6 +643,27 @@ export default function TariffDetailPage() {
     });
 
     const isLoading = isLoadingTariff || isLoadingCustomer || isLoadingCarrier || isLoadingCspEvent;
+
+    const deleteTariffMutation = useMutation({
+        mutationFn: async () => {
+            await Tariff.delete(tariffId);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['tariffs'] });
+            toast({
+                title: 'Tariff Deleted',
+                description: 'The tariff has been successfully deleted.',
+            });
+            window.location.href = '/Tariffs';
+        },
+        onError: (error) => {
+            toast({
+                title: 'Error',
+                description: error.message || 'Failed to delete tariff',
+                variant: 'destructive',
+            });
+        },
+    });
 
     useEffect(() => {
         if (location.hash === '#documents' && tariff) {
@@ -693,9 +718,18 @@ export default function TariffDetailPage() {
                     </div>
                     <p className="text-slate-600 mt-2">{headerDescription}</p>
                 </div>
-                <Button variant="outline" onClick={() => setIsEditDialogOpen(true)}>
-                    <Edit className="w-4 h-4 mr-2" /> Edit Details
-                </Button>
+                <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => setIsEditDialogOpen(true)}>
+                        <Edit className="w-4 h-4 mr-2" /> Edit Details
+                    </Button>
+                    <Button
+                        variant="outline"
+                        onClick={() => setIsDeleteDialogOpen(true)}
+                        className="text-red-600 hover:text-red-700 hover:bg-red-50 border-red-200"
+                    >
+                        <Trash2 className="w-4 h-4 mr-2" /> Delete Tariff
+                    </Button>
+                </div>
             </div>
 
             <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
@@ -893,6 +927,37 @@ export default function TariffDetailPage() {
                 onOpenChange={setIsEditDialogOpen}
                 tariff={tariff}
             />
+
+            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure you want to delete this tariff?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the tariff{' '}
+                            <span className="font-semibold text-slate-900">{tariff.tariff_reference_id || 'Untitled'}</span>
+                            {customer && ` for ${customer.name}`}
+                            {carrier && ` with ${carrier.name}`}.
+                            <br /><br />
+                            All associated documents, SOPs, and activity history will be removed.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={deleteTariffMutation.isPending}>
+                            Cancel
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={() => deleteTariffMutation.mutate()}
+                            disabled={deleteTariffMutation.isPending}
+                            className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+                        >
+                            {deleteTariffMutation.isPending && (
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            )}
+                            Delete Tariff
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }
