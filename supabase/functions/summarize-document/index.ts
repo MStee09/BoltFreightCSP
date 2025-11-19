@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
+import { PDFDocument } from "npm:pdf-lib@1.17.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -7,28 +8,131 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-function estimateTokens(text: string): number {
-  return Math.ceil(text.length / 4);
+interface CloudConvertJob {
+  id: string;
+  status: string;
+  tasks?: Array<{
+    id: string;
+    operation: string;
+    status: string;
+    result?: {
+      files?: Array<{
+        filename: string;
+        url: string;
+      }>;
+    };
+  }>;
 }
 
-function intelligentTruncate(text: string, maxTokens: number = 25000): string {
-  const maxChars = maxTokens * 4;
+async function convertPDFToImages(pdfBuffer: ArrayBuffer): Promise<string[]> {
+  const cloudConvertKey = Deno.env.get("CLOUDCONVERT_API_KEY");
   
-  if (text.length <= maxChars) {
-    return text;
+  if (!cloudConvertKey) {
+    console.log('CloudConvert not available, using direct GPT-4o approach');
+    const base64 = btoa(String.fromCharCode(...new Uint8Array(pdfBuffer)));
+    return [base64];
   }
+
+  console.log('Using CloudConvert to convert PDF to images...');
   
-  return text.slice(0, maxChars);
+  try {
+    const formData = new FormData();
+    formData.append('file', new Blob([pdfBuffer], { type: 'application/pdf' }), 'document.pdf');
+    
+    const jobResponse = await fetch('https://api.cloudconvert.com/v2/jobs', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${cloudConvertKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        tasks: {
+          'import-pdf': {
+            operation: 'import/upload'
+          },
+          'convert-to-png': {
+            operation: 'convert',
+            input: 'import-pdf',
+            output_format: 'png',
+            pages: '1-6',
+            pixel_density: 150
+          },
+          'export-images': {
+            operation: 'export/url',
+            input: 'convert-to-png'
+          }
+        }
+      })
+    });
+
+    if (!jobResponse.ok) {
+      throw new Error('CloudConvert job creation failed');
+    }
+
+    const job: CloudConvertJob = await jobResponse.json();
+    const uploadTask = job.tasks?.find(t => t.operation === 'import/upload');
+    
+    if (!uploadTask?.result?.files?.[0]?.url) {
+      throw new Error('No upload URL received');
+    }
+
+    await fetch(uploadTask.result.files[0].url, {
+      method: 'POST',
+      body: new Blob([pdfBuffer]),
+      headers: { 'Content-Type': 'application/pdf' }
+    });
+
+    let attempts = 0;
+    while (attempts < 30) {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      const statusResponse = await fetch(`https://api.cloudconvert.com/v2/jobs/${job.id}`, {
+        headers: { 'Authorization': `Bearer ${cloudConvertKey}` }
+      });
+      
+      const statusJob: CloudConvertJob = await statusResponse.json();
+      
+      if (statusJob.status === 'finished') {
+        const exportTask = statusJob.tasks?.find(t => t.operation === 'export/url');
+        const imageUrls = exportTask?.result?.files?.map(f => f.url) || [];
+        
+        const base64Images: string[] = [];
+        for (const url of imageUrls.slice(0, 6)) {
+          const imgResponse = await fetch(url);
+          const imgBuffer = await imgResponse.arrayBuffer();
+          const base64 = btoa(String.fromCharCode(...new Uint8Array(imgBuffer)));
+          base64Images.push(base64);
+        }
+        
+        return base64Images;
+      }
+      
+      if (statusJob.status === 'error') {
+        throw new Error('CloudConvert conversion failed');
+      }
+      
+      attempts++;
+    }
+    
+    throw new Error('Conversion timeout');
+  } catch (error) {
+    console.error('CloudConvert error:', error);
+    console.log('Falling back to direct PDF approach');
+    const base64 = btoa(String.fromCharCode(...new Uint8Array(pdfBuffer)));
+    return [base64];
+  }
 }
 
-async function sendToGPT4Vision(base64Pdf: string, openaiKey: string, pageNum: number = 1): Promise<string> {
-  console.log(`Sending page ${pageNum} to GPT-4o for OCR...`);
+async function extractTextWithGPT4o(base64Image: string, openaiKey: string, format: 'png' | 'pdf' = 'png', pageNum: number = 1): Promise<string> {
+  console.log(`Extracting text from page ${pageNum} using GPT-4o...`);
+  
+  const mimeType = format === 'png' ? 'image/png' : 'application/pdf';
   
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": "Bearer " + openaiKey,
+      "Authorization": `Bearer ${openaiKey}`,
     },
     body: JSON.stringify({
       model: "gpt-4o",
@@ -38,251 +142,204 @@ async function sendToGPT4Vision(base64Pdf: string, openaiKey: string, pageNum: n
           content: [
             {
               type: "text",
-              text: "Extract ALL text from this document page. Return ONLY the raw text content, preserving structure, tables, and formatting. Do not add any commentary or analysis."
+              text: `Extract ALL visible text from this document page (page ${pageNum}). Include:\n- All text content\n- Numbers, rates, and values\n- Table data with structure\n- Headers and footers\n\nReturn ONLY the raw extracted text. Do not add analysis or commentary.`
             },
             {
               type: "image_url",
               image_url: {
-                url: `data:application/pdf;base64,${base64Pdf}`,
+                url: `data:${mimeType};base64,${base64Image}`,
                 detail: "high"
               }
             }
           ]
         }
       ],
-      max_tokens: 4000,
+      max_tokens: 4096,
+      temperature: 0,
     }),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('GPT-4o OCR error:', response.status, errorText);
-    throw new Error("GPT-4o OCR failed: " + errorText);
+    console.error(`GPT-4o extraction error (page ${pageNum}):`, response.status, errorText);
+    throw new Error(`GPT-4o failed on page ${pageNum}: ${errorText}`);
   }
 
   const result = await response.json();
-  const extractedText = result.choices[0]?.message?.content || '';
-  console.log(`Extracted ${extractedText.length} characters from page ${pageNum}`);
-  return extractedText;
+  const text = result.choices[0]?.message?.content || '';
+  console.log(`Extracted ${text.length} characters from page ${pageNum}`);
+  return text;
 }
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
+    return new Response(null, { status: 200, headers: corsHeaders });
   }
 
   try {
-    console.log('=== Starting summarize-document function ===');
+    console.log('\n=== SUMMARIZE DOCUMENT START ===');
     
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const openaiKey = Deno.env.get("OPENAI_API_KEY");
     
-    if (!supabaseUrl || !supabaseKey) {
-      throw new Error("Supabase credentials not configured");
-    }
-    
-    if (!openaiKey) {
-      throw new Error("OpenAI API key not configured");
+    if (!supabaseUrl || !supabaseKey || !openaiKey) {
+      throw new Error("Missing required environment variables");
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
-    
-    let body;
-    try {
-      body = await req.json();
-    } catch (e) {
-      throw new Error("Invalid JSON body: " + e.message);
-    }
-    
-    const { tariffId } = body;
-    console.log('Processing tariffId:', tariffId);
+    const { tariffId } = await req.json();
 
     if (!tariffId) {
       throw new Error("Missing tariffId");
     }
 
-    console.log('Fetching tariff from database...');
+    console.log(`Processing tariff ID: ${tariffId}`);
+
     const { data: tariff, error: tariffError } = await supabase
       .from("tariffs")
       .select("*")
       .eq("id", tariffId)
       .single();
 
-    if (tariffError) {
-      console.error('Database error:', tariffError);
-      throw new Error("Database error: " + tariffError.message);
-    }
-    
-    if (!tariff) {
+    if (tariffError || !tariff) {
       throw new Error("Tariff not found");
     }
 
-    console.log('Tariff found:', tariff.file_name);
-
     if (!tariff.file_url) {
-      throw new Error("No document attached to this tariff");
+      throw new Error("No document attached");
     }
 
-    const fileName = tariff.file_name || tariff.file_url.split('/').pop() || 'document';
-    const fileExtension = fileName.split('.').pop()?.toLowerCase();
-    const isPDF = fileExtension === 'pdf';
+    console.log(`File: ${tariff.file_name || tariff.file_url}`);
 
-    console.log('File info:', { fileName, fileExtension, isPDF });
-
-    let extractedText = '';
-
-    console.log('Downloading file from storage...');
-    
     const { data: fileData, error: downloadError } = await supabase.storage
       .from("documents")
       .download(tariff.file_url);
 
-    if (downloadError) {
-      console.error('Download error:', downloadError);
-      throw new Error("Failed to download file: " + downloadError.message);
+    if (downloadError || !fileData) {
+      throw new Error("Failed to download file");
     }
 
-    const fileSize = fileData?.size || 0;
-    console.log('File downloaded, size:', fileSize, 'bytes');
+    const fileSize = fileData.size;
+    console.log(`Downloaded ${fileSize} bytes`);
 
-    if (fileSize > 20 * 1024 * 1024) {
-      throw new Error("File too large (max 20MB)");
+    if (fileSize > 25 * 1024 * 1024) {
+      throw new Error("File too large (max 25MB)");
     }
 
-    if (isPDF) {
-      console.log('Converting PDF to base64...');
-      const arrayBuffer = await fileData.arrayBuffer();
-      const uint8Array = new Uint8Array(arrayBuffer);
-      const base64 = btoa(String.fromCharCode(...uint8Array));
-      console.log('Base64 length:', base64.length);
-      
+    const arrayBuffer = await fileData.arrayBuffer();
+    
+    console.log('Converting PDF to images...');
+    const base64Images = await convertPDFToImages(arrayBuffer);
+    console.log(`Got ${base64Images.length} images to process`);
+    
+    let allExtractedText = '';
+    
+    const imagesToProcess = base64Images.slice(0, 6);
+    console.log(`Processing ${imagesToProcess.length} pages...`);
+    
+    for (let i = 0; i < imagesToProcess.length; i++) {
       try {
-        extractedText = await sendToGPT4Vision(base64, openaiKey);
-      } catch (visionError) {
-        console.error('Vision API failed:', visionError);
-        throw new Error("Failed to extract text from PDF: " + visionError.message);
-      }
-    } else {
-      try {
-        extractedText = await fileData.text();
-        console.log('Text file extracted, length:', extractedText.length);
-      } catch (e) {
-        console.error('Text extraction error:', e);
-        throw new Error("Text extraction failed: " + e.message);
+        const format = base64Images.length === 1 ? 'pdf' : 'png';
+        const pageText = await extractTextWithGPT4o(imagesToProcess[i], openaiKey, format, i + 1);
+        allExtractedText += `\n\n=== PAGE ${i + 1} ===\n\n${pageText}`;
+      } catch (pageError) {
+        console.error(`Error processing page ${i + 1}:`, pageError);
       }
     }
 
-    console.log('Total extracted text length:', extractedText.length);
+    console.log(`Total extracted text: ${allExtractedText.length} characters`);
 
-    if (!extractedText || extractedText.trim().length < 100) {
-      console.log('Insufficient text extracted');
-      const errorSummary = '⚠️ **Document Processing Failed**\n\nThis document could not be automatically processed. Possible reasons:\n\n1. **Scanned Image**: The PDF is a scanned image without a text layer\n2. **Encrypted/Protected**: The file is password protected\n3. **Corrupted File**: The PDF structure is damaged\n\n**Recommended Actions:**\n- Re-scan the document with OCR enabled\n- Use Adobe Acrobat to add a text layer\n- Try uploading the document in a different format (Excel, CSV, DOCX)\n- Contact support if this issue persists';
+    if (allExtractedText.length < 200) {
+      const errorMsg = '⚠️ **Unable to extract text from document**\n\nThe document could not be read. This may be because:\n- The PDF is encrypted or password-protected\n- The file is corrupted\n- The document format is not supported\n\nPlease try uploading a different version of the document.';
       
       await supabase
         .from("tariffs")
         .update({
-          ai_summary: errorSummary,
+          ai_summary: errorMsg,
           ai_summary_generated_at: new Date().toISOString(),
         })
         .eq("id", tariffId);
 
       return new Response(
-        JSON.stringify({ success: true, summary: errorSummary, warning: 'Document could not be parsed' }),
-        {
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        }
+        JSON.stringify({ success: true, summary: errorMsg, warning: 'Extraction failed' }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    const truncatedText = intelligentTruncate(extractedText, 25000);
-    const estimatedTokens = estimateTokens(truncatedText);
-    console.log('Sending to GPT-4o-mini for analysis, estimated tokens:', estimatedTokens);
-
-    const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+    console.log('Generating summary with GPT-4o-mini...');
+    
+    const summaryResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": "Bearer " + openaiKey,
+        "Authorization": `Bearer ${openaiKey}`,
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
         messages: [
           {
             role: "system",
-            content: "You are an expert logistics analyst specializing in carrier tariff documents. Extract and organize specific information from tariff documents into a clear, structured summary. Always include actual numbers, dates, locations, and rates found in the document."
+            content: "You are a logistics expert analyzing carrier tariff documents. Extract specific rates, dates, zones, fees, and terms. Always include actual numbers and details from the document."
           },
           {
             role: "user",
-            content: `Analyze this carrier tariff document and create a comprehensive summary with ALL SPECIFIC DETAILS extracted from the text.
+            content: `Create a detailed summary of this carrier tariff document. Organize by:
 
-Organize your analysis into these sections:
-
-## 1. Carrier & Service Information
-- Carrier name and contact details
-- Service types offered (with codes/names)
-- Transportation mode(s)
+## 1. Carrier & Service Details
+- Carrier name and issuer
+- Service types (with codes)
+- Transportation mode
 
 ## 2. Rate Structure
-- Base rates by zone/weight (include actual numbers from tables)
+- Base rates by zone/weight (include actual rate tables)
 - Minimum charges
-- Surcharges and accessorial fees (with amounts)
+- All surcharges with amounts
 
-## 3. Geographic Coverage  
-- Origin locations/terminals
+## 3. Geographic Coverage
+- Origin terminals/cities
 - Destination zones
-- Service area definitions
 - Remote area fees
 
 ## 4. Contract Terms
-- Effective date and termination date
-- Payment terms and conditions
-- Fuel surcharge methodology
-- Declared value/liability limits
+- Effective date → Termination date
+- Payment terms
+- Fuel surcharge method
+- Liability/declared value
 
 ## 5. Special Services & Fees
-- White glove/threshold delivery options
-- Assembly services
-- Weekend/holiday delivery fees
-- Storage, returns, and other accessorial charges
+- Delivery options (threshold, white glove, etc.)
+- Weekend/holiday fees
+- Accessorial charges
 
-## 6. Important Notes
-- Dimensional weight calculations
-- Unique clauses or restrictions
-- Notable exceptions
+## 6. Key Terms
+- Dimensional weight formula
+- Important restrictions
+- Notable clauses
 
-Extract EXACT values, dates, and amounts from the document. If specific information is not found, state "Not specified in document".
+Extract ALL specific numbers, dates, and rates from the document.
 
 Document text:
 
-${truncatedText}`
+${allExtractedText.slice(0, 100000)}`
           }
         ],
         temperature: 0.1,
-        max_tokens: 3000,
+        max_tokens: 3500,
       }),
     });
 
-    if (!openaiResponse.ok) {
-      const errorText = await openaiResponse.text();
-      console.error('OpenAI API error:', openaiResponse.status, errorText);
-      throw new Error("OpenAI API error (" + openaiResponse.status + "): " + errorText);
+    if (!summaryResponse.ok) {
+      const errorText = await summaryResponse.text();
+      throw new Error(`Summary generation failed: ${errorText}`);
     }
 
-    console.log('OpenAI response received');
-    const aiResult = await openaiResponse.json();
-    const summary = aiResult.choices[0]?.message?.content || "Unable to generate summary";
+    const summaryResult = await summaryResponse.json();
+    const summary = summaryResult.choices[0]?.message?.content || "Unable to generate summary";
 
-    console.log('Summary generated, length:', summary.length);
-    console.log('Saving to database...');
-    
-    const { error: updateError } = await supabase
+    console.log(`Generated summary: ${summary.length} characters`);
+
+    await supabase
       .from("tariffs")
       .update({
         ai_summary: summary,
@@ -290,36 +347,17 @@ ${truncatedText}`
       })
       .eq("id", tariffId);
 
-    if (updateError) {
-      console.error('Database update error:', updateError);
-      throw new Error("Failed to save summary: " + updateError.message);
-    }
-
-    console.log('=== Summary saved successfully ===');
+    console.log('=== SUMMARIZE DOCUMENT COMPLETE ===\n');
 
     return new Response(
       JSON.stringify({ success: true, summary }),
-      {
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-      }
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("=== FATAL ERROR ===", error);
+    console.error("ERROR:", error);
     return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error.message || "Unknown error occurred"
-      }),
-      {
-        status: 200,
-        headers: {
-          ...corsHeaders,
-          "Content-Type": "application/json",
-        },
-      }
+      JSON.stringify({ success: false, error: error.message }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
 });
