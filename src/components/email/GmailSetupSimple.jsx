@@ -146,12 +146,13 @@ export function GmailSetupSimple() {
     );
 
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
-      `client_id=${googleClientId}&` +
+      `client_id=${encodeURIComponent(googleClientId)}&` +
       `redirect_uri=${encodeURIComponent(redirectUri)}&` +
       `response_type=code&` +
       `scope=${encodeURIComponent(scope)}&` +
       `access_type=offline&` +
-      `prompt=consent`;
+      `prompt=consent&` +
+      `include_granted_scopes=true`;
 
     // Always use redirect flow since localStorage doesn't work across credentialless contexts
     // Store return path to come back here after OAuth
@@ -380,6 +381,16 @@ export function GmailSetupSimple() {
                   >
                     Configure in Google Cloud Console <ExternalLink className="h-3 w-3" />
                   </a>
+                </div>
+                <div className="mt-3 pt-3 border-t border-slate-300">
+                  <strong>Reconnecting?</strong> If you've connected before and it's not working, you may need to <a
+                    href="https://myaccount.google.com/permissions"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:underline"
+                  >
+                    revoke access here
+                  </a> first, then reconnect.
                 </div>
               </AlertDescription>
             </Alert>

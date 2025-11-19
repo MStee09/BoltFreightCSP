@@ -128,6 +128,18 @@ export default function GmailCallback() {
 
       const tokens = await tokenResponse.json();
 
+      console.log('Token exchange successful:', {
+        hasAccessToken: !!tokens.access_token,
+        hasRefreshToken: !!tokens.refresh_token,
+        expiresIn: tokens.expires_in
+      });
+
+      if (!tokens.refresh_token) {
+        console.error('❌ No refresh token received. This usually means the user has already authorized this app.');
+        console.log('💡 Solution: User should revoke access at https://myaccount.google.com/permissions and try again');
+        throw new Error('No refresh token received from Google. Please revoke access to this app from your Google Account settings (https://myaccount.google.com/permissions) and reconnect.');
+      }
+
       setMessage('Fetching Gmail profile...');
 
       const profileResponse = await fetch(
