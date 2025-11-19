@@ -1,6 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
-import { getDocumentProxy } from "npm:pdfjs-dist@4.0.379/legacy/build/pdf.mjs";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -31,36 +30,48 @@ function intelligentTruncate(text: string, maxTokens: number = 20000): string {
 
 async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<string> {
   try {
-    console.log('Using PDF.js to extract text...');
+    console.log('Attempting advanced PDF text extraction...');
     
-    const pdf = await getDocumentProxy({
-      data: new Uint8Array(arrayBuffer),
-      useSystemFonts: true,
-      standardFontDataUrl: "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/standard_fonts/",
-    });
-
-    console.log('PDF loaded, pages:', pdf.numPages);
+    const uint8Array = new Uint8Array(arrayBuffer);
+    const pdfText = new TextDecoder('latin1').decode(uint8Array);
     
-    const maxPages = Math.min(pdf.numPages, 50);
-    let fullText = '';
-
-    for (let i = 1; i <= maxPages; i++) {
-      try {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items
-          .map((item: any) => item.str)
-          .join(' ');
-        fullText += pageText + '\n\n';
-        console.log(`Extracted page ${i}, length so far: ${fullText.length}`);
-      } catch (pageError) {
-        console.error(`Error on page ${i}:`, pageError);
+    const streamPattern = /stream\s+([\s\S]*?)\s+endstream/g;
+    let allText = '';
+    let match;
+    
+    while ((match = streamPattern.exec(pdfText)) !== null) {
+      const streamContent = match[1];
+      
+      const readableText = streamContent.match(/[\x20-\x7E]{3,}/g);
+      if (readableText) {
+        allText += readableText.join(' ') + ' ';
       }
     }
-
-    return fullText;
+    
+    const objPattern = /\(([^)]{3,})\)/g;
+    while ((match = objPattern.exec(pdfText)) !== null) {
+      const textContent = match[1]
+        .replace(/\\n/g, '\n')
+        .replace(/\\r/g, '')
+        .replace(/\\t/g, '\t')
+        .replace(/\\\(/g, '(')
+        .replace(/\\\)/g, ')')
+        .replace(/\\\\/g, '\\');
+      
+      if (textContent.trim().length > 2) {
+        allText += textContent + ' ';
+      }
+    }
+    
+    allText = allText
+      .replace(/\s+/g, ' ')
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .trim();
+    
+    console.log('Extracted text length:', allText.length);
+    return allText;
   } catch (error) {
-    console.error('PDF.js extraction failed:', error);
+    console.error('PDF extraction error:', error);
     throw error;
   }
 }
