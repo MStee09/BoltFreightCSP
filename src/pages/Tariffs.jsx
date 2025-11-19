@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import CreateAwardedCspDialog from "../components/tariffs/CreateAwardedCspDialog";
 import EditTariffDialog from "../components/tariffs/EditTariffDialog";
 import RenewalStatusBadge from "../components/tariffs/RenewalStatusBadge";
+import BlanketUsageDrawer from "../components/tariffs/BlanketUsageDrawer";
 
 const OWNERSHIP_TYPES = [
   { value: 'rocket_csp', label: 'Rocket CSP', color: 'bg-purple-50 border-l-4 border-l-purple-500', tooltip: 'Tariffs negotiated and managed by Rocket on behalf of the customer' },
@@ -96,6 +97,7 @@ export default function TariffsPage() {
   const [customerFilterOpen, setCustomerFilterOpen] = useState(false);
   const [showSearchSuggestion, setShowSearchSuggestion] = useState(false);
   const [suggestedCustomer, setSuggestedCustomer] = useState(null);
+  const [blanketUsageDrawer, setBlanketUsageDrawer] = useState({ isOpen: false, tariff: null, carrier: null });
 
   useEffect(() => {
     const view = searchParams.get('view');
@@ -1652,6 +1654,31 @@ export default function TariffsPage() {
                                           <span className="font-semibold text-sm text-slate-900">
                                             Tariff Family: {group.name} × {family.carrierName}
                                           </span>
+                                          {(ownershipTab === 'rocket_blanket' || ownershipTab === 'priority1_blanket') && (() => {
+                                            const firstVersion = family.versions[0];
+                                            const customerCount = firstVersion?.customer_ids?.length || 0;
+                                            return (
+                                              <TooltipProvider>
+                                                <Tooltip>
+                                                  <TooltipTrigger asChild>
+                                                    <button
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        const carrier = carriers.find(c => c.id === firstVersion?.carrier_id);
+                                                        setBlanketUsageDrawer({ isOpen: true, tariff: firstVersion, carrier });
+                                                      }}
+                                                      className="text-xs px-2 py-1 rounded bg-orange-100 text-orange-700 hover:bg-orange-200 font-medium transition-colors flex items-center gap-1"
+                                                    >
+                                                      📚 Usage ({customerCount})
+                                                    </button>
+                                                  </TooltipTrigger>
+                                                  <TooltipContent>
+                                                    Blanket tariff applied to {customerCount} {customerCount === 1 ? 'customer' : 'customers'} — click to view
+                                                  </TooltipContent>
+                                                </Tooltip>
+                                              </TooltipProvider>
+                                            );
+                                          })()}
                                           {isArchived && (
                                             <Badge variant="outline" className="bg-slate-200 text-slate-600 border-slate-400 text-xs">
                                               Expired Family
@@ -1916,36 +1943,24 @@ export default function TariffsPage() {
                                   {getOwnershipBadge(tariff)}
                                 </td>
                                 <td className="p-3 text-sm text-slate-600">
-                                  <div className="space-y-1">
-                                    {tariffCarriers.length > 0 ? (
-                                      <div className="flex items-center gap-1">
-                                        <span>{tariffCarriers[0].name}</span>
-                                        {tariffCarriers.length > 1 && (
-                                          <button
-                                            onClick={(e) => {
-                                              e.preventDefault();
-                                              toggleCarriers(tariff.id);
-                                            }}
-                                            className="text-xs text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
-                                          >
-                                            +{tariffCarriers.length - 1} more
-                                          </button>
-                                        )}
-                                      </div>
-                                    ) : (
-                                      <span className="text-slate-400">—</span>
-                                    )}
-                                    {tariff.is_blanket_tariff && tariff.customer_ids && tariff.customer_ids.length > 0 && (
-                                      <div className="text-xs text-slate-500">
-                                        <span className="font-medium">Customers: </span>
-                                        {tariff.customer_ids.slice(0, 2).map(custId => {
-                                          const cust = customers.find(c => c.id === custId);
-                                          return cust?.name;
-                                        }).filter(Boolean).join(', ')}
-                                        {tariff.customer_ids.length > 2 && ` +${tariff.customer_ids.length - 2} more`}
-                                      </div>
-                                    )}
-                                  </div>
+                                  {tariffCarriers.length > 0 ? (
+                                    <div className="flex items-center gap-1">
+                                      <span>{tariffCarriers[0].name}</span>
+                                      {tariffCarriers.length > 1 && (
+                                        <button
+                                          onClick={(e) => {
+                                            e.preventDefault();
+                                            toggleCarriers(tariff.id);
+                                          }}
+                                          className="text-xs text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
+                                        >
+                                          +{tariffCarriers.length - 1} more
+                                        </button>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <span className="text-slate-400">—</span>
+                                  )}
                                 </td>
                                 <td className="p-3 text-sm text-slate-600 text-right">
                                   {tariff.effective_date ? format(new Date(tariff.effective_date), 'MMM dd, yyyy') : '—'}
@@ -2239,6 +2254,13 @@ export default function TariffsPage() {
           tariff={editingTariff}
         />
       )}
+
+      <BlanketUsageDrawer
+        isOpen={blanketUsageDrawer.isOpen}
+        onOpenChange={(isOpen) => setBlanketUsageDrawer({ isOpen, tariff: null, carrier: null })}
+        tariff={blanketUsageDrawer.tariff}
+        carrier={blanketUsageDrawer.carrier}
+      />
     </div>
   );
 }
