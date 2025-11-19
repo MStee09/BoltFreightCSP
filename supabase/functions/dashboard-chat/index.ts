@@ -76,12 +76,13 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    const [customersData, carriersData, cspEventsData, tariffsData, alertsData] = await Promise.all([
+    const [customersData, carriersData, cspEventsData, tariffsData, alertsData, documentsData] = await Promise.all([
       supabase.from('customers').select('*').limit(100),
       supabase.from('carriers').select('*').limit(100),
       supabase.from('csp_events').select('*, customer:customers(*)').limit(100),
       supabase.from('tariffs').select('*, customer:customers(*)').limit(100),
       supabase.from('alerts').select('*').eq('status', 'active').limit(50),
+      supabase.from('documents').select('*').limit(100),
     ]);
 
     console.log('Data fetched:', {
@@ -89,7 +90,8 @@ Deno.serve(async (req: Request) => {
       carriers: carriersData.data?.length || 0,
       cspEvents: cspEventsData.data?.length || 0,
       tariffs: tariffsData.data?.length || 0,
-      alerts: alertsData.data?.length || 0
+      alerts: alertsData.data?.length || 0,
+      documents: documentsData.data?.length || 0
     });
 
     const customerCount = customersData.data?.length || 0;
@@ -140,6 +142,47 @@ Deno.serve(async (req: Request) => {
     const alertsSummary = alertsData.data?.slice(0, 5).map(a =>
       `- [${a.priority}] ${a.title} (${a.entity_type})`
     ).join('\n') || 'No active alerts';
+
+    const documentsWithSummaries = documentsData.data?.filter(d => d.ai_summary) || [];
+    const tariffsWithSummaries = tariffsData.data?.filter(t => t.ai_summary) || [];
+
+    let documentKnowledge = '';
+    if (documentsWithSummaries.length > 0 || tariffsWithSummaries.length > 0) {
+      documentKnowledge += '\n\n# DOCUMENT KNOWLEDGE BASE\n';
+      documentKnowledge += 'The following documents have been analyzed with AI. Use this information to answer questions about document contents:\n\n';
+
+      if (documentsWithSummaries.length > 0) {
+        documentKnowledge += '## Uploaded Documents:\n';
+        documentsWithSummaries.forEach(doc => {
+          documentKnowledge += `\n### Document: ${doc.file_name}\n`;
+          documentKnowledge += `- Type: ${doc.document_type || doc.entity_type}\n`;
+          if (doc.entity_type === 'customer' && doc.customer_id) {
+            const customer = customersData.data?.find(c => c.id === doc.customer_id);
+            if (customer) documentKnowledge += `- Related to Customer: ${customer.name}\n`;
+          }
+          if (doc.csp_event_id) {
+            const csp = cspEventsData.data?.find(c => c.id === doc.csp_event_id);
+            if (csp) documentKnowledge += `- Related to CSP: ${csp.title}\n`;
+          }
+          documentKnowledge += `- Summary:\n${doc.ai_summary}\n`;
+        });
+      }
+
+      if (tariffsWithSummaries.length > 0) {
+        documentKnowledge += '\n## Tariff Documents:\n';
+        tariffsWithSummaries.forEach(tariff => {
+          documentKnowledge += `\n### Tariff: ${tariff.tariff_name || tariff.file_name}\n`;
+          documentKnowledge += `- Carrier: ${tariff.carrier_name}\n`;
+          documentKnowledge += `- Customer: ${tariff.customer?.name || tariff.customer_name}\n`;
+          documentKnowledge += `- Status: ${tariff.status}\n`;
+          if (tariff.effective_date) documentKnowledge += `- Effective: ${tariff.effective_date}\n`;
+          if (tariff.expiration_date) documentKnowledge += `- Expires: ${tariff.expiration_date}\n`;
+          documentKnowledge += `- Summary:\n${tariff.ai_summary}\n`;
+        });
+      }
+
+      documentKnowledge += '\n**Important**: When users ask about document contents, rates, terms, or details, reference these summaries. If a user wants more details, suggest they use the "Chat with Document" feature on the specific tariff or document page.\n';
+    }
 
     const appUsageGuide = `
 # FreightOps Complete Usage Guide
@@ -348,6 +391,13 @@ You have complete knowledge of how FreightOps works. Help users navigate the sys
       messages.push({
         role: "system",
         content: `**IMPORTANT: Knowledge Base Documents (Primary Source of Truth)**\n\nThe following documents contain company-specific information, policies, and guidelines. When answering questions, ALWAYS prioritize information from these documents over general knowledge. If a question relates to content in these documents, cite the document by name and use that information as your primary source.\n\n${knowledgeBaseContent}\n\nRemember: Information in these documents takes precedence over general knowledge.`
+      });
+    }
+
+    if (documentKnowledge && documentKnowledge.trim()) {
+      messages.push({
+        role: "system",
+        content: documentKnowledge
       });
     }
 
