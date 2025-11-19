@@ -452,19 +452,87 @@ const TariffDocumentManager = ({ tariff }) => {
                         </div>
 
                         {tariff.ai_summary && (
-                            <div className="p-4 border rounded-lg bg-blue-50 border-blue-200">
-                                <div className="flex items-start gap-3">
-                                    <Sparkles className="w-5 h-5 text-blue-600 mt-1 flex-shrink-0"/>
-                                    <div className="flex-1">
-                                        <h4 className="font-semibold text-blue-900 mb-2">AI Summary</h4>
-                                        <div className="text-sm text-blue-800 whitespace-pre-wrap">
-                                            {tariff.ai_summary}
+                            <div className="border rounded-lg overflow-hidden">
+                                <div className="p-4 bg-blue-50 border-blue-200">
+                                    <div className="flex items-start gap-3">
+                                        <Sparkles className="w-5 h-5 text-blue-600 mt-1 flex-shrink-0"/>
+                                        <div className="flex-1">
+                                            <h4 className="font-semibold text-blue-900 mb-2">AI Summary</h4>
+                                            <div className="text-sm text-blue-800 whitespace-pre-wrap">
+                                                {tariff.ai_summary}
+                                            </div>
+                                            {tariff.ai_summary_generated_at && (
+                                                <p className="text-xs text-blue-600 mt-2">
+                                                    Generated {format(new Date(tariff.ai_summary_generated_at), 'MMM d, yyyy h:mm a')}
+                                                </p>
+                                            )}
                                         </div>
-                                        {tariff.ai_summary_generated_at && (
-                                            <p className="text-xs text-blue-600 mt-2">
-                                                Generated {format(new Date(tariff.ai_summary_generated_at), 'MMM d, yyyy h:mm a')}
-                                            </p>
-                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="border-t bg-white">
+                                    <div className="p-3 border-b bg-slate-50">
+                                        <div className="flex items-center gap-2">
+                                            <MessageSquare className="w-4 h-4 text-slate-600" />
+                                            <h5 className="text-sm font-semibold text-slate-700">Ask Questions About This Document</h5>
+                                        </div>
+                                    </div>
+
+                                    {chatMessages.length > 0 && (
+                                        <ScrollArea className="h-64 p-4">
+                                            <div className="space-y-3">
+                                                {chatMessages.map((msg, idx) => (
+                                                    <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                                        <div className={`max-w-[85%] p-3 rounded-lg ${
+                                                            msg.role === 'user'
+                                                                ? 'bg-blue-500 text-white'
+                                                                : 'bg-slate-100 text-slate-900'
+                                                        }`}>
+                                                            <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                                {chatMutation.isPending && (
+                                                    <div className="flex justify-start">
+                                                        <div className="max-w-[85%] p-3 rounded-lg bg-slate-100">
+                                                            <Loader2 className="w-4 h-4 animate-spin text-slate-600"/>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </ScrollArea>
+                                    )}
+
+                                    <div className="p-3 bg-slate-50 border-t">
+                                        <div className="flex gap-2">
+                                            <Input
+                                                value={currentQuestion}
+                                                onChange={(e) => setCurrentQuestion(e.target.value)}
+                                                placeholder="What are the delivery fees? What zones are covered?"
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                                        e.preventDefault();
+                                                        handleAskQuestion();
+                                                    }
+                                                }}
+                                                disabled={chatMutation.isPending}
+                                                className="flex-1"
+                                            />
+                                            <Button
+                                                onClick={handleAskQuestion}
+                                                disabled={!currentQuestion.trim() || chatMutation.isPending}
+                                                size="sm"
+                                            >
+                                                {chatMutation.isPending ? (
+                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                ) : (
+                                                    <Send className="w-4 h-4"/>
+                                                )}
+                                            </Button>
+                                        </div>
+                                        <p className="text-xs text-slate-500 mt-2">
+                                            Ask specific questions about rates, zones, terms, or any detail from the document
+                                        </p>
                                     </div>
                                 </div>
                             </div>
