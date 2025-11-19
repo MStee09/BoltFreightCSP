@@ -139,7 +139,7 @@ export default function TariffUploadPage() {
     const { data: existingTariffs = [] } = useQuery({ queryKey: ["tariffs"], queryFn: () => Tariff.list(), initialData: [] });
 
     useEffect(() => {
-        if (!carrierId || !effectiveDate) {
+        if (carrierIds.length === 0 || !effectiveDate) {
             return;
         }
 
@@ -175,8 +175,8 @@ export default function TariffUploadPage() {
             customerCode = customer.short_code || customer.name.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 4);
         }
 
-        // Get carrier code
-        const carrier = carriers.find(c => c.id === carrierId);
+        // Get carrier code (use first carrier)
+        const carrier = carriers.find(c => c.id === carrierIds[0]);
         if (!carrier) return;
         const carrierCode = carrier.scac_code || carrier.name.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 4);
 
@@ -198,7 +198,7 @@ export default function TariffUploadPage() {
 
         const generatedVersion = `${prefix}${sequenceNumber}`;
         setVersion(generatedVersion);
-    }, [customerId, carrierId, effectiveDate, isBlanket, ownershipType, customers, carriers, existingTariffs]);
+    }, [customerId, carrierIds, effectiveDate, isBlanket, ownershipType, customers, carriers, existingTariffs]);
 
     const createTariffMutation = useMutation({
         mutationFn: async (data) => {
