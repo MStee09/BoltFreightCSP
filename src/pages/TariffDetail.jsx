@@ -9,10 +9,13 @@ import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Skeleton } from '../components/ui/skeleton';
-import { ArrowLeft, Edit, File, UploadCloud, Download, X, Loader2, BookMarked, ArrowRight, Users, Pencil, Check, Eye, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Edit, File, UploadCloud, Download, X, Loader2, BookMarked, ArrowRight, Users, Pencil, Check, Eye, ExternalLink, Sparkles, MessageSquare, Send } from 'lucide-react';
 import { Input } from '../components/ui/input';
 import { Badge } from "../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { Textarea } from '../components/ui/textarea';
+import { ScrollArea } from '../components/ui/scroll-area';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '../components/ui/dialog';
 import EditTariffDialog from '../components/tariffs/EditTariffDialog';
 import TariffSopsTab from '../components/tariffs/TariffSopsTab';
 import { BackButton } from '../components/navigation/BackButton';
@@ -31,6 +34,9 @@ const TariffDocumentManager = ({ tariff }) => {
     const [customFileName, setCustomFileName] = useState('');
     const [isRenaming, setIsRenaming] = useState(false);
     const [newName, setNewName] = useState(tariff.file_name || '');
+    const [isChatOpen, setIsChatOpen] = useState(false);
+    const [chatMessages, setChatMessages] = useState([]);
+    const [currentQuestion, setCurrentQuestion] = useState('');
 
     const mutation = useMutation({
         mutationFn: async (newFile) => {
@@ -134,6 +140,75 @@ const TariffDocumentManager = ({ tariff }) => {
             renameMutation.mutate(newName.trim());
         } else {
             setIsRenaming(false);
+        }
+    };
+
+    const summarizeMutation = useMutation({
+        mutationFn: async () => {
+            const { data, error } = await supabase.functions.invoke('summarize-document', {
+                body: { tariffId: tariff.id }
+            });
+
+            if (error) throw error;
+            if (!data.success) throw new Error(data.error);
+
+            return data.summary;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['tariff', tariff.id] });
+            toast({
+                title: "Success!",
+                description: "Document summary generated successfully.",
+            });
+        },
+        onError: (error) => {
+            toast({
+                title: "Error",
+                description: error.message || "Failed to generate summary.",
+                variant: "destructive",
+            });
+        }
+    });
+
+    const chatMutation = useMutation({
+        mutationFn: async (question) => {
+            const conversationHistory = chatMessages.map(msg => ({
+                role: msg.role,
+                content: msg.content
+            }));
+
+            const { data, error } = await supabase.functions.invoke('chat-with-document', {
+                body: {
+                    tariffId: tariff.id,
+                    question,
+                    conversationHistory
+                }
+            });
+
+            if (error) throw error;
+            if (!data.success) throw new Error(data.error);
+
+            return data.answer;
+        },
+        onSuccess: (answer) => {
+            setChatMessages(prev => [...prev,
+                { role: 'user', content: currentQuestion },
+                { role: 'assistant', content: answer }
+            ]);
+            setCurrentQuestion('');
+        },
+        onError: (error) => {
+            toast({
+                title: "Error",
+                description: error.message || "Failed to get answer.",
+                variant: "destructive",
+            });
+        }
+    });
+
+    const handleAskQuestion = () => {
+        if (currentQuestion.trim()) {
+            chatMutation.mutate(currentQuestion);
         }
     };
 
@@ -242,6 +317,113 @@ const TariffDocumentManager = ({ tariff }) => {
                                 )}
                             </div>
                         </div>
+
+                        <div className="flex items-center gap-2 justify-center">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => summarizeMutation.mutate()}
+                                disabled={summarizeMutation.isPending}
+                            >
+                                {summarizeMutation.isPending ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin"/>
+                                        Generating Summary...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Sparkles className="w-4 h-4 mr-2"/>
+                                        {tariff.ai_summary ? 'Regenerate' : 'Generate'} AI Summary
+                                    </>
+                                )}
+                            </Button>
+                            <Dialog open={isChatOpen} onOpenChange={setIsChatOpen}>
+                                <DialogTrigger asChild>
+                                    <Button variant="outline" size="sm">
+                                        <MessageSquare className="w-4 h-4 mr-2"/>
+                                        Chat with Document
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-2xl h-[600px] flex flex-col">
+                                    <DialogHeader>
+                                        <DialogTitle>Chat with Document</DialogTitle>
+                                        <DialogDescription>
+                                            Ask questions about this tariff document
+                                        </DialogDescription>
+                                    </DialogHeader>
+                                    <ScrollArea className="flex-1 pr-4">
+                                        <div className="space-y-4">
+                                            {chatMessages.length === 0 ? (
+                                                <div className="text-center py-12 text-slate-500">
+                                                    <MessageSquare className="w-12 h-12 mx-auto mb-3 opacity-50"/>
+                                                    <p>Ask any question about this document</p>
+                                                    <p className="text-sm mt-2">Example: What are the payment terms?</p>
+                                                </div>
+                                            ) : (
+                                                chatMessages.map((msg, idx) => (
+                                                    <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                                                        <div className={`max-w-[80%] p-3 rounded-lg ${
+                                                            msg.role === 'user'
+                                                                ? 'bg-blue-500 text-white'
+                                                                : 'bg-slate-100 text-slate-900'
+                                                        }`}>
+                                                            <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            )}
+                                            {chatMutation.isPending && (
+                                                <div className="flex justify-start">
+                                                    <div className="max-w-[80%] p-3 rounded-lg bg-slate-100">
+                                                        <Loader2 className="w-4 h-4 animate-spin"/>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </ScrollArea>
+                                    <div className="flex gap-2 pt-4 border-t">
+                                        <Input
+                                            value={currentQuestion}
+                                            onChange={(e) => setCurrentQuestion(e.target.value)}
+                                            placeholder="Ask a question..."
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && !e.shiftKey) {
+                                                    e.preventDefault();
+                                                    handleAskQuestion();
+                                                }
+                                            }}
+                                            disabled={chatMutation.isPending}
+                                        />
+                                        <Button
+                                            onClick={handleAskQuestion}
+                                            disabled={!currentQuestion.trim() || chatMutation.isPending}
+                                        >
+                                            <Send className="w-4 h-4"/>
+                                        </Button>
+                                    </div>
+                                </DialogContent>
+                            </Dialog>
+                        </div>
+
+                        {tariff.ai_summary && (
+                            <div className="p-4 border rounded-lg bg-blue-50 border-blue-200">
+                                <div className="flex items-start gap-3">
+                                    <Sparkles className="w-5 h-5 text-blue-600 mt-1 flex-shrink-0"/>
+                                    <div className="flex-1">
+                                        <h4 className="font-semibold text-blue-900 mb-2">AI Summary</h4>
+                                        <div className="text-sm text-blue-800 whitespace-pre-wrap">
+                                            {tariff.ai_summary}
+                                        </div>
+                                        {tariff.ai_summary_generated_at && (
+                                            <p className="text-xs text-blue-600 mt-2">
+                                                Generated {format(new Date(tariff.ai_summary_generated_at), 'MMM d, yyyy h:mm a')}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
                          <p className="text-sm text-slate-600 text-center">To replace this document, upload a new one below.</p>
                     </div>
                 ) : (
