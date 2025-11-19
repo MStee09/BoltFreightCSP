@@ -45,47 +45,105 @@ Deno.serve(async (req: Request) => {
       throw new Error("No document attached to this tariff");
     }
 
-    const { data: fileData, error: downloadError } = await supabase.storage
+    const { data: signedUrlData } = await supabase.storage
       .from("documents")
-      .download(tariff.file_url);
+      .createSignedUrl(tariff.file_url, 3600);
 
-    if (downloadError) {
-      throw downloadError;
+    if (!signedUrlData?.signedUrl) {
+      throw new Error("Could not generate signed URL for document");
     }
 
-    const fileText = await fileData.text();
-    const truncatedText = fileText.slice(0, 50000);
+    const fileName = tariff.file_name || tariff.file_url.split('/').pop() || 'document';
+    const fileExtension = fileName.split('.').pop()?.toLowerCase();
+    const isPDF = fileExtension === 'pdf';
 
-    const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${openaiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: "You are a logistics and transportation expert. Analyze tariff documents and provide clear, actionable summaries."
-          },
-          {
-            role: "user",
-            content: `Analyze this tariff document and provide a comprehensive summary covering:\n\n1. **Carrier & Service Details**: Carrier name, service type, modes covered\n2. **Rate Structure**: Key rate information, pricing tiers, fuel surcharges\n3. **Geographic Coverage**: Lanes, origin/destination zones\n4. **Effective Dates**: Start and end dates, renewal terms\n5. **Key Terms & Conditions**: Payment terms, liability limits, special provisions\n6. **Notable Features**: Volume commitments, incentives, restrictions\n\nDocument content:\n${truncatedText}`
-          }
-        ],
-        temperature: 0.3,
-        max_tokens: 1500,
-      }),
-    });
+    let summary = '';
 
-    if (!openaiResponse.ok) {
-      const errorText = await openaiResponse.text();
-      throw new Error(`OpenAI API error: ${errorText}`);
+    if (isPDF) {
+      const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${openaiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: "You are a logistics and transportation expert. Analyze tariff documents and provide clear, actionable summaries. When analyzing PDFs, extract all relevant text and data."
+            },
+            {
+              role: "user",
+              content: [
+                {
+                  type: "text",
+                  text: `Please analyze this tariff document PDF and provide a comprehensive summary covering:\n\n1. **Carrier & Service Details**: Carrier name, service type, modes covered\n2. **Rate Structure**: Key rate information, pricing tiers, fuel surcharges\n3. **Geographic Coverage**: Lanes, origin/destination zones\n4. **Effective Dates**: Start and end dates, renewal terms\n5. **Key Terms & Conditions**: Payment terms, liability limits, special provisions\n6. **Notable Features**: Volume commitments, incentives, restrictions\n\nDocument URL: ${signedUrlData.signedUrl}`
+                },
+                {
+                  type: "image_url",
+                  image_url: {
+                    url: signedUrlData.signedUrl
+                  }
+                }
+              ]
+            }
+          ],
+          temperature: 0.3,
+          max_tokens: 2000,
+        }),
+      });
+
+      if (!openaiResponse.ok) {
+        const errorText = await openaiResponse.text();
+        throw new Error(`OpenAI API error: ${errorText}`);
+      }
+
+      const aiResult = await openaiResponse.json();
+      summary = aiResult.choices[0]?.message?.content || "Unable to generate summary from PDF";
+    } else {
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from("documents")
+        .download(tariff.file_url);
+
+      if (downloadError) {
+        throw downloadError;
+      }
+
+      const fileText = await fileData.text();
+      const truncatedText = fileText.slice(0, 50000);
+
+      const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${openaiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: "You are a logistics and transportation expert. Analyze tariff documents and provide clear, actionable summaries."
+            },
+            {
+              role: "user",
+              content: `Analyze this tariff document and provide a comprehensive summary covering:\n\n1. **Carrier & Service Details**: Carrier name, service type, modes covered\n2. **Rate Structure**: Key rate information, pricing tiers, fuel surcharges\n3. **Geographic Coverage**: Lanes, origin/destination zones\n4. **Effective Dates**: Start and end dates, renewal terms\n5. **Key Terms & Conditions**: Payment terms, liability limits, special provisions\n6. **Notable Features**: Volume commitments, incentives, restrictions\n\nDocument content:\n${truncatedText}`
+            }
+          ],
+          temperature: 0.3,
+          max_tokens: 1500,
+        }),
+      });
+
+      if (!openaiResponse.ok) {
+        const errorText = await openaiResponse.text();
+        throw new Error(`OpenAI API error: ${errorText}`);
+      }
+
+      const aiResult = await openaiResponse.json();
+      summary = aiResult.choices[0]?.message?.content || "Unable to generate summary";
     }
-
-    const aiResult = await openaiResponse.json();
-    const summary = aiResult.choices[0]?.message?.content || "Unable to generate summary";
 
     await supabase
       .from("tariffs")

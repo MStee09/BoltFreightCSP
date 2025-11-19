@@ -45,50 +45,119 @@ Deno.serve(async (req: Request) => {
       throw new Error("No document attached to this tariff");
     }
 
-    const { data: fileData, error: downloadError } = await supabase.storage
-      .from("documents")
-      .download(tariff.file_url);
+    const fileName = tariff.file_name || tariff.file_url.split('/').pop() || 'document';
+    const fileExtension = fileName.split('.').pop()?.toLowerCase();
+    const isPDF = fileExtension === 'pdf';
 
-    if (downloadError) {
-      throw downloadError;
-    }
+    let answer = '';
 
-    const fileText = await fileData.text();
-    const truncatedText = fileText.slice(0, 50000);
+    if (isPDF) {
+      const { data: signedUrlData } = await supabase.storage
+        .from("documents")
+        .createSignedUrl(tariff.file_url, 3600);
 
-    const messages = [
-      {
-        role: "system",
-        content: `You are a logistics and transportation expert assistant. You have access to a tariff document and can answer questions about it. Be concise, accurate, and cite specific information from the document when possible.\n\nDocument context:\n${truncatedText}`
-      },
-      ...conversationHistory,
-      {
-        role: "user",
-        content: question
+      if (!signedUrlData?.signedUrl) {
+        throw new Error("Could not generate signed URL for document");
       }
-    ];
 
-    const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${openaiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages,
-        temperature: 0.3,
-        max_tokens: 800,
-      }),
-    });
+      const messages: any[] = [
+        {
+          role: "system",
+          content: "You are a logistics and transportation expert assistant. You have access to a tariff document PDF and can answer questions about it. Be concise, accurate, and cite specific information from the document when possible."
+        }
+      ];
 
-    if (!openaiResponse.ok) {
-      const errorText = await openaiResponse.text();
-      throw new Error(`OpenAI API error: ${errorText}`);
+      if (conversationHistory.length === 0) {
+        messages.push({
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: `I have a tariff document. Here's my question: ${question}`
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: signedUrlData.signedUrl
+              }
+            }
+          ]
+        });
+      } else {
+        messages.push(...conversationHistory);
+        messages.push({
+          role: "user",
+          content: question
+        });
+      }
+
+      const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${openaiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o",
+          messages,
+          temperature: 0.3,
+          max_tokens: 1000,
+        }),
+      });
+
+      if (!openaiResponse.ok) {
+        const errorText = await openaiResponse.text();
+        throw new Error(`OpenAI API error: ${errorText}`);
+      }
+
+      const aiResult = await openaiResponse.json();
+      answer = aiResult.choices[0]?.message?.content || "Unable to generate answer";
+    } else {
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from("documents")
+        .download(tariff.file_url);
+
+      if (downloadError) {
+        throw downloadError;
+      }
+
+      const fileText = await fileData.text();
+      const truncatedText = fileText.slice(0, 50000);
+
+      const messages = [
+        {
+          role: "system",
+          content: `You are a logistics and transportation expert assistant. You have access to a tariff document and can answer questions about it. Be concise, accurate, and cite specific information from the document when possible.\n\nDocument context:\n${truncatedText}`
+        },
+        ...conversationHistory,
+        {
+          role: "user",
+          content: question
+        }
+      ];
+
+      const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${openaiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages,
+          temperature: 0.3,
+          max_tokens: 800,
+        }),
+      });
+
+      if (!openaiResponse.ok) {
+        const errorText = await openaiResponse.text();
+        throw new Error(`OpenAI API error: ${errorText}`);
+      }
+
+      const aiResult = await openaiResponse.json();
+      answer = aiResult.choices[0]?.message?.content || "Unable to generate answer";
     }
-
-    const aiResult = await openaiResponse.json();
-    const answer = aiResult.choices[0]?.message?.content || "Unable to generate answer";
 
     return new Response(
       JSON.stringify({ success: true, answer }),
