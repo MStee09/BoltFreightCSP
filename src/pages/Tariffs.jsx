@@ -1916,24 +1916,36 @@ export default function TariffsPage() {
                                   {getOwnershipBadge(tariff)}
                                 </td>
                                 <td className="p-3 text-sm text-slate-600">
-                                  {tariffCarriers.length > 0 ? (
-                                    <div className="flex items-center gap-1">
-                                      <span>{tariffCarriers[0].name}</span>
-                                      {tariffCarriers.length > 1 && (
-                                        <button
-                                          onClick={(e) => {
-                                            e.preventDefault();
-                                            toggleCarriers(tariff.id);
-                                          }}
-                                          className="text-xs text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
-                                        >
-                                          +{tariffCarriers.length - 1} more
-                                        </button>
-                                      )}
-                                    </div>
-                                  ) : (
-                                    <span className="text-slate-400">—</span>
-                                  )}
+                                  <div className="space-y-1">
+                                    {tariffCarriers.length > 0 ? (
+                                      <div className="flex items-center gap-1">
+                                        <span>{tariffCarriers[0].name}</span>
+                                        {tariffCarriers.length > 1 && (
+                                          <button
+                                            onClick={(e) => {
+                                              e.preventDefault();
+                                              toggleCarriers(tariff.id);
+                                            }}
+                                            className="text-xs text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
+                                          >
+                                            +{tariffCarriers.length - 1} more
+                                          </button>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span className="text-slate-400">—</span>
+                                    )}
+                                    {tariff.is_blanket_tariff && tariff.customer_ids && tariff.customer_ids.length > 0 && (
+                                      <div className="text-xs text-slate-500">
+                                        <span className="font-medium">Customers: </span>
+                                        {tariff.customer_ids.slice(0, 2).map(custId => {
+                                          const cust = customers.find(c => c.id === custId);
+                                          return cust?.name;
+                                        }).filter(Boolean).join(', ')}
+                                        {tariff.customer_ids.length > 2 && ` +${tariff.customer_ids.length - 2} more`}
+                                      </div>
+                                    )}
+                                  </div>
                                 </td>
                                 <td className="p-3 text-sm text-slate-600 text-right">
                                   {tariff.effective_date ? format(new Date(tariff.effective_date), 'MMM dd, yyyy') : '—'}

@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Tariff, Carrier, CSPEvent } from '../../api/entities';
+import { supabase } from '../../api/supabaseClient';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { Skeleton } from '../ui/skeleton';
@@ -33,7 +34,20 @@ const CustomerTariffTimeline = ({ customerId }) => {
 
     const { data: tariffs = [], isLoading: isLoadingTariffs } = useQuery({
         queryKey: ['tariffs', { forCustomer: customerId }],
-        queryFn: () => Tariff.filter({ customer_id: customerId }),
+        queryFn: async () => {
+            const directTariffs = await Tariff.filter({ customer_id: customerId });
+            const { data: blanketTariffs = [], error } = await supabase
+                .from('tariffs')
+                .select('*')
+                .contains('customer_ids', [customerId]);
+
+            if (error) {
+                console.error('Error fetching blanket tariffs:', error);
+                return directTariffs;
+            }
+
+            return [...directTariffs, ...blanketTariffs];
+        },
         enabled: !!customerId,
         initialData: []
     });
