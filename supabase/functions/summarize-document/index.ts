@@ -19,7 +19,6 @@ Deno.serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const openaiKey = Deno.env.get("OPENAI_API_KEY");
-    const llamaParseKey = Deno.env.get("LLAMAPARSE_API_KEY");
     
     if (!openaiKey) {
       throw new Error("OpenAI API key not configured");
@@ -54,97 +53,30 @@ Deno.serve(async (req: Request) => {
 
     let extractedText = '';
 
-    if (isPDF && llamaParseKey) {
-      console.log('Using LlamaParse for PDF extraction...');
-      
-      try {
-        const { data: signedUrlData } = await supabase.storage
-          .from("documents")
-          .createSignedUrl(tariff.file_url, 3600);
+    console.log('Downloading file for text extraction...');
+    
+    const { data: fileData, error: downloadError } = await supabase.storage
+      .from("documents")
+      .download(tariff.file_url);
 
-        if (!signedUrlData?.signedUrl) {
-          throw new Error('Could not create signed URL');
-        }
-
-        const llamaResponse = await fetch('https://api.cloud.llamaindex.ai/api/parsing/upload', {
-          method: 'POST',
-          headers: {
-            'Authorization': 'Bearer ' + llamaParseKey,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            url: signedUrlData.signedUrl,
-            parsing_instruction: 'Extract all text, tables, and structured data from this tariff document. Preserve rates, dates, and numerical information.',
-          }),
-        });
-
-        if (llamaResponse.ok) {
-          const result = await llamaResponse.json();
-          const jobId = result.id;
-          
-          let jobComplete = false;
-          let attempts = 0;
-          
-          while (!jobComplete && attempts < 30) {
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-            const statusResponse = await fetch('https://api.cloud.llamaindex.ai/api/parsing/job/' + jobId, {
-              headers: {
-                'Authorization': 'Bearer ' + llamaParseKey,
-              },
-            });
-            
-            const statusData = await statusResponse.json();
-            
-            if (statusData.status === 'SUCCESS') {
-              const resultResponse = await fetch('https://api.cloud.llamaindex.ai/api/parsing/job/' + jobId + '/result/markdown', {
-                headers: {
-                  'Authorization': 'Bearer ' + llamaParseKey,
-                },
-              });
-              
-              extractedText = await resultResponse.text();
-              jobComplete = true;
-              console.log('LlamaParse extraction successful, length:', extractedText.length);
-            } else if (statusData.status === 'ERROR') {
-              console.error('LlamaParse job failed');
-              break;
-            }
-            
-            attempts++;
-          }
-        }
-      } catch (e) {
-        console.error('LlamaParse failed:', e);
-      }
+    if (downloadError) {
+      throw downloadError;
     }
 
-    if (!extractedText || extractedText.length < 200) {
-      console.log('Falling back to direct file download and basic text extraction...');
+    if (isPDF) {
+      const arrayBuffer = await fileData.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
       
-      const { data: fileData, error: downloadError } = await supabase.storage
-        .from("documents")
-        .download(tariff.file_url);
-
-      if (downloadError) {
-        throw downloadError;
+      const decoder = new TextDecoder('utf-8', { fatal: false });
+      const rawText = decoder.decode(uint8Array);
+      
+      const textMatches = rawText.match(/[\x20-\x7E\s]{10,}/g);
+      if (textMatches && textMatches.length > 0) {
+        extractedText = textMatches.join('\n').slice(0, 100000);
+        console.log('Extracted text using basic method, length:', extractedText.length);
       }
-
-      if (isPDF) {
-        const arrayBuffer = await fileData.arrayBuffer();
-        const uint8Array = new Uint8Array(arrayBuffer);
-        
-        const decoder = new TextDecoder('utf-8', { fatal: false });
-        const rawText = decoder.decode(uint8Array);
-        
-        const textMatches = rawText.match(/[\x20-\x7E\s]{10,}/g);
-        if (textMatches && textMatches.length > 0) {
-          extractedText = textMatches.join('\n').slice(0, 100000);
-          console.log('Extracted text using basic method, length:', extractedText.length);
-        }
-      } else {
-        extractedText = await fileData.text();
-      }
+    } else {
+      extractedText = await fileData.text();
     }
 
     console.log('Final extracted text length:', extractedText.length);
