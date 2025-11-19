@@ -376,6 +376,13 @@ export const PredictiveInsightsPanel = ({ events, tariffs, cspEvents, dailyDiges
           { label: 'Estimated Time Saved', value: `${timeSaved} hours (${Math.round(timeSaved / 8)} work days)` },
           { label: 'Average Time per Manual Event', value: '30 minutes' },
           { label: 'Automation Rate', value: `${Math.round(automatedEvents.length / events.length * 100)}% of all events` },
+          { label: '', value: '' },
+          { label: 'Auto-Generated Events', value: '' },
+          ...automatedEvents.slice(0, 8).map(event => ({
+            value: `${event.title || 'Untitled'} — ${format(new Date(event.date), 'MMM dd, yyyy')}`
+          })),
+          ...(automatedEvents.length > 8 ? [{ value: `...and ${automatedEvents.length - 8} more` }] : []),
+          { label: '', value: '' },
           { label: 'Impact', value: 'AI automation reduces manual effort and allows focus on strategic tasks' }
         ]}
       />
