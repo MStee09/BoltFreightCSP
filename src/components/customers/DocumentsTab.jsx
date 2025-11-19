@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '../ui/dialog';
 import { Card, CardContent } from '../ui/card';
 import { useToast } from '../ui/use-toast';
-import { Upload, FileText, Download, Trash2, File, Image as ImageIcon, FileSpreadsheet } from 'lucide-react';
+import { Upload, FileText, Download, Trash2, File, Image as ImageIcon, FileSpreadsheet, Eye } from 'lucide-react';
 import { format } from 'date-fns';
 
 const MOCK_USER_ID = '00000000-0000-0000-0000-000000000000';
@@ -30,21 +30,32 @@ const formatFileSize = (bytes) => {
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
 };
 
-export default function DocumentsTab({ customerId }) {
+export default function DocumentsTab({ customerId, carrierId, cspEventId, entityType = 'customer' }) {
     const { toast } = useToast();
     const queryClient = useQueryClient();
     const fileInputRef = useRef(null);
     const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
     const [uploadingFile, setUploadingFile] = useState(null);
+    const [previewDocument, setPreviewDocument] = useState(null);
+    const [previewUrl, setPreviewUrl] = useState(null);
     const [uploadForm, setUploadForm] = useState({
         document_type: 'general',
         description: '',
     });
 
+    const entityId = customerId || carrierId || cspEventId;
+
     const { data: documents = [], isLoading } = useQuery({
-        queryKey: ['documents', customerId],
-        queryFn: () => Document.filter({ customer_id: customerId, order_by: '-created_date' }),
-        enabled: !!customerId,
+        queryKey: ['documents', entityType, entityId],
+        queryFn: () => {
+            const filter = { order_by: '-created_date' };
+            if (customerId) filter.customer_id = customerId;
+            if (carrierId) filter.entity_type = 'carrier';
+            if (cspEventId) filter.csp_event_id = cspEventId;
+            if (carrierId || cspEventId) filter.entity_id = entityId;
+            return Document.filter(filter);
+        },
+        enabled: !!entityId,
         initialData: []
     });
 
@@ -61,9 +72,10 @@ export default function DocumentsTab({ customerId }) {
             if (uploadError) throw uploadError;
 
             const documentData = {
-                entity_type: 'customer',
-                entity_id: customerId,
-                customer_id: customerId,
+                entity_type: entityType,
+                entity_id: entityId,
+                customer_id: customerId || null,
+                csp_event_id: cspEventId || null,
                 file_name: file.name,
                 file_path: filePath,
                 file_size: file.size,
@@ -76,8 +88,8 @@ export default function DocumentsTab({ customerId }) {
             const document = await Document.create(documentData);
 
             await Interaction.create({
-                entity_type: 'customer',
-                entity_id: customerId,
+                entity_type: entityType,
+                entity_id: entityId,
                 interaction_type: 'document_upload',
                 summary: `Document Uploaded: ${file.name}`,
                 details: metadata.description || `Uploaded a ${metadata.document_type} document.`,
@@ -91,8 +103,8 @@ export default function DocumentsTab({ customerId }) {
             return document;
         },
         onSuccess: () => {
-            queryClient.invalidateQueries(['documents', customerId]);
-            queryClient.invalidateQueries(['interactions', customerId, 'customer']);
+            queryClient.invalidateQueries(['documents', entityType, entityId]);
+            queryClient.invalidateQueries(['interactions', entityId, entityType]);
             toast({
                 title: "Success!",
                 description: "Document uploaded successfully.",
@@ -119,7 +131,7 @@ export default function DocumentsTab({ customerId }) {
             await Document.delete(document.id);
         },
         onSuccess: () => {
-            queryClient.invalidateQueries(['documents', customerId]);
+            queryClient.invalidateQueries(['documents', entityType, entityId]);
             toast({
                 title: "Success!",
                 description: "Document deleted successfully.",
@@ -170,6 +182,34 @@ export default function DocumentsTab({ customerId }) {
                 variant: "destructive",
             });
         }
+    };
+
+    const handlePreview = async (document) => {
+        try {
+            const { data, error } = await supabase.storage
+                .from('documents')
+                .download(document.file_path);
+
+            if (error) throw error;
+
+            const url = URL.createObjectURL(data);
+            setPreviewUrl(url);
+            setPreviewDocument(document);
+        } catch (error) {
+            toast({
+                title: "Error",
+                description: "Failed to preview document.",
+                variant: "destructive",
+            });
+        }
+    };
+
+    const closePreview = () => {
+        if (previewUrl) {
+            URL.revokeObjectURL(previewUrl);
+        }
+        setPreviewUrl(null);
+        setPreviewDocument(null);
     };
 
     if (isLoading) {
@@ -223,10 +263,21 @@ export default function DocumentsTab({ customerId }) {
                                         )}
                                     </div>
                                     <div className="flex gap-2 flex-shrink-0">
+                                        {(doc.file_type?.includes('pdf') || doc.file_type?.startsWith('image/')) && (
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                onClick={() => handlePreview(doc)}
+                                                title="Preview"
+                                            >
+                                                <Eye className="w-4 h-4" />
+                                            </Button>
+                                        )}
                                         <Button
                                             variant="outline"
                                             size="sm"
                                             onClick={() => handleDownload(doc)}
+                                            title="Download"
                                         >
                                             <Download className="w-4 h-4" />
                                         </Button>
@@ -234,6 +285,7 @@ export default function DocumentsTab({ customerId }) {
                                             variant="outline"
                                             size="sm"
                                             onClick={() => deleteMutation.mutate(doc)}
+                                            title="Delete"
                                         >
                                             <Trash2 className="w-4 h-4 text-red-500" />
                                         </Button>
@@ -298,6 +350,44 @@ export default function DocumentsTab({ customerId }) {
                         <Button variant="outline" onClick={() => setIsUploadDialogOpen(false)}>Cancel</Button>
                         <Button onClick={handleUpload} disabled={uploadMutation.isPending}>
                             {uploadMutation.isPending ? 'Uploading...' : 'Upload'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={!!previewDocument} onOpenChange={closePreview}>
+                <DialogContent className="max-w-5xl h-[90vh] flex flex-col">
+                    <DialogHeader>
+                        <DialogTitle>{previewDocument?.file_name}</DialogTitle>
+                        <DialogDescription>
+                            {previewDocument?.document_type && (
+                                <span className="capitalize">{previewDocument.document_type.replace(/_/g, ' ')}</span>
+                            )}
+                            {previewDocument?.file_size && ` • ${formatFileSize(previewDocument.file_size)}`}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex-1 overflow-hidden">
+                        {previewDocument?.file_type?.includes('pdf') ? (
+                            <iframe
+                                src={previewUrl}
+                                className="w-full h-full border rounded"
+                                title={previewDocument.file_name}
+                            />
+                        ) : previewDocument?.file_type?.startsWith('image/') ? (
+                            <div className="w-full h-full flex items-center justify-center bg-slate-50 rounded">
+                                <img
+                                    src={previewUrl}
+                                    alt={previewDocument.file_name}
+                                    className="max-w-full max-h-full object-contain"
+                                />
+                            </div>
+                        ) : null}
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={closePreview}>Close</Button>
+                        <Button onClick={() => handleDownload(previewDocument)}>
+                            <Download className="w-4 h-4 mr-2" />
+                            Download
                         </Button>
                     </DialogFooter>
                 </DialogContent>

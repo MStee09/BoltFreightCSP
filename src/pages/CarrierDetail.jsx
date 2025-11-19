@@ -18,6 +18,7 @@ import CarrierOverview from '../components/carriers/CarrierOverview';
 import ManageContactsDialog from '../components/carriers/ManageContactsDialog';
 import { useEmailComposer } from '../contexts/EmailComposerContext';
 import InteractionTimeline from '../components/customers/InteractionTimeline';
+import DocumentsTab from '../components/customers/DocumentsTab';
 import { EmailThreadView } from '../components/email/EmailThreadView';
 import { EmailThreadBadge } from '../components/email/EmailThreadBadge';
 import { BackButton } from '../components/navigation/BackButton';
@@ -569,6 +570,7 @@ export default function CarrierDetailPage() {
                     <TabsList className="bg-slate-100">
                         <TabsTrigger value="overview">Overview</TabsTrigger>
                         <TabsTrigger value="tariffs">Tariffs</TabsTrigger>
+                        <TabsTrigger value="documents">Documents</TabsTrigger>
                         <TabsTrigger value="emails">Emails</TabsTrigger>
                         <TabsTrigger value="contacts">Contacts</TabsTrigger>
                         <TabsTrigger value="kpis">KPIs</TabsTrigger>
@@ -580,6 +582,9 @@ export default function CarrierDetailPage() {
                     </TabsContent>
                     <TabsContent value="tariffs">
                         <CarrierTariffs carrierId={carrierId} highlightId={highlightId} />
+                    </TabsContent>
+                    <TabsContent value="documents">
+                        <DocumentsTab carrierId={carrierId} entityType="carrier" />
                     </TabsContent>
                     <TabsContent value="emails">
                         <div className="space-y-4">

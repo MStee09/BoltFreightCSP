@@ -18,6 +18,7 @@ import CspEventOverview from '../components/pipeline/CspEventOverview';
 import EditCspEventDialog from '../components/pipeline/EditCspEventDialog';
 import ManageCarriersDialog from '../components/pipeline/ManageCarriersDialog';
 import InteractionTimeline from '../components/customers/InteractionTimeline';
+import DocumentsTab from '../components/customers/DocumentsTab';
 import VolumeSpendTab from '../components/pipeline/VolumeSpendTab';
 import CspCarriersTab from '../components/pipeline/CspCarriersTab';
 import { BackButton } from '../components/navigation/BackButton';
@@ -146,6 +147,7 @@ export default function CspEventDetail() {
                         <TabsTrigger value="overview">Overview</TabsTrigger>
                         <TabsTrigger value="strategy">Strategy</TabsTrigger>
                         <TabsTrigger value="volume-spend">Volume & Spend</TabsTrigger>
+                        <TabsTrigger value="documents">Documents</TabsTrigger>
                         <TabsTrigger value="activity">Activity</TabsTrigger>
                         <TabsTrigger value="emails">Emails</TabsTrigger>
                         <TabsTrigger value="carriers">Carriers</TabsTrigger>
@@ -158,6 +160,9 @@ export default function CspEventDetail() {
                     </TabsContent>
                     <TabsContent value="volume-spend">
                         <VolumeSpendTab cspEvent={event} cspEventId={eventId} />
+                    </TabsContent>
+                    <TabsContent value="documents">
+                        <DocumentsTab cspEventId={eventId} entityType="csp_event" />
                     </TabsContent>
                     <TabsContent value="activity">
                         <InteractionTimeline customerId={event.customer_id} entityType="customer" />
