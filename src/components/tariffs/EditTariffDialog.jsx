@@ -84,7 +84,15 @@ export default function EditTariffDialog({
             setMode(tariff.mode || '');
             setEffectiveDate(tariff.effective_date || '');
             setExpiryDate(tariff.expiry_date || '');
-            setCustomerId(tariff.customer_id || '');
+
+            // If it's a Rocket blanket tariff without a customer_id, set it to Rocket Shipping
+            if (tariff.is_blanket_tariff && (tariff.ownership_type === 'rocket_blanket' || tariff.ownership_type === 'rocket_csp') && !tariff.customer_id) {
+                const rocketCustomer = customers.find(c => c.name === 'Rocket Shipping');
+                setCustomerId(rocketCustomer?.id || '');
+            } else {
+                setCustomerId(tariff.customer_id || '');
+            }
+
             setCustomerIds(tariff.customer_ids || []);
 
             // Handle both carrier_id and carrier_ids (array)
@@ -433,23 +441,30 @@ export default function EditTariffDialog({
                         </div>
                     </div>
 
-                    {!isBlanketTariff ? (
-                        <div className="space-y-2">
-                            <Label htmlFor="customer_id">Customer *</Label>
-                            <Select value={customerId} onValueChange={setCustomerId}>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Select a customer" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {customers.sort((a, b) => a.name.localeCompare(b.name)).map(customer => (
-                                        <SelectItem key={customer.id} value={customer.id}>
-                                            {customer.name}
-                                        </SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                        </div>
-                    ) : (
+                    <div className="space-y-2">
+                        <Label htmlFor="customer_id">Customer *</Label>
+                        <Select
+                            value={customerId}
+                            onValueChange={setCustomerId}
+                            disabled={isBlanketTariff && (ownershipType === 'rocket_blanket' || ownershipType === 'rocket_csp')}
+                        >
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select a customer" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {customers.sort((a, b) => a.name.localeCompare(b.name)).map(customer => (
+                                    <SelectItem key={customer.id} value={customer.id}>
+                                        {customer.name}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        {isBlanketTariff && (ownershipType === 'rocket_blanket' || ownershipType === 'rocket_csp') && (
+                            <p className="text-xs text-gray-500">Rocket blanket tariffs are owned by Rocket Shipping</p>
+                        )}
+                    </div>
+
+                    {isBlanketTariff && (
                         <div className="space-y-2">
                             <div className="flex items-center justify-between">
                                 <Label>Customers *</Label>

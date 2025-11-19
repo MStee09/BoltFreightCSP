@@ -134,6 +134,17 @@ export default function TariffUploadPage() {
         }
     }, [isRocketOrP1]);
 
+    useEffect(() => {
+        if (isBlanket && ownershipType === 'Rocket') {
+            const rocketCustomer = customers.find(c => c.name === 'Rocket Shipping');
+            if (rocketCustomer) {
+                setCustomerId(rocketCustomer.id);
+            }
+        } else if (isBlanket) {
+            setCustomerId(null);
+        }
+    }, [isBlanket, ownershipType, customers]);
+
     const { data: customers = [] } = useQuery({ queryKey: ["customers"], queryFn: () => Customer.list(), initialData: [] });
     const { data: carriers = [] } = useQuery({ queryKey: ["carriers"], queryFn: () => Carrier.list(), initialData: [] });
     const { data: existingTariffs = [] } = useQuery({ queryKey: ["tariffs"], queryFn: () => Tariff.list(), initialData: [] });
@@ -214,7 +225,7 @@ export default function TariffUploadPage() {
             const status = effectiveDatePassed ? 'active' : (data.cspEventId ? 'active' : 'proposed');
 
             const tariffData = {
-                customer_id: data.isBlanket ? null : data.customerId,
+                customer_id: data.customerId,
                 carrier_id: data.carrierIds[0], // Use first carrier as carrier_id
                 customer_ids: data.isBlanket ? data.subCustomerIds : [],
                 version: data.version,
