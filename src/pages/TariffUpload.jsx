@@ -139,7 +139,7 @@ export default function TariffUploadPage() {
     const { data: existingTariffs = [] } = useQuery({ queryKey: ["tariffs"], queryFn: () => Tariff.list(), initialData: [] });
 
     useEffect(() => {
-        if (carrierIds.length === 0 || !effectiveDate) {
+        if (!carrierId || !effectiveDate) {
             return;
         }
 
@@ -147,29 +147,49 @@ export default function TariffUploadPage() {
             return;
         }
 
-        let customerAbbrev;
+        if (!ownershipType) {
+            return;
+        }
+
+        // Determine type prefix
+        let typePrefix;
         if (isBlanket) {
-            customerAbbrev = ownershipType.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 10) || 'ROCKET';
+            typePrefix = 'BLK';
+        } else {
+            if (ownershipType === 'Rocket') {
+                typePrefix = 'RKT';
+            } else if (ownershipType === 'Priority 1') {
+                typePrefix = 'P1';
+            } else {
+                typePrefix = 'DIR';
+            }
+        }
+
+        // Get customer code
+        let customerCode;
+        if (isBlanket) {
+            customerCode = 'ROCKET';
         } else {
             const customer = customers.find(c => c.id === customerId);
             if (!customer) return;
-            customerAbbrev = customer.name.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 10);
+            customerCode = customer.short_code || customer.name.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 4);
         }
 
-        const carrier = carriers.find(c => c.id === carrierIds[0]);
+        // Get carrier code
+        const carrier = carriers.find(c => c.id === carrierId);
         if (!carrier) return;
+        const carrierCode = carrier.scac_code || carrier.name.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 4);
 
-        const carrierAbbrev = carrier.name.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 10);
         const year = effectiveDate.getFullYear();
 
-        const prefix = `${customerAbbrev}-${carrierAbbrev}-${year}-`;
+        const prefix = `${typePrefix}-${customerCode}-${carrierCode}-${year}-`;
 
         const existingWithPrefix = existingTariffs.filter(t =>
-            t.version && t.version.startsWith(prefix)
+            t.tariff_reference_id && t.tariff_reference_id.startsWith(prefix)
         );
 
         const existingNumbers = existingWithPrefix.map(t => {
-            const match = t.version.match(/-(\d{3})$/);
+            const match = t.tariff_reference_id.match(/-(\d{3})$/);
             return match ? parseInt(match[1], 10) : 0;
         });
 
@@ -178,7 +198,7 @@ export default function TariffUploadPage() {
 
         const generatedVersion = `${prefix}${sequenceNumber}`;
         setVersion(generatedVersion);
-    }, [customerId, carrierIds, effectiveDate, isBlanket, ownershipType, customers, carriers, existingTariffs]);
+    }, [customerId, carrierId, effectiveDate, isBlanket, ownershipType, customers, carriers, existingTariffs]);
 
     const createTariffMutation = useMutation({
         mutationFn: async (data) => {
