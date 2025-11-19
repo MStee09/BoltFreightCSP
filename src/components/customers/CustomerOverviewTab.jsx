@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import { User, Mail, Phone, DollarSign, BarChart, TrendingUp, TrendingDown, Building, Calendar } from 'lucide-react';
+import { User, Mail, Phone, DollarSign, BarChart, TrendingUp, TrendingDown, Building, Calendar, Hash } from 'lucide-react';
 import { createCspReviewEvent } from '../../utils/calendarHelpers';
 import { useToast } from '../ui/use-toast';
 import { useQueryClient } from '@tanstack/react-query';
@@ -74,7 +74,16 @@ export default function CustomerOverviewTab({ customer }) {
                     <CardTitle className="text-base font-semibold">Account Information</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
+                        <div>
+                            <span className="text-sm text-slate-500">Customer Code</span>
+                            <div className="mt-1 flex items-center gap-2">
+                                <Hash className="w-4 h-4 text-slate-400" />
+                                <Badge variant="outline" className="bg-slate-100 text-slate-900 border-slate-300 font-mono font-semibold">
+                                    {customer.short_code || 'N/A'}
+                                </Badge>
+                            </div>
+                        </div>
                         <div>
                             <span className="text-sm text-slate-500">Revenue Tier</span>
                             <div className="mt-1">
