@@ -1,6 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
-import { PDFDocument } from "npm:pdf-lib@1.17.1";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,125 +7,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-interface CloudConvertJob {
-  id: string;
-  status: string;
-  tasks?: Array<{
-    id: string;
-    operation: string;
-    status: string;
-    result?: {
-      files?: Array<{
-        filename: string;
-        url: string;
-      }>;
-    };
-  }>;
-}
-
-async function convertPDFToImages(pdfBuffer: ArrayBuffer): Promise<string[]> {
-  const cloudConvertKey = Deno.env.get("CLOUDCONVERT_API_KEY");
-  
-  if (!cloudConvertKey) {
-    console.log('CloudConvert not available, using direct GPT-4o approach');
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(pdfBuffer)));
-    return [base64];
-  }
-
-  console.log('Using CloudConvert to convert PDF to images...');
-  
-  try {
-    const formData = new FormData();
-    formData.append('file', new Blob([pdfBuffer], { type: 'application/pdf' }), 'document.pdf');
-    
-    const jobResponse = await fetch('https://api.cloudconvert.com/v2/jobs', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${cloudConvertKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        tasks: {
-          'import-pdf': {
-            operation: 'import/upload'
-          },
-          'convert-to-png': {
-            operation: 'convert',
-            input: 'import-pdf',
-            output_format: 'png',
-            pages: '1-6',
-            pixel_density: 150
-          },
-          'export-images': {
-            operation: 'export/url',
-            input: 'convert-to-png'
-          }
-        }
-      })
-    });
-
-    if (!jobResponse.ok) {
-      throw new Error('CloudConvert job creation failed');
-    }
-
-    const job: CloudConvertJob = await jobResponse.json();
-    const uploadTask = job.tasks?.find(t => t.operation === 'import/upload');
-    
-    if (!uploadTask?.result?.files?.[0]?.url) {
-      throw new Error('No upload URL received');
-    }
-
-    await fetch(uploadTask.result.files[0].url, {
-      method: 'POST',
-      body: new Blob([pdfBuffer]),
-      headers: { 'Content-Type': 'application/pdf' }
-    });
-
-    let attempts = 0;
-    while (attempts < 30) {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      const statusResponse = await fetch(`https://api.cloudconvert.com/v2/jobs/${job.id}`, {
-        headers: { 'Authorization': `Bearer ${cloudConvertKey}` }
-      });
-      
-      const statusJob: CloudConvertJob = await statusResponse.json();
-      
-      if (statusJob.status === 'finished') {
-        const exportTask = statusJob.tasks?.find(t => t.operation === 'export/url');
-        const imageUrls = exportTask?.result?.files?.map(f => f.url) || [];
-        
-        const base64Images: string[] = [];
-        for (const url of imageUrls.slice(0, 6)) {
-          const imgResponse = await fetch(url);
-          const imgBuffer = await imgResponse.arrayBuffer();
-          const base64 = btoa(String.fromCharCode(...new Uint8Array(imgBuffer)));
-          base64Images.push(base64);
-        }
-        
-        return base64Images;
-      }
-      
-      if (statusJob.status === 'error') {
-        throw new Error('CloudConvert conversion failed');
-      }
-      
-      attempts++;
-    }
-    
-    throw new Error('Conversion timeout');
-  } catch (error) {
-    console.error('CloudConvert error:', error);
-    console.log('Falling back to direct PDF approach');
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(pdfBuffer)));
-    return [base64];
-  }
-}
-
-async function extractTextWithGPT4o(base64Image: string, openaiKey: string, format: 'png' | 'pdf' = 'png', pageNum: number = 1): Promise<string> {
-  console.log(`Extracting text from page ${pageNum} using GPT-4o...`);
-  
-  const mimeType = format === 'png' ? 'image/png' : 'application/pdf';
+async function extractTextFromPDFWithVision(pdfBase64: string, openaiKey: string): Promise<string> {
+  console.log('Extracting text using GPT-4o Vision (multi-page analysis)...');
   
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -138,37 +20,41 @@ async function extractTextWithGPT4o(base64Image: string, openaiKey: string, form
       model: "gpt-4o",
       messages: [
         {
+          role: "system",
+          content: "You are a precise OCR system. Extract ALL text from documents including tables, rates, numbers, and formatting. Be thorough and accurate."
+        },
+        {
           role: "user",
           content: [
             {
               type: "text",
-              text: `Extract ALL visible text from this document page (page ${pageNum}). Include:\n- All text content\n- Numbers, rates, and values\n- Table data with structure\n- Headers and footers\n\nReturn ONLY the raw extracted text. Do not add analysis or commentary.`
+              text: "This is a carrier tariff document (may be multiple pages). Extract ALL visible text including:\n\n- Headers, titles, and document information\n- All rate tables with zones, weights, and prices\n- Service descriptions and codes\n- Dates (effective dates, expiration dates)\n- Geographic information (origins, destinations, zones)\n- All surcharges and fees\n- Terms and conditions\n- Contact information\n- Any fine print or footnotes\n\nPreserve the structure and organization. Include ALL numbers exactly as shown. Return the complete extracted text."
             },
             {
               type: "image_url",
               image_url: {
-                url: `data:${mimeType};base64,${base64Image}`,
+                url: `data:application/pdf;base64,${pdfBase64}`,
                 detail: "high"
               }
             }
           ]
         }
       ],
-      max_tokens: 4096,
+      max_tokens: 16000,
       temperature: 0,
     }),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    console.error(`GPT-4o extraction error (page ${pageNum}):`, response.status, errorText);
-    throw new Error(`GPT-4o failed on page ${pageNum}: ${errorText}`);
+    console.error('Vision API error:', response.status, errorText);
+    throw new Error(`Vision extraction failed: ${errorText}`);
   }
 
   const result = await response.json();
-  const text = result.choices[0]?.message?.content || '';
-  console.log(`Extracted ${text.length} characters from page ${pageNum}`);
-  return text;
+  const extractedText = result.choices[0]?.message?.content || '';
+  console.log(`Extracted ${extractedText.length} characters from PDF`);
+  return extractedText;
 }
 
 Deno.serve(async (req: Request) => {
@@ -177,7 +63,7 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    console.log('\n=== SUMMARIZE DOCUMENT START ===');
+    console.log('\n=== DOCUMENT SUMMARIZATION START ===');
     
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
@@ -191,10 +77,10 @@ Deno.serve(async (req: Request) => {
     const { tariffId } = await req.json();
 
     if (!tariffId) {
-      throw new Error("Missing tariffId");
+      throw new Error("Missing tariffId parameter");
     }
 
-    console.log(`Processing tariff ID: ${tariffId}`);
+    console.log(`Processing tariff: ${tariffId}`);
 
     const { data: tariff, error: tariffError } = await supabase
       .from("tariffs")
@@ -203,11 +89,11 @@ Deno.serve(async (req: Request) => {
       .single();
 
     if (tariffError || !tariff) {
-      throw new Error("Tariff not found");
+      throw new Error(`Tariff not found: ${tariffError?.message}`);
     }
 
     if (!tariff.file_url) {
-      throw new Error("No document attached");
+      throw new Error("No document attached to this tariff");
     }
 
     console.log(`File: ${tariff.file_name || tariff.file_url}`);
@@ -217,41 +103,41 @@ Deno.serve(async (req: Request) => {
       .download(tariff.file_url);
 
     if (downloadError || !fileData) {
-      throw new Error("Failed to download file");
+      throw new Error(`File download failed: ${downloadError?.message}`);
     }
 
     const fileSize = fileData.size;
-    console.log(`Downloaded ${fileSize} bytes`);
+    console.log(`Downloaded: ${(fileSize / 1024 / 1024).toFixed(2)} MB`);
 
-    if (fileSize > 25 * 1024 * 1024) {
-      throw new Error("File too large (max 25MB)");
+    if (fileSize > 20 * 1024 * 1024) {
+      throw new Error("File too large (max 20MB)");
     }
 
-    const arrayBuffer = await fileData.arrayBuffer();
-    
-    console.log('Converting PDF to images...');
-    const base64Images = await convertPDFToImages(arrayBuffer);
-    console.log(`Got ${base64Images.length} images to process`);
-    
-    let allExtractedText = '';
-    
-    const imagesToProcess = base64Images.slice(0, 6);
-    console.log(`Processing ${imagesToProcess.length} pages...`);
-    
-    for (let i = 0; i < imagesToProcess.length; i++) {
-      try {
-        const format = base64Images.length === 1 ? 'pdf' : 'png';
-        const pageText = await extractTextWithGPT4o(imagesToProcess[i], openaiKey, format, i + 1);
-        allExtractedText += `\n\n=== PAGE ${i + 1} ===\n\n${pageText}`;
-      } catch (pageError) {
-        console.error(`Error processing page ${i + 1}:`, pageError);
-      }
+    const fileName = tariff.file_name || '';
+    const fileExtension = fileName.split('.').pop()?.toLowerCase();
+    const isPDF = fileExtension === 'pdf';
+
+    console.log(`File type: ${fileExtension}, isPDF: ${isPDF}`);
+
+    let extractedText = '';
+
+    if (isPDF) {
+      console.log('Converting PDF to base64...');
+      const arrayBuffer = await fileData.arrayBuffer();
+      const uint8Array = new Uint8Array(arrayBuffer);
+      const base64 = btoa(String.fromCharCode(...uint8Array));
+      console.log(`Base64 size: ${(base64.length / 1024 / 1024).toFixed(2)} MB`);
+      
+      extractedText = await extractTextFromPDFWithVision(base64, openaiKey);
+    } else {
+      console.log('Reading text file...');
+      extractedText = await fileData.text();
+      console.log(`Text file length: ${extractedText.length} characters`);
     }
 
-    console.log(`Total extracted text: ${allExtractedText.length} characters`);
-
-    if (allExtractedText.length < 200) {
-      const errorMsg = '⚠️ **Unable to extract text from document**\n\nThe document could not be read. This may be because:\n- The PDF is encrypted or password-protected\n- The file is corrupted\n- The document format is not supported\n\nPlease try uploading a different version of the document.';
+    if (!extractedText || extractedText.trim().length < 100) {
+      console.log('ERROR: Insufficient text extracted');
+      const errorMsg = '⚠️ **Document Processing Failed**\n\nUnable to extract text from this document. Possible reasons:\n\n1. **Encrypted/Protected PDF** - The file may be password protected\n2. **Corrupted File** - The PDF structure may be damaged\n3. **Unsupported Format** - Try converting to a standard PDF\n\n**Next Steps:**\n- Remove password protection if present\n- Re-save the PDF using Adobe Acrobat or similar\n- Try uploading in Excel/CSV format instead\n- Contact support if this issue persists';
       
       await supabase
         .from("tariffs")
@@ -267,7 +153,10 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    console.log('Generating summary with GPT-4o-mini...');
+    console.log(`Successfully extracted ${extractedText.length} characters`);
+    console.log('Generating structured summary...');
+    
+    const truncatedText = extractedText.slice(0, 120000);
     
     const summaryResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -280,66 +169,87 @@ Deno.serve(async (req: Request) => {
         messages: [
           {
             role: "system",
-            content: "You are a logistics expert analyzing carrier tariff documents. Extract specific rates, dates, zones, fees, and terms. Always include actual numbers and details from the document."
+            content: "You are a logistics tariff analyst. Create detailed, well-organized summaries of carrier rate documents. Always extract specific numbers, dates, rates, and terms from the document. Be comprehensive and precise."
           },
           {
             role: "user",
-            content: `Create a detailed summary of this carrier tariff document. Organize by:
+            content: `Analyze this carrier tariff document and create a comprehensive summary.
 
-## 1. Carrier & Service Details
-- Carrier name and issuer
-- Service types (with codes)
-- Transportation mode
+**IMPORTANT:** Extract ALL specific details including exact rates, dates, zones, and fees from the document.
 
-## 2. Rate Structure
-- Base rates by zone/weight (include actual rate tables)
-- Minimum charges
-- All surcharges with amounts
+Organize your summary using these sections:
 
-## 3. Geographic Coverage
-- Origin terminals/cities
-- Destination zones
-- Remote area fees
+## 📋 Document Information
+- Document title/name
+- Issuing company
+- Document date and version
 
-## 4. Contract Terms
-- Effective date → Termination date
-- Payment terms
-- Fuel surcharge method
-- Liability/declared value
+## 🚚 Carrier & Service Details
+- Carrier name and contact information  
+- Service types offered (list each with codes/names)
+- Transportation mode (Air, Ocean, Ground, etc.)
 
-## 5. Special Services & Fees
-- Delivery options (threshold, white glove, etc.)
-- Weekend/holiday fees
-- Accessorial charges
+## 💰 Rate Structure
+- **Base Rates:** Include complete rate tables with zones, weight breaks, and prices
+- **Minimum Charges:** List all minimums by service type
+- **Surcharges:** List ALL surcharges with exact amounts (fuel, residential, oversized, etc.)
 
-## 6. Key Terms
-- Dimensional weight formula
-- Important restrictions
-- Notable clauses
+## 🗺️ Geographic Coverage
+- Origin points/terminals (list all cities/airports)
+- Destination zones (describe zone structure)
+- Remote area surcharges
+- Service area restrictions
 
-Extract ALL specific numbers, dates, and rates from the document.
+## 📅 Contract Terms & Dates
+- **Effective Date:** [exact date]
+- **Expiration Date:** [exact date]  
+- Payment terms and conditions
+- Fuel surcharge methodology
+- Liability/Declared value limits
 
-Document text:
+## 🎯 Special Services & Additional Fees
+- Delivery service levels (threshold, room of choice, white glove, etc.)
+- Assembly and installation services
+- Weekend/holiday delivery fees
+- Storage, returns, and redelivery charges
+- Other accessorial services
 
-${allExtractedText.slice(0, 100000)}`
+## ⚠️ Important Terms & Conditions
+- Dimensional weight calculation formula
+- Package size/weight restrictions
+- Claims and liability provisions  
+- Notable exclusions or limitations
+
+## 📊 Key Highlights
+- Most important takeaways from this tariff
+- Unique features or competitive advantages
+- Any special notes or warnings
+
+---
+
+**Document text to analyze:**
+
+${truncatedText}`
           }
         ],
-        temperature: 0.1,
-        max_tokens: 3500,
+        temperature: 0.2,
+        max_tokens: 4000,
       }),
     });
 
     if (!summaryResponse.ok) {
       const errorText = await summaryResponse.text();
-      throw new Error(`Summary generation failed: ${errorText}`);
+      console.error('Summary generation error:', summaryResponse.status, errorText);
+      throw new Error(`Failed to generate summary: ${errorText}`);
     }
 
     const summaryResult = await summaryResponse.json();
     const summary = summaryResult.choices[0]?.message?.content || "Unable to generate summary";
 
     console.log(`Generated summary: ${summary.length} characters`);
+    console.log('Saving to database...');
 
-    await supabase
+    const { error: updateError } = await supabase
       .from("tariffs")
       .update({
         ai_summary: summary,
@@ -347,17 +257,31 @@ ${allExtractedText.slice(0, 100000)}`
       })
       .eq("id", tariffId);
 
-    console.log('=== SUMMARIZE DOCUMENT COMPLETE ===\n');
+    if (updateError) {
+      throw new Error(`Database update failed: ${updateError.message}`);
+    }
+
+    console.log('=== SUMMARIZATION COMPLETE ===\n');
 
     return new Response(
       JSON.stringify({ success: true, summary }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
+    
   } catch (error) {
-    console.error("ERROR:", error);
+    console.error('\n=== ERROR ===');
+    console.error(error);
+    console.error('=============\n');
+    
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ 
+        success: false, 
+        error: error.message || "Unknown error occurred"
+      }),
+      { 
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+      }
     );
   }
 });
