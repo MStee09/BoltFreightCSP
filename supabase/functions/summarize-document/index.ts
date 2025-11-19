@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.4";
+import { getDocumentProxy } from "npm:pdfjs-dist@4.0.379/legacy/build/pdf.mjs";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -26,6 +27,42 @@ function intelligentTruncate(text: string, maxTokens: number = 20000): string {
   );
   
   return beginning + "\n\n... [middle section truncated] ...\n\n" + middle + "\n\n... [content truncated] ...\n\n" + end;
+}
+
+async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<string> {
+  try {
+    console.log('Using PDF.js to extract text...');
+    
+    const pdf = await getDocumentProxy({
+      data: new Uint8Array(arrayBuffer),
+      useSystemFonts: true,
+      standardFontDataUrl: "https://cdn.jsdelivr.net/npm/pdfjs-dist@4.0.379/standard_fonts/",
+    });
+
+    console.log('PDF loaded, pages:', pdf.numPages);
+    
+    const maxPages = Math.min(pdf.numPages, 50);
+    let fullText = '';
+
+    for (let i = 1; i <= maxPages; i++) {
+      try {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items
+          .map((item: any) => item.str)
+          .join(' ');
+        fullText += pageText + '\n\n';
+        console.log(`Extracted page ${i}, length so far: ${fullText.length}`);
+      } catch (pageError) {
+        console.error(`Error on page ${i}:`, pageError);
+      }
+    }
+
+    return fullText;
+  } catch (error) {
+    console.error('PDF.js extraction failed:', error);
+    throw error;
+  }
 }
 
 Deno.serve(async (req: Request) => {
@@ -111,25 +148,8 @@ Deno.serve(async (req: Request) => {
     console.log('File downloaded, size:', fileData?.size || 0, 'bytes');
 
     if (isPDF) {
-      try {
-        const arrayBuffer = await fileData.arrayBuffer();
-        const uint8Array = new Uint8Array(arrayBuffer);
-        
-        console.log('Extracting text from PDF...');
-        const decoder = new TextDecoder('utf-8', { fatal: false });
-        const rawText = decoder.decode(uint8Array);
-        
-        const textMatches = rawText.match(/[\x20-\x7E\s]{10,}/g);
-        if (textMatches && textMatches.length > 0) {
-          extractedText = textMatches.join('\n');
-          console.log('Text extracted, length:', extractedText.length);
-        } else {
-          console.log('No text matches found in PDF');
-        }
-      } catch (e) {
-        console.error('PDF extraction error:', e);
-        throw new Error("PDF extraction failed: " + e.message);
-      }
+      const arrayBuffer = await fileData.arrayBuffer();
+      extractedText = await extractTextFromPDF(arrayBuffer);
     } else {
       try {
         extractedText = await fileData.text();
@@ -140,7 +160,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    console.log('Extracted text length:', extractedText.length);
+    console.log('Final extracted text length:', extractedText.length);
 
     if (!extractedText || extractedText.trim().length < 100) {
       console.log('Insufficient text extracted, returning error summary');
