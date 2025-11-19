@@ -7,34 +7,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
-async function extractPDFText(pdfBuffer: ArrayBuffer): Promise<string> {
-  try {
-    const pdfJsLib = await import("npm:pdfjs-dist@4.0.379");
-    
-    const loadingTask = pdfJsLib.getDocument({
-      data: new Uint8Array(pdfBuffer),
-      useSystemFonts: true,
-    });
-    
-    const pdf = await loadingTask.promise;
-    let fullText = '';
-    
-    for (let pageNum = 1; pageNum <= Math.min(pdf.numPages, 50); pageNum++) {
-      const page = await pdf.getPage(pageNum);
-      const textContent = await page.getTextContent();
-      const pageText = textContent.items
-        .map((item: any) => item.str)
-        .join(' ');
-      fullText += pageText + '\n\n';
-    }
-    
-    return fullText;
-  } catch (error) {
-    console.error('PDF extraction error:', error);
-    throw new Error('Failed to extract text from PDF: ' + error.message);
-  }
-}
-
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, {
@@ -73,63 +45,126 @@ Deno.serve(async (req: Request) => {
       throw new Error("No document attached to this tariff");
     }
 
-    const { data: fileData, error: downloadError } = await supabase.storage
-      .from("documents")
-      .download(tariff.file_url);
+    console.log('Creating signed URL for file:', tariff.file_url);
 
-    if (downloadError) {
-      throw downloadError;
+    const { data: signedUrlData, error: signedError } = await supabase.storage
+      .from("documents")
+      .createSignedUrl(tariff.file_url, 600);
+
+    if (signedError || !signedUrlData?.signedUrl) {
+      throw new Error('Failed to create signed URL');
     }
+
+    const publicUrl = signedUrlData.signedUrl;
+    console.log('Using public URL for analysis');
 
     const fileName = tariff.file_name || tariff.file_url.split('/').pop() || 'document';
     const fileExtension = fileName.split('.').pop()?.toLowerCase();
     const isPDF = fileExtension === 'pdf';
 
-    let documentText = '';
+    console.log('File type:', fileExtension);
+
+    let summary = '';
 
     if (isPDF) {
-      const arrayBuffer = await fileData.arrayBuffer();
-      documentText = await extractPDFText(arrayBuffer);
-    } else {
-      documentText = await fileData.text();
-    }
-
-    const truncatedText = documentText.slice(0, 80000);
-
-    if (!truncatedText || truncatedText.trim().length < 100) {
-      throw new Error("Document appears to be empty or could not be read. Please ensure the file is a valid document.");
-    }
-
-    const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${openaiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: "You are a logistics and transportation expert. Analyze tariff documents and provide clear, actionable summaries. Focus on extracting concrete details like rates, terms, dates, and conditions."
+      console.log('Processing PDF with OpenAI vision...');
+      
+      try {
+        const promptText = 'You are a logistics and transportation expert. Analyze this tariff document PDF and provide a detailed, comprehensive summary. IMPORTANT: Extract SPECIFIC information from the document - actual rates, dates, percentages, dollar amounts, contact names, etc. Do NOT give generic templates. Required Analysis: 1. Carrier & Service Details: Exact carrier name as shown in document, Service types offered, Transportation modes. 2. Rate Structure: Specific rates, Pricing tiers with actual numbers, Fuel surcharge percentage or formula, Any minimum charges. 3. Geographic Coverage: Specific states, regions, zip codes, or cities, Lane descriptions, Service area boundaries. 4. Effective Dates: Exact start date, Exact end date, Contract duration, Renewal terms. 5. Key Terms & Conditions: Payment terms, Liability limits, Insurance requirements, Claims procedures. 6. Notable Features: Volume discounts, Performance incentives, Special services included, Restrictions or exclusions. Provide a detailed summary with all specific information you can extract.';
+        
+        const parseResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + openaiKey,
           },
-          {
-            role: "user",
-            content: `Analyze this tariff document and provide a comprehensive summary covering:\n\n1. **Carrier & Service Details**: Carrier name, service type, modes covered\n2. **Rate Structure**: Key rate information, pricing tiers, fuel surcharges\n3. **Geographic Coverage**: Lanes, origin/destination zones\n4. **Effective Dates**: Start and end dates, renewal terms\n5. **Key Terms & Conditions**: Payment terms, liability limits, special provisions\n6. **Notable Features**: Volume commitments, incentives, restrictions\n\nDocument content:\n${truncatedText}`
-          }
-        ],
-        temperature: 0.3,
-        max_tokens: 2000,
-      }),
-    });
+          body: JSON.stringify({
+            model: "gpt-4o",
+            messages: [
+              {
+                role: "user",
+                content: [
+                  {
+                    type: "text",
+                    text: promptText
+                  },
+                  {
+                    type: "image_url",
+                    image_url: {
+                      url: publicUrl,
+                      detail: "high"
+                    }
+                  }
+                ]
+              }
+            ],
+            max_tokens: 4000,
+            temperature: 0.1
+          }),
+        });
 
-    if (!openaiResponse.ok) {
-      const errorText = await openaiResponse.text();
-      throw new Error(`OpenAI API error: ${errorText}`);
+        if (!parseResponse.ok) {
+          const errorText = await parseResponse.text();
+          console.error('PDF parsing error:', errorText);
+          throw new Error('Failed to parse PDF');
+        }
+
+        const parseResult = await parseResponse.json();
+        summary = parseResult.choices[0]?.message?.content || "Unable to parse PDF";
+        
+        console.log('Successfully parsed PDF, summary length:', summary.length);
+      } catch (parseError) {
+        console.error('PDF parsing failed:', parseError);
+        throw parseError;
+      }
+    } else {
+      console.log('Processing non-PDF document...');
+      
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from("documents")
+        .download(tariff.file_url);
+
+      if (downloadError) {
+        throw downloadError;
+      }
+
+      const documentText = await fileData.text();
+      const truncatedText = documentText.slice(0, 80000);
+
+      const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + openaiKey,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o",
+          messages: [
+            {
+              role: "system",
+              content: "You are a logistics and transportation expert. Analyze tariff documents and provide clear, detailed summaries with SPECIFIC information - actual rates, dates, amounts."
+            },
+            {
+              role: "user",
+              content: "Analyze this tariff document and provide a comprehensive summary with SPECIFIC details: 1. Carrier & Service Details 2. Rate Structure (actual rates) 3. Geographic Coverage (specific areas) 4. Effective Dates (exact dates) 5. Key Terms & Conditions 6. Notable Features. Document: " + truncatedText
+            }
+          ],
+          temperature: 0.2,
+          max_tokens: 3000,
+        }),
+      });
+
+      if (!openaiResponse.ok) {
+        throw new Error('OpenAI API error');
+      }
+
+      const aiResult = await openaiResponse.json();
+      summary = aiResult.choices[0]?.message?.content || "Unable to generate summary";
     }
 
-    const aiResult = await openaiResponse.json();
-    const summary = aiResult.choices[0]?.message?.content || "Unable to generate summary";
+    if (summary.includes('corrupted') || summary.includes('improperly formatted') || summary.includes('cannot extract')) {
+      throw new Error('PDF appears to be corrupted or unreadable');
+    }
 
     await supabase
       .from("tariffs")
@@ -138,6 +173,8 @@ Deno.serve(async (req: Request) => {
         ai_summary_generated_at: new Date().toISOString(),
       })
       .eq("id", tariffId);
+
+    console.log('Summary saved successfully');
 
     return new Response(
       JSON.stringify({ success: true, summary }),
@@ -151,7 +188,11 @@ Deno.serve(async (req: Request) => {
   } catch (error) {
     console.error("Error:", error);
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ 
+        success: false, 
+        error: error.message,
+        details: 'If the PDF is scanned or image-based, it may not be processable. Try uploading a text-based PDF or Excel file instead.'
+      }),
       {
         status: 500,
         headers: {
