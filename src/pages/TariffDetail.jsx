@@ -148,9 +148,21 @@ const TariffDocumentManager = ({ tariff }) => {
                                 <p className="font-medium text-sm">{file.name}</p>
                             </div>
                              <div className="flex items-center gap-2">
-                                <Button variant="ghost" size="icon" onClick={() => setFile(null)}><X className="w-4 h-4"/></Button>
+                                <Button variant="ghost" size="sm" onClick={() => setFile(null)}>
+                                    <X className="w-4 h-4 mr-1"/>Cancel
+                                </Button>
                                 <Button onClick={handleUpload} disabled={mutation.isPending}>
-                                    {mutation.isPending ? <Loader2 className="w-4 h-4 animate-spin"/> : <UploadCloud className="w-4 h-4"/>}
+                                    {mutation.isPending ? (
+                                        <>
+                                            <Loader2 className="w-4 h-4 mr-2 animate-spin"/>
+                                            Uploading...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <UploadCloud className="w-4 h-4 mr-2"/>
+                                            Upload
+                                        </>
+                                    )}
                                 </Button>
                             </div>
                         </div>
