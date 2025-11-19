@@ -46,14 +46,23 @@ export function UserProfile() {
 
       const effectiveUserId = isImpersonating ? impersonatedUser.id : user.id;
 
-      const { data: credentials } = await supabase
+      // Check both OAuth tokens and app password credentials
+      const { data: tokenCreds } = await supabase
+        .from('user_gmail_tokens')
+        .select('email_address')
+        .eq('user_id', effectiveUserId)
+        .maybeSingle();
+
+      const { data: appPasswordCreds } = await supabase
         .from('user_gmail_credentials')
         .select('email_address')
         .eq('user_id', effectiveUserId)
         .maybeSingle();
 
-      if (credentials) {
-        setEmail(credentials.email_address);
+      if (tokenCreds) {
+        setEmail(tokenCreds.email_address);
+      } else if (appPasswordCreds) {
+        setEmail(appPasswordCreds.email_address);
       }
 
       const { data, error } = await supabase

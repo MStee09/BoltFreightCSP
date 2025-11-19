@@ -155,7 +155,9 @@ export default function GmailCallback() {
       const expiryDate = new Date();
       expiryDate.setSeconds(expiryDate.getSeconds() + tokens.expires_in);
 
-      const { error: dbError } = await supabase
+      console.log('Attempting to save tokens for user:', user.id);
+
+      const { data: insertedData, error: dbError } = await supabase
         .from('user_gmail_tokens')
         .upsert({
           user_id: user.id,
@@ -164,10 +166,21 @@ export default function GmailCallback() {
           refresh_token: tokens.refresh_token,
           token_expiry: expiryDate.toISOString(),
           updated_at: new Date().toISOString(),
-        });
+        }, {
+          onConflict: 'user_id'
+        })
+        .select();
+
+      console.log('Token save result:', { insertedData, dbError });
 
       if (dbError) {
-        throw new Error('Failed to save Gmail credentials');
+        console.error('Database error saving tokens:', dbError);
+        throw new Error(`Failed to save Gmail credentials: ${dbError.message}`);
+      }
+
+      if (!insertedData || insertedData.length === 0) {
+        console.error('No data returned from upsert - RLS may have blocked the operation');
+        throw new Error('Failed to save Gmail credentials - permission denied');
       }
 
       setStatus('success');
