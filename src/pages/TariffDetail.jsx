@@ -9,7 +9,7 @@ import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Skeleton } from '../components/ui/skeleton';
-import { ArrowLeft, Edit, File, UploadCloud, Download, X, Loader2, BookMarked, ArrowRight, Users } from 'lucide-react';
+import { ArrowLeft, Edit, File, UploadCloud, Download, X, Loader2, BookMarked, ArrowRight, Users, Pencil, Check } from 'lucide-react';
 import { Input } from '../components/ui/input';
 import { Badge } from "../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
@@ -28,6 +28,9 @@ const TariffDocumentManager = ({ tariff }) => {
     const { toast } = useToast();
     const [file, setFile] = useState(null);
     const [isDragging, setIsDragging] = useState(false);
+    const [customFileName, setCustomFileName] = useState('');
+    const [isRenaming, setIsRenaming] = useState(false);
+    const [newName, setNewName] = useState(tariff.file_name || '');
 
     const mutation = useMutation({
         mutationFn: async (newFile) => {
@@ -40,23 +43,26 @@ const TariffDocumentManager = ({ tariff }) => {
 
             if (uploadError) throw uploadError;
 
+            const displayName = customFileName.trim() || newFile.name;
+
             await Tariff.update(tariff.id, {
-                file_url: filePath
+                file_url: filePath,
+                file_name: displayName
             });
 
             await Interaction.create({
                 entity_type: 'tariff',
                 entity_id: tariff.id,
                 interaction_type: 'document_upload',
-                summary: `Tariff Document Uploaded: ${newFile.name}`,
+                summary: `Tariff Document Uploaded: ${displayName}`,
                 details: `Uploaded tariff document for ${tariff.tariff_name || 'tariff'}.`,
                 metadata: {
-                    file_name: newFile.name,
+                    file_name: displayName,
                     file_size: newFile.size
                 }
             });
 
-            return { filePath, fileName: newFile.name };
+            return { filePath, fileName: displayName };
         },
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ['tariff', tariff.id] });
@@ -65,6 +71,7 @@ const TariffDocumentManager = ({ tariff }) => {
                 description: "Tariff document uploaded successfully.",
             });
             setFile(null);
+            setCustomFileName('');
         },
         onError: (error) => {
             toast({
@@ -86,6 +93,49 @@ const TariffDocumentManager = ({ tariff }) => {
         }
     };
     const handleUpload = () => file && mutation.mutate(file);
+
+    const renameMutation = useMutation({
+        mutationFn: async (newFileName) => {
+            await Tariff.update(tariff.id, {
+                file_name: newFileName
+            });
+
+            await Interaction.create({
+                entity_type: 'tariff',
+                entity_id: tariff.id,
+                interaction_type: 'note',
+                summary: `Document Renamed`,
+                details: `Renamed document to: ${newFileName}`,
+                metadata: {
+                    old_name: tariff.file_name,
+                    new_name: newFileName
+                }
+            });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['tariff', tariff.id] });
+            toast({
+                title: "Success!",
+                description: "Document renamed successfully.",
+            });
+            setIsRenaming(false);
+        },
+        onError: (error) => {
+            toast({
+                title: "Error",
+                description: "Failed to rename document.",
+                variant: "destructive",
+            });
+        }
+    });
+
+    const handleRename = () => {
+        if (newName.trim() && newName !== tariff.file_name) {
+            renameMutation.mutate(newName.trim());
+        } else {
+            setIsRenaming(false);
+        }
+    };
 
     const handleDownload = async () => {
         if (!tariff.file_url) return;
@@ -122,16 +172,50 @@ const TariffDocumentManager = ({ tariff }) => {
             <CardContent>
                 {tariff.file_url ? (
                     <div className="space-y-4">
-                        <div className="p-4 border rounded-lg flex items-center justify-between bg-slate-50">
-                            <div className="flex items-center gap-3">
-                                <File className="w-6 h-6 text-blue-500"/>
-                                <div>
-                                    <p className="font-medium text-sm">{tariff.file_name || 'Tariff Document'}</p>
+                        <div className="p-4 border rounded-lg bg-slate-50">
+                            <div className="flex items-center justify-between mb-3">
+                                <div className="flex items-center gap-3 flex-1">
+                                    <File className="w-6 h-6 text-blue-500"/>
+                                    {isRenaming ? (
+                                        <div className="flex items-center gap-2 flex-1">
+                                            <Input
+                                                value={newName}
+                                                onChange={(e) => setNewName(e.target.value)}
+                                                className="h-8"
+                                                placeholder="Enter document name"
+                                                onKeyDown={(e) => {
+                                                    if (e.key === 'Enter') handleRename();
+                                                    if (e.key === 'Escape') setIsRenaming(false);
+                                                }}
+                                                autoFocus
+                                            />
+                                            <Button size="sm" variant="ghost" onClick={handleRename} disabled={renameMutation.isPending}>
+                                                <Check className="w-4 h-4"/>
+                                            </Button>
+                                            <Button size="sm" variant="ghost" onClick={() => { setIsRenaming(false); setNewName(tariff.file_name || ''); }}>
+                                                <X className="w-4 h-4"/>
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-center gap-2 flex-1">
+                                            <p className="font-medium text-sm">{tariff.file_name || 'Tariff Document'}</p>
+                                            <Button
+                                                size="sm"
+                                                variant="ghost"
+                                                onClick={() => { setIsRenaming(true); setNewName(tariff.file_name || ''); }}
+                                                className="h-7 w-7 p-0"
+                                            >
+                                                <Pencil className="w-3 h-3"/>
+                                            </Button>
+                                        </div>
+                                    )}
                                 </div>
+                                {!isRenaming && (
+                                    <Button variant="outline" size="sm" onClick={handleDownload}>
+                                        <Download className="w-4 h-4 mr-2"/>Download
+                                    </Button>
+                                )}
                             </div>
-                            <Button variant="outline" size="sm" onClick={handleDownload}>
-                                <Download className="w-4 h-4 mr-2"/>Download
-                            </Button>
                         </div>
                          <p className="text-sm text-slate-600 text-center">To replace this document, upload a new one below.</p>
                     </div>
@@ -141,13 +225,27 @@ const TariffDocumentManager = ({ tariff }) => {
 
                 <div className="mt-4">
                     {file ? (
-                        <div className="p-4 border rounded-lg flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <File className="w-6 h-6 text-blue-500"/>
-                                <p className="font-medium text-sm">{file.name}</p>
+                        <div className="p-4 border rounded-lg space-y-3">
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <File className="w-6 h-6 text-blue-500"/>
+                                    <p className="font-medium text-sm">{file.name}</p>
+                                </div>
                             </div>
-                             <div className="flex items-center gap-2">
-                                <Button variant="ghost" size="sm" onClick={() => setFile(null)}>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium text-slate-700">
+                                    Document Name (optional)
+                                </label>
+                                <Input
+                                    value={customFileName}
+                                    onChange={(e) => setCustomFileName(e.target.value)}
+                                    placeholder={file.name}
+                                    className="h-9"
+                                />
+                                <p className="text-xs text-slate-500">Leave blank to use the original file name</p>
+                            </div>
+                            <div className="flex items-center gap-2 justify-end">
+                                <Button variant="ghost" size="sm" onClick={() => { setFile(null); setCustomFileName(''); }}>
                                     <X className="w-4 h-4 mr-1"/>Cancel
                                 </Button>
                                 <Button onClick={handleUpload} disabled={mutation.isPending}>
