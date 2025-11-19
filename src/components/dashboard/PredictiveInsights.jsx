@@ -2,29 +2,48 @@ import React from 'react';
 import { format, endOfMonth } from 'date-fns';
 import { AlertTriangle, FileText, Target, Zap, TrendingUp, Sparkles, Brain, Clock, TrendingDown } from 'lucide-react';
 import { Card, CardContent } from '../ui/card';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '../../utils';
 
-const PredictiveInsight = ({ icon: Icon, title, description, trend, color }) => (
-  <div className={`p-4 rounded-lg border ${color} bg-white`}>
-    <div className="flex items-start gap-3">
-      <div className={`p-2 rounded-lg ${color.replace('border-', 'bg-').replace('-200', '-100')}`}>
-        <Icon className={`w-5 h-5 ${color.replace('border-', 'text-').replace('-200', '-600')}`} />
-      </div>
-      <div className="flex-1 min-w-0">
-        <h4 className="text-sm font-semibold text-slate-900 mb-1">{title}</h4>
-        <p className="text-xs text-slate-600 leading-relaxed">{description}</p>
-        {trend && (
-          <div className="flex items-center gap-1 mt-2">
-            <TrendingUp className={`w-3 h-3 ${trend.direction === 'up' ? 'text-green-600' : 'text-red-600'}`} />
-            <span className={`text-xs font-semibold ${trend.direction === 'up' ? 'text-green-600' : 'text-red-600'}`}>
-              {trend.value}
-            </span>
+const PredictiveInsight = ({ icon: Icon, title, description, trend, color, details }) => (
+  <TooltipProvider>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div className={`p-4 rounded-lg border ${color} bg-white cursor-help hover:shadow-md transition-shadow`}>
+          <div className="flex items-start gap-3">
+            <div className={`p-2 rounded-lg ${color.replace('border-', 'bg-').replace('-200', '-100')}`}>
+              <Icon className={`w-5 h-5 ${color.replace('border-', 'text-').replace('-200', '-600')}`} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <h4 className="text-sm font-semibold text-slate-900 mb-1">{title}</h4>
+              <p className="text-xs text-slate-600 leading-relaxed">{description}</p>
+              {trend && (
+                <div className="flex items-center gap-1 mt-2">
+                  <TrendingUp className={`w-3 h-3 ${trend.direction === 'up' ? 'text-green-600' : 'text-red-600'}`} />
+                  <span className={`text-xs font-semibold ${trend.direction === 'up' ? 'text-green-600' : 'text-red-600'}`}>
+                    {trend.value}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
-        )}
-      </div>
-    </div>
-  </div>
+        </div>
+      </TooltipTrigger>
+      {details && (
+        <TooltipContent className="max-w-md">
+          <div className="space-y-2">
+            {details.map((detail, idx) => (
+              <div key={idx} className="text-xs">
+                {detail.label && <span className="font-semibold">{detail.label}: </span>}
+                {detail.value}
+              </div>
+            ))}
+          </div>
+        </TooltipContent>
+      )}
+    </Tooltip>
+  </TooltipProvider>
 );
 
 export const PredictiveInsightsPanel = ({ events, tariffs, cspEvents, dailyDigest, compact = false }) => {
@@ -198,6 +217,16 @@ export const PredictiveInsightsPanel = ({ events, tariffs, cspEvents, dailyDiges
   }
 
   if (expiring.csps > 0) {
+    const nextMonth = new Date(today);
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    const nextMonthEnd = endOfMonth(nextMonth);
+
+    const expiringCSPsList = cspEvents.filter(e => {
+      if (!e.due_date) return false;
+      const due = new Date(e.due_date);
+      return due > today && due <= nextMonthEnd;
+    });
+
     insights.push(
       <PredictiveInsight
         key="csp-expiration"
@@ -205,11 +234,28 @@ export const PredictiveInsightsPanel = ({ events, tariffs, cspEvents, dailyDiges
         title="CSP Expiration Forecast"
         description={`${expiring.csps} CSP ${expiring.csps === 1 ? 'event is' : 'events are'} likely to expire next month based on historical timing. Review and prepare renewal strategies now.`}
         color="border-orange-200"
+        details={[
+          { label: 'Expiring CSP Events', value: expiringCSPsList.length },
+          ...expiringCSPsList.slice(0, 5).map(csp => ({
+            value: `${csp.title} — Due: ${format(new Date(csp.due_date), 'MMM dd, yyyy')}`
+          })),
+          ...(expiringCSPsList.length > 5 ? [{ value: `...and ${expiringCSPsList.length - 5} more` }] : [])
+        ]}
       />
     );
   }
 
   if (expiring.tariffs > 0) {
+    const nextMonth = new Date(today);
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    const nextMonthEnd = endOfMonth(nextMonth);
+
+    const expiringTariffsList = tariffs.filter(t => {
+      if (!t.expiry_date) return false;
+      const expiry = new Date(t.expiry_date);
+      return expiry > today && expiry <= nextMonthEnd;
+    });
+
     insights.push(
       <PredictiveInsight
         key="tariff-renewal"
@@ -217,6 +263,14 @@ export const PredictiveInsightsPanel = ({ events, tariffs, cspEvents, dailyDiges
         title="Tariff Renewal Prediction"
         description={`${expiring.tariffs} tariff${expiring.tariffs === 1 ? '' : 's'} expiring next month. Historical data shows ${Math.round(expiring.tariffs * 0.7)} will require negotiation cycles of 30+ days.`}
         color="border-green-200"
+        details={[
+          { label: 'Expiring Tariffs', value: expiringTariffsList.length },
+          { label: 'Estimated Long Negotiations', value: `${Math.round(expiring.tariffs * 0.7)} tariffs (30+ days)` },
+          ...expiringTariffsList.slice(0, 5).map(tariff => ({
+            value: `${tariff.tariff_reference_id || tariff.version} — Expires: ${format(new Date(tariff.expiry_date), 'MMM dd, yyyy')}`
+          })),
+          ...(expiringTariffsList.length > 5 ? [{ value: `...and ${expiringTariffsList.length - 5} more` }] : [])
+        ]}
       />
     );
   }
@@ -238,6 +292,16 @@ export const PredictiveInsightsPanel = ({ events, tariffs, cspEvents, dailyDiges
   }
 
   if (velocity.total > 0) {
+    const last30Days = new Date(today);
+    last30Days.setDate(last30Days.getDate() - 30);
+
+    const recentEventsList = events.filter(e => {
+      const eventDate = new Date(e.date);
+      return eventDate >= last30Days && eventDate <= today;
+    });
+
+    const highPriorityEvents = recentEventsList.filter(e => e.priority === 'high');
+
     insights.push(
       <PredictiveInsight
         key="velocity"
@@ -249,11 +313,30 @@ export const PredictiveInsightsPanel = ({ events, tariffs, cspEvents, dailyDiges
           value: `${velocity.highPriorityRate}% high priority`
         }}
         color="border-blue-200"
+        details={[
+          { label: 'Total Events (30 days)', value: recentEventsList.length },
+          { label: 'High Priority Events', value: highPriorityEvents.length },
+          { label: 'Medium Priority Events', value: recentEventsList.filter(e => e.priority === 'medium').length },
+          { label: 'Low Priority Events', value: recentEventsList.filter(e => e.priority === 'low').length },
+          { label: 'High Priority Rate', value: `${velocity.highPriorityRate}%` },
+          { label: 'Recommendation', value: velocity.highPriorityRate > 40 ? 'Consider workload rebalancing or resource allocation' : 'Current workload distribution is healthy' }
+        ]}
       />
     );
   }
 
   if (pattern) {
+    const monthlyDistribution = {};
+
+    tariffs.forEach(t => {
+      if (t.expiry_date) {
+        const month = format(new Date(t.expiry_date), 'MMM');
+        monthlyDistribution[month] = (monthlyDistribution[month] || 0) + 1;
+      }
+    });
+
+    const sortedMonths = Object.entries(monthlyDistribution).sort(([, a], [, b]) => b - a);
+
     insights.push(
       <PredictiveInsight
         key="pattern"
@@ -261,22 +344,40 @@ export const PredictiveInsightsPanel = ({ events, tariffs, cspEvents, dailyDiges
         title="Seasonal Pattern Detected"
         description={`Peak expiration month is ${pattern.month} with ${pattern.count} tariffs. Plan resource allocation and negotiate early to avoid bottlenecks.`}
         color="border-purple-200"
+        details={[
+          { label: 'Peak Month', value: `${pattern.month} (${pattern.count} tariffs)` },
+          { label: 'Monthly Distribution', value: '' },
+          ...sortedMonths.slice(0, 6).map(([month, count]) => ({
+            value: `${month}: ${count} tariff${count === 1 ? '' : 's'}`
+          })),
+          { label: 'Action Required', value: 'Start negotiations 60-90 days before peak month to avoid bottlenecks' }
+        ]}
       />
     );
   }
 
   if (events.filter(e => e.autoGenerated).length > 0) {
+    const automatedEvents = events.filter(e => e.autoGenerated);
+    const timeSaved = Math.round(automatedEvents.length * 0.5);
+
     insights.push(
       <PredictiveInsight
         key="automation"
         icon={Sparkles}
         title="AI Automation Impact"
-        description={`${events.filter(e => e.autoGenerated).length} events were auto-generated this period, saving approximately ${Math.round(events.filter(e => e.autoGenerated).length * 0.5)} hours of manual planning time.`}
+        description={`${automatedEvents.length} events were auto-generated this period, saving approximately ${timeSaved} hours of manual planning time.`}
         trend={{
           direction: 'up',
-          value: `${events.filter(e => e.autoGenerated).length} automated`
+          value: `${automatedEvents.length} automated`
         }}
         color="border-cyan-200"
+        details={[
+          { label: 'Auto-Generated Events', value: automatedEvents.length },
+          { label: 'Estimated Time Saved', value: `${timeSaved} hours (${Math.round(timeSaved / 8)} work days)` },
+          { label: 'Average Time per Manual Event', value: '30 minutes' },
+          { label: 'Automation Rate', value: `${Math.round(automatedEvents.length / events.length * 100)}% of all events` },
+          { label: 'Impact', value: 'AI automation reduces manual effort and allows focus on strategic tasks' }
+        ]}
       />
     );
   }
