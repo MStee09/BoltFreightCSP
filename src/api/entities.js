@@ -100,7 +100,36 @@ const createEntity = (tableName) => ({
 
 export const Customer = createEntity('customers');
 export const Carrier = createEntity('carriers');
-export const Tariff = createEntity('tariffs');
+
+export const Tariff = {
+  ...createEntity('tariffs'),
+  async list(orderBy = '-created_date') {
+    let query = supabase
+      .from('tariffs')
+      .select('*, customers(id, name), carriers(id, name, scac_code)');
+
+    if (orderBy) {
+      const isDesc = orderBy.startsWith('-');
+      const field = isDesc ? orderBy.substring(1) : orderBy;
+      query = query.order(field, { ascending: !isDesc });
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data || [];
+  },
+  async get(id) {
+    const { data, error } = await supabase
+      .from('tariffs')
+      .select('*, customers(id, name), carriers(id, name, scac_code)')
+      .eq('id', id)
+      .maybeSingle();
+
+    if (error) throw error;
+    return data;
+  },
+};
+
 export const CSPEvent = createEntity('csp_events');
 export const Task = createEntity('tasks');
 export const Interaction = createEntity('interactions');

@@ -43,10 +43,10 @@ export default function ExpiringTariffs({ tariffs, customers, carriers }) {
         {safeTariffs.length > 0 ? (
           <div className="space-y-3">
             {safeTariffs.slice(0, 6).map((tariff) => {
-              const customer = safeCustomers.find(c => c.id === tariff.customer_id);
-              const carrier = safeCarriers.find(c => c.id === tariff.carrier_id);
+              const customer = tariff.customers || safeCustomers.find(c => c.id === tariff.customer_id);
+              const carrier = tariff.carriers || safeCarriers.find(c => c.id === tariff.carrier_id);
               const daysLeft = getDaysUntilExpiry(tariff.expiry_date);
-              
+
               return (
                 <div
                   key={tariff.id}

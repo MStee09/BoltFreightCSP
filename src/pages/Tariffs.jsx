@@ -416,22 +416,22 @@ export default function TariffsPage() {
 
       if (ownershipTab === 'rocket_blanket' || ownershipTab === 'priority1_blanket') {
         const carrierIds = tariff.carrier_ids || [];
-        const carrier = carrierIds.length > 0
+        const carrier = tariff.carriers || (carrierIds.length > 0
           ? carriers.find(c => carrierIds.includes(c.id))
-          : carriers.find(c => c.id === tariff.carrier_id);
+          : carriers.find(c => c.id === tariff.carrier_id));
         groupKey = carrier?.id || 'unknown';
         groupName = carrier ? `${carrier.name} Blanket` : 'Unknown Carrier';
         subGroupKey = tariff.tariff_family_id || tariff.id;
         subGroupName = 'Tariff Family';
       } else {
-        const customer = customers.find(c => c.id === tariff.customer_id);
+        const customer = tariff.customers || customers.find(c => c.id === tariff.customer_id);
         groupKey = customer?.id || 'unknown';
         groupName = customer?.name || 'Unknown Customer';
 
         const carrierIds = tariff.carrier_ids || [];
-        const carrier = carrierIds.length > 0
+        const carrier = tariff.carriers || (carrierIds.length > 0
           ? carriers.find(c => carrierIds.includes(c.id))
-          : carriers.find(c => c.id === tariff.carrier_id);
+          : carriers.find(c => c.id === tariff.carrier_id));
         subGroupKey = tariff.tariff_family_id || tariff.id;
         subGroupName = carrier?.name || 'Unknown Carrier';
       }
