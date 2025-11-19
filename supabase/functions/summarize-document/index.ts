@@ -28,50 +28,54 @@ function intelligentTruncate(text: string, maxTokens: number = 20000): string {
   return beginning + "\n\n... [middle section truncated] ...\n\n" + middle + "\n\n... [content truncated] ...\n\n" + end;
 }
 
-async function extractTextFromPDF(arrayBuffer: ArrayBuffer): Promise<string> {
+async function extractTextFromPDFWithVision(arrayBuffer: ArrayBuffer, openaiKey: string): Promise<string> {
   try {
-    console.log('Attempting advanced PDF text extraction...');
+    console.log('Using GPT-4 Vision to extract text from PDF...');
     
-    const uint8Array = new Uint8Array(arrayBuffer);
-    const pdfText = new TextDecoder('latin1').decode(uint8Array);
+    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
     
-    const streamPattern = /stream\s+([\s\S]*?)\s+endstream/g;
-    let allText = '';
-    let match;
-    
-    while ((match = streamPattern.exec(pdfText)) !== null) {
-      const streamContent = match[1];
-      
-      const readableText = streamContent.match(/[\x20-\x7E]{3,}/g);
-      if (readableText) {
-        allText += readableText.join(' ') + ' ';
-      }
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + openaiKey,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: "Extract ALL text from this tariff document PDF. Return the complete text content without any analysis or summary. Include all carrier names, rates, dates, locations, terms, and conditions exactly as they appear."
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: `data:application/pdf;base64,${base64}`,
+                  detail: "high"
+                }
+              }
+            ]
+          }
+        ],
+        max_tokens: 4000,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Vision API error:', response.status, errorText);
+      throw new Error("Vision API failed: " + errorText);
     }
-    
-    const objPattern = /\(([^)]{3,})\)/g;
-    while ((match = objPattern.exec(pdfText)) !== null) {
-      const textContent = match[1]
-        .replace(/\\n/g, '\n')
-        .replace(/\\r/g, '')
-        .replace(/\\t/g, '\t')
-        .replace(/\\\(/g, '(')
-        .replace(/\\\)/g, ')')
-        .replace(/\\\\/g, '\\');
-      
-      if (textContent.trim().length > 2) {
-        allText += textContent + ' ';
-      }
-    }
-    
-    allText = allText
-      .replace(/\s+/g, ' ')
-      .replace(/([a-z])([A-Z])/g, '$1 $2')
-      .trim();
-    
-    console.log('Extracted text length:', allText.length);
-    return allText;
+
+    const result = await response.json();
+    const extractedText = result.choices[0]?.message?.content || '';
+    console.log('Vision extracted text length:', extractedText.length);
+    return extractedText;
   } catch (error) {
-    console.error('PDF extraction error:', error);
+    console.error('Vision extraction error:', error);
     throw error;
   }
 }
@@ -160,7 +164,12 @@ Deno.serve(async (req: Request) => {
 
     if (isPDF) {
       const arrayBuffer = await fileData.arrayBuffer();
-      extractedText = await extractTextFromPDF(arrayBuffer);
+      
+      if (arrayBuffer.byteLength > 20 * 1024 * 1024) {
+        throw new Error("PDF file too large (max 20MB for Vision API)");
+      }
+      
+      extractedText = await extractTextFromPDFWithVision(arrayBuffer, openaiKey);
     } else {
       try {
         extractedText = await fileData.text();
@@ -198,7 +207,7 @@ Deno.serve(async (req: Request) => {
 
     const truncatedText = intelligentTruncate(extractedText, 20000);
     const estimatedTokens = estimateTokens(truncatedText);
-    console.log('Sending to OpenAI, estimated tokens:', estimatedTokens);
+    console.log('Sending to OpenAI for summary, estimated tokens:', estimatedTokens);
 
     const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
