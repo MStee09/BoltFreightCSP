@@ -210,104 +210,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (!transporter) {
-      console.log('⚠️ No valid user credentials, falling back to admin credentials');
-
-      const { data: adminProfiles } = await supabaseServiceClient
-        .from('user_profiles')
-        .select('id')
-        .eq('role', 'admin')
-        .eq('is_active', true)
-        .limit(1);
-
-      if (adminProfiles && adminProfiles.length > 0) {
-        const adminId = adminProfiles[0].id;
-
-        const { data: adminOauthTokens } = await supabaseServiceClient
-          .from('user_gmail_tokens')
-          .select('*')
-          .eq('user_id', adminId)
-          .maybeSingle();
-
-        if (adminOauthTokens) {
-          const { data: oauthSettings } = await supabaseClient
-            .from('system_settings')
-            .select('setting_value')
-            .eq('setting_key', 'gmail_oauth_credentials')
-            .maybeSingle();
-
-          if (oauthSettings?.setting_value?.client_id) {
-            let adminAccessToken = adminOauthTokens.access_token;
-            try {
-              const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                body: new URLSearchParams({
-                  client_id: oauthSettings.setting_value.client_id,
-                  client_secret: oauthSettings.setting_value.client_secret,
-                  refresh_token: adminOauthTokens.refresh_token,
-                  grant_type: 'refresh_token',
-                }),
-              });
-
-              if (tokenResponse.ok) {
-                const tokenData = await tokenResponse.json();
-                adminAccessToken = tokenData.access_token;
-                await supabaseServiceClient
-                  .from('user_gmail_tokens')
-                  .update({
-                    access_token: adminAccessToken,
-                    updated_at: new Date().toISOString()
-                  })
-                  .eq('id', adminOauthTokens.id);
-              }
-            } catch (e) {
-              console.warn('Admin token refresh failed:', e.message);
-            }
-
-            transporter = nodemailer.createTransport({
-              host: 'smtp.gmail.com',
-              port: 587,
-              secure: false,
-              auth: {
-                type: 'OAuth2',
-                user: adminOauthTokens.email_address,
-                clientId: oauthSettings.setting_value.client_id,
-                clientSecret: oauthSettings.setting_value.client_secret,
-                refreshToken: adminOauthTokens.refresh_token,
-                accessToken: adminAccessToken,
-              },
-            });
-            fromEmail = adminOauthTokens.email_address;
-            console.log('✅ Using admin OAuth credentials as fallback');
-          }
-        }
-
-        if (!transporter) {
-          const { data: adminAppPassword } = await supabaseServiceClient
-            .from('user_gmail_credentials')
-            .select('*')
-            .eq('user_id', adminId)
-            .maybeSingle();
-
-          if (adminAppPassword) {
-            transporter = nodemailer.createTransport({
-              host: 'smtp.gmail.com',
-              port: 587,
-              secure: false,
-              auth: {
-                user: adminAppPassword.email_address,
-                pass: adminAppPassword.app_password,
-              },
-            });
-            fromEmail = adminAppPassword.email_address;
-            console.log('✅ Using admin app password as fallback');
-          }
-        }
-      }
-
-      if (!transporter) {
-        throw new Error('Unable to send email. No valid SMTP credentials available. Please connect your Gmail account in Settings → Integrations.');
-      }
+      throw new Error('Gmail not connected. Please connect your Gmail account in Settings → Integrations to send emails.');
     }
 
     const mailOptions: any = {
@@ -334,135 +237,27 @@ Deno.serve(async (req: Request) => {
       emailSent = true;
       console.log('✅ Email sent successfully');
     } catch (sendErr) {
-      console.error('❌ Failed to send with user credentials:', sendErr.message);
+      console.error('❌ Failed to send email:', sendErr.message);
       sendError = sendErr;
 
-      // If user credentials failed and we're not impersonating, try admin fallback
-      if (!impersonatedUserId) {
-        console.log('🔄 Attempting admin credential fallback...');
-
-        // ONLY delete OAuth tokens if it's specifically an auth error
-        if (oauthTokens && sendErr.message && 
-            (sendErr.message.includes('Invalid credentials') || 
-             sendErr.message.includes('Invalid login') ||
-             sendErr.message.includes('535'))) {
-          console.log('🗑️ Authentication failed, deleting invalid OAuth tokens');
-          await clientForCredentials
-            .from('user_gmail_tokens')
-            .delete()
-            .eq('id', oauthTokens.id);
-        }
-
-        const { data: adminProfiles } = await supabaseServiceClient
-          .from('user_profiles')
-          .select('id')
-          .eq('role', 'admin')
-          .eq('is_active', true)
-          .limit(1);
-
-        if (adminProfiles && adminProfiles.length > 0) {
-          const adminId = adminProfiles[0].id;
-
-          const { data: adminAppPassword } = await supabaseServiceClient
-            .from('user_gmail_credentials')
-            .select('*')
-            .eq('user_id', adminId)
-            .maybeSingle();
-
-          if (adminAppPassword) {
-            try {
-              const adminTransporter = nodemailer.createTransport({
-                host: 'smtp.gmail.com',
-                port: 587,
-                secure: false,
-                auth: {
-                  user: adminAppPassword.email_address,
-                  pass: adminAppPassword.app_password,
-                },
-              });
-
-              await adminTransporter.sendMail(mailOptions);
-              emailSent = true;
-              console.log('✅ Email sent using admin app password fallback');
-            } catch (adminErr) {
-              console.error('❌ Admin app password failed:', adminErr.message);
-            }
-          }
-
-          if (!emailSent) {
-            const { data: adminOauthTokens } = await supabaseServiceClient
-              .from('user_gmail_tokens')
-              .select('*')
-              .eq('user_id', adminId)
-              .maybeSingle();
-
-            if (adminOauthTokens) {
-              const { data: oauthSettings } = await supabaseClient
-                .from('system_settings')
-                .select('setting_value')
-                .eq('setting_key', 'gmail_oauth_credentials')
-                .maybeSingle();
-
-              if (oauthSettings?.setting_value?.client_id) {
-                let adminAccessToken = adminOauthTokens.access_token;
-                try {
-                  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                    body: new URLSearchParams({
-                      client_id: oauthSettings.setting_value.client_id,
-                      client_secret: oauthSettings.setting_value.client_secret,
-                      refresh_token: adminOauthTokens.refresh_token,
-                      grant_type: 'refresh_token',
-                    }),
-                  });
-
-                  if (tokenResponse.ok) {
-                    const tokenData = await tokenResponse.json();
-                    adminAccessToken = tokenData.access_token;
-                    await supabaseServiceClient
-                      .from('user_gmail_tokens')
-                      .update({
-                        access_token: adminAccessToken,
-                        updated_at: new Date().toISOString()
-                      })
-                      .eq('id', adminOauthTokens.id);
-                  }
-
-                  const adminOauthTransporter = nodemailer.createTransport({
-                    host: 'smtp.gmail.com',
-                    port: 587,
-                    secure: false,
-                    auth: {
-                      type: 'OAuth2',
-                      user: adminOauthTokens.email_address,
-                      clientId: oauthSettings.setting_value.client_id,
-                      clientSecret: oauthSettings.setting_value.client_secret,
-                      refreshToken: adminOauthTokens.refresh_token,
-                      accessToken: adminAccessToken,
-                    },
-                  });
-
-                  await adminOauthTransporter.sendMail(mailOptions);
-                  emailSent = true;
-                  console.log('✅ Email sent using admin OAuth fallback');
-                } catch (adminOauthErr) {
-                  console.error('❌ Admin OAuth failed:', adminOauthErr.message);
-                }
-              }
-            }
-          }
-        }
+      // ONLY delete OAuth tokens if it's specifically an auth error
+      if (oauthTokens && sendErr.message &&
+          (sendErr.message.includes('Invalid credentials') ||
+           sendErr.message.includes('Invalid login') ||
+           sendErr.message.includes('535'))) {
+        console.log('🗑️ Authentication failed, deleting invalid OAuth tokens');
+        await clientForCredentials
+          .from('user_gmail_tokens')
+          .delete()
+          .eq('id', oauthTokens.id);
       }
 
-      if (!emailSent) {
-        // Provide user-friendly error message
-        const errorMsg = sendError.message || 'Unknown error';
-        if (errorMsg.includes('Invalid credentials') || errorMsg.includes('535')) {
-          throw new Error('Your Gmail connection has expired or is invalid. Please reconnect your Gmail account in Settings to send emails.');
-        }
-        throw new Error(`Failed to send email: ${errorMsg}`);
+      // Provide user-friendly error message
+      const errorMsg = sendError.message || 'Unknown error';
+      if (errorMsg.includes('Invalid credentials') || errorMsg.includes('535')) {
+        throw new Error('Your Gmail connection has expired or is invalid. Please reconnect your Gmail account in Settings to send emails.');
       }
+      throw new Error(`Failed to send email: ${errorMsg}`);
     }
 
     const activityData: any = {
