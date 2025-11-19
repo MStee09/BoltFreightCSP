@@ -47,6 +47,14 @@ export default function ExpiringTariffs({ tariffs, customers, carriers }) {
               const carrier = tariff.carriers || safeCarriers.find(c => c.id === tariff.carrier_id);
               const daysLeft = getDaysUntilExpiry(tariff.expiry_date);
 
+              const isBlanket = tariff.ownership_type === 'blanket' ||
+                               tariff.ownership_type === 'rocket_blanket' ||
+                               !tariff.customer_id;
+
+              const displayName = isBlanket
+                ? `${carrier?.name || 'Blanket'} - All Customers`
+                : customer?.name || 'Unknown Customer';
+
               return (
                 <div
                   key={tariff.id}
@@ -55,10 +63,10 @@ export default function ExpiringTariffs({ tariffs, customers, carriers }) {
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
                       <p className="font-semibold text-slate-900 mb-1">
-                        {customer?.name || 'Unknown Customer'}
+                        {displayName}
                       </p>
                       <p className="text-sm text-slate-600">
-                        {carrier?.name || 'Unknown Carrier'} • {tariff.tariff_reference_id}
+                        {isBlanket ? 'Blanket Tariff' : carrier?.name || 'Unknown Carrier'} • {tariff.tariff_reference_id}
                       </p>
                     </div>
                     <Badge className={`${getUrgencyColor(daysLeft)} border font-semibold`}>
