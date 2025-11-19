@@ -9,7 +9,7 @@ import { format } from 'date-fns';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Skeleton } from '../components/ui/skeleton';
-import { ArrowLeft, Edit, File, UploadCloud, Download, X, Loader2, BookMarked, ArrowRight, Users, Pencil, Check } from 'lucide-react';
+import { ArrowLeft, Edit, File, UploadCloud, Download, X, Loader2, BookMarked, ArrowRight, Users, Pencil, Check, Eye, ExternalLink } from 'lucide-react';
 import { Input } from '../components/ui/input';
 import { Badge } from "../components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
@@ -137,6 +137,26 @@ const TariffDocumentManager = ({ tariff }) => {
         }
     };
 
+    const handleView = async () => {
+        if (!tariff.file_url) return;
+
+        try {
+            const { data, error } = await supabase.storage
+                .from('documents')
+                .createSignedUrl(tariff.file_url, 3600);
+
+            if (error) throw error;
+
+            window.open(data.signedUrl, '_blank');
+        } catch (error) {
+            toast({
+                title: "Error",
+                description: "Failed to view document.",
+                variant: "destructive",
+            });
+        }
+    };
+
     const handleDownload = async () => {
         if (!tariff.file_url) return;
 
@@ -211,9 +231,14 @@ const TariffDocumentManager = ({ tariff }) => {
                                     )}
                                 </div>
                                 {!isRenaming && (
-                                    <Button variant="outline" size="sm" onClick={handleDownload}>
-                                        <Download className="w-4 h-4 mr-2"/>Download
-                                    </Button>
+                                    <div className="flex items-center gap-2">
+                                        <Button variant="outline" size="sm" onClick={handleView}>
+                                            <Eye className="w-4 h-4 mr-2"/>View
+                                        </Button>
+                                        <Button variant="outline" size="sm" onClick={handleDownload}>
+                                            <Download className="w-4 h-4 mr-2"/>Download
+                                        </Button>
+                                    </div>
                                 )}
                             </div>
                         </div>
