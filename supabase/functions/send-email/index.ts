@@ -82,9 +82,9 @@ Deno.serve(async (req: Request) => {
       throw new Error('User profile not found');
     }
 
-    const clientForCredentials = impersonatedUserId ? supabaseServiceClient : supabaseClient;
-
-    const { data: oauthTokens, error: oauthError } = await clientForCredentials
+    // ALWAYS use service role to fetch tokens - bypasses RLS completely
+    // This is safe because we already verified the user is authenticated above
+    const { data: oauthTokens, error: oauthError } = await supabaseServiceClient
       .from('user_gmail_tokens')
       .select('*')
       .eq('user_id', effectiveUserId)
@@ -93,7 +93,7 @@ Deno.serve(async (req: Request) => {
     console.log('📧 OAuth tokens query:', {
       effectiveUserId,
       hasTokens: !!oauthTokens,
-      usingServiceRole: !!impersonatedUserId,
+      usingServiceRole: true,
       error: oauthError?.message
     });
 
@@ -136,7 +136,7 @@ Deno.serve(async (req: Request) => {
           const tokenData = await tokenResponse.json();
           accessToken = tokenData.access_token;
 
-          await clientForCredentials
+          await supabaseServiceClient
             .from('user_gmail_tokens')
             .update({
               access_token: accessToken,
@@ -164,7 +164,7 @@ Deno.serve(async (req: Request) => {
           // ONLY delete tokens if the refresh token itself is revoked/invalid
           if (errorData.error === 'invalid_grant') {
             console.log('🗑️ Refresh token is permanently invalid, deleting...');
-            await clientForCredentials
+            await supabaseServiceClient
               .from('user_gmail_tokens')
               .delete()
               .eq('id', oauthTokens.id);
@@ -232,7 +232,7 @@ Deno.serve(async (req: Request) => {
            sendErr.message.includes('Invalid login') ||
            sendErr.message.includes('535'))) {
         console.log('🗑️ Authentication failed, deleting invalid OAuth tokens');
-        await clientForCredentials
+        await supabaseServiceClient
           .from('user_gmail_tokens')
           .delete()
           .eq('id', oauthTokens.id);

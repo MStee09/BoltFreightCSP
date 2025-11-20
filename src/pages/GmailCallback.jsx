@@ -305,43 +305,49 @@ export default function GmailCallback() {
 
       console.log('Attempting to save tokens for user:', user.id);
 
-      // First, delete any existing tokens for this user
-      const { error: deleteError } = await supabase
+      // Use UPSERT to handle both new inserts and updates of existing tokens
+      // This handles the UNIQUE constraint on user_id elegantly
+      const { data: upsertData, error: upsertError } = await supabase
         .from('user_gmail_tokens')
-        .delete()
-        .eq('user_id', user.id);
-
-      if (deleteError) {
-        console.warn('Error deleting existing tokens (may not exist):', deleteError);
-      }
-
-      // Insert new tokens directly (RLS allows users to insert their own tokens)
-      const { data: insertData, error: insertError } = await supabase
-        .from('user_gmail_tokens')
-        .insert({
+        .upsert({
           user_id: user.id,
           email_address: profile.email,
           access_token: tokens.access_token,
           refresh_token: tokens.refresh_token,
           token_expiry: expiryDate.toISOString(),
+          updated_at: new Date().toISOString(),
+        }, {
+          onConflict: 'user_id',
+          ignoreDuplicates: false
         })
         .select()
-        .single();
+        .maybeSingle();
 
-      if (insertError) {
-        console.error('Failed to save tokens:', insertError);
-        await logError('token_save_failed', insertError.message, {
+      if (upsertError) {
+        console.error('Failed to save tokens:', upsertError);
+        await logError('token_save_failed', upsertError.message, {
           userId: user.id,
           userEmail: user.email,
-          errorCode: insertError.code,
-          errorDetails: insertError.details
+          errorCode: upsertError.code,
+          errorDetails: upsertError.details,
+          errorHint: upsertError.hint
         });
-        throw new Error(`Failed to save Gmail credentials: ${insertError.message}`);
+        throw new Error(`Failed to save Gmail credentials: ${upsertError.message}`);
+      }
+
+      // Verify we actually got data back
+      if (!upsertData) {
+        console.error('UPSERT returned no data - possible RLS issue');
+        await logError('token_save_no_data', 'UPSERT returned null', {
+          userId: user.id,
+          userEmail: user.email
+        });
+        throw new Error('Failed to save Gmail credentials - no data returned. This may be an RLS policy issue.');
       }
 
       console.log('Gmail tokens saved successfully:', {
-        id: insertData.id,
-        email: insertData.email_address
+        id: upsertData.id,
+        email: upsertData.email_address
       });
 
       // Verify the data was actually saved by reading it back
