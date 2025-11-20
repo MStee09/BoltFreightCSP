@@ -7,9 +7,11 @@ import { Mail, Check, AlertCircle, RefreshCw, Send, Copy, ExternalLink } from 'l
 import { toast } from 'sonner';
 import { supabase } from '@/api/supabaseClient';
 import { useImpersonation } from '@/contexts/ImpersonationContext';
+import { useGmailReconnect } from '@/contexts/GmailReconnectContext';
 
 export function GmailSetupSimple() {
   const { isImpersonating, impersonatedUser } = useImpersonation();
+  const { showReconnectModal } = useGmailReconnect();
   const [isConnected, setIsConnected] = useState(false);
   const [emailAddress, setEmailAddress] = useState('');
   const [loading, setLoading] = useState(true);
@@ -91,7 +93,8 @@ export function GmailSetupSimple() {
       return;
     }
 
-    // Check if user already has tokens - if so, revoke them on Google's side first
+    toast.info('Preparing fresh Gmail connection...');
+
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       const effectiveUserId = isImpersonating ? impersonatedUser.id : user.id;
@@ -102,26 +105,34 @@ export function GmailSetupSimple() {
         .eq('user_id', effectiveUserId)
         .maybeSingle();
 
-      if (existingTokens?.access_token) {
-        console.log('🗑️ Revoking existing Google authorization...');
-        try {
-          // Revoke the token on Google's side to ensure we get a fresh refresh token
-          await fetch(`https://oauth2.googleapis.com/revoke?token=${existingTokens.access_token}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/x-www-form-urlencoded'
-            }
-          });
-          console.log('✅ Google authorization revoked');
-        } catch (revokeError) {
-          console.warn('Failed to revoke on Google side:', revokeError);
+      if (existingTokens) {
+        console.log('🗑️ Cleaning up existing Gmail connection...');
+
+        const tokensToRevoke = [
+          existingTokens.access_token,
+          existingTokens.refresh_token
+        ].filter(Boolean);
+
+        for (const token of tokensToRevoke) {
+          try {
+            await fetch(`https://oauth2.googleapis.com/revoke?token=${token}`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+              }
+            });
+            console.log('✅ Revoked token on Google');
+          } catch (revokeError) {
+            console.warn('Could not revoke token (may already be invalid):', revokeError.message);
+          }
         }
 
-        // Delete from our database
         await supabase
           .from('user_gmail_tokens')
           .delete()
           .eq('user_id', effectiveUserId);
+
+        console.log('✅ Cleaned up database tokens');
       }
     }
 
@@ -244,24 +255,29 @@ export function GmailSetupSimple() {
       });
 
       if (!response.ok) {
-        let errorMessage = 'Failed to send test email';
+        let errorData = { error: 'Failed to send test email' };
         try {
           const contentType = response.headers.get('content-type');
           if (contentType && contentType.includes('application/json')) {
-            const errorData = await response.json();
-            errorMessage = errorData.error || errorMessage;
+            errorData = await response.json();
           } else {
             const textResponse = await response.text();
             console.error('Non-JSON error response:', textResponse);
-            errorMessage = `Server error (${response.status}). The send-email function may not be deployed or configured correctly.`;
+            errorData.error = `Server error (${response.status}). The send-email function may not be deployed or configured correctly.`;
           }
         } catch (parseError) {
           console.error('Error parsing response:', parseError);
-          errorMessage = `Server error (${response.status}). The send-email function may not be deployed or configured correctly.`;
+          errorData.error = `Server error (${response.status}). The send-email function may not be deployed or configured correctly.`;
         }
 
-        // Show user-friendly error in toast
-        throw new Error(errorMessage);
+        if (errorData.needsReconnect || errorData.errorType === 'GMAIL_AUTH_ERROR') {
+          showReconnectModal(errorData.error, () => {
+            toast.success('Gmail reconnected! Try sending test email again.');
+          });
+          return;
+        }
+
+        throw new Error(errorData.error);
       }
 
       toast.success(`Test email sent successfully to ${emailAddress}!`, {

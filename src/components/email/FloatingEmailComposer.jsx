@@ -16,6 +16,7 @@ import { supabase } from '@/api/supabaseClient';
 import { useQueryClient } from '@tanstack/react-query';
 import { Customer, Carrier, CSPEventCarrier, CarrierContact, CSPEvent } from '@/api/entities';
 import { useImpersonation } from '@/contexts/ImpersonationContext';
+import { useGmailReconnect } from '@/contexts/GmailReconnectContext';
 import { getUserGmailEmail } from '@/utils/gmailHelpers';
 
 export function FloatingEmailComposer({
@@ -36,6 +37,7 @@ export function FloatingEmailComposer({
 }) {
   const queryClient = useQueryClient();
   const { isImpersonating, impersonatedUser } = useImpersonation();
+  const { showReconnectModal } = useGmailReconnect();
   const [isMinimized, setIsMinimized] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
@@ -612,8 +614,19 @@ export function FloatingEmailComposer({
           status: response.status,
           statusText: response.statusText,
           error: result.error,
+          errorType: result.errorType,
+          needsReconnect: result.needsReconnect,
           url: functionUrl
         });
+
+        if (result.needsReconnect || result.errorType === 'GMAIL_AUTH_ERROR') {
+          showReconnectModal(result.error, () => {
+            toast.success('Gmail reconnected! Try sending your email again.');
+          });
+          setSending(false);
+          return;
+        }
+
         const errorMessage = result.error || `Server error (${response.status}). Please check your Gmail connection in Settings.`;
         throw new Error(errorMessage);
       }

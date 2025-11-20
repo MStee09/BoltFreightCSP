@@ -315,8 +315,20 @@ Deno.serve(async (req: Request) => {
     );
   } catch (error) {
     console.error('Error sending email:', error);
+
+    const errorMsg = error.message || 'Unknown error';
+    const isGmailAuthError =
+      errorMsg.includes('expired or is invalid') ||
+      errorMsg.includes('not connected') ||
+      errorMsg.includes('Invalid credentials') ||
+      errorMsg.includes('reconnect');
+
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({
+        error: errorMsg,
+        errorType: isGmailAuthError ? 'GMAIL_AUTH_ERROR' : 'GENERAL_ERROR',
+        needsReconnect: isGmailAuthError
+      }),
       {
         status: 500,
         headers: {

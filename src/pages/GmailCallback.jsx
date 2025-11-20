@@ -357,6 +357,41 @@ export default function GmailCallback() {
 
       console.log('Gmail tokens saved successfully via edge function:', saveResult);
 
+      if (saveResult.tokenTestResult && !saveResult.tokenTestResult.success) {
+        const errorMsg = saveResult.tokenTestResult.error || 'Token validation failed';
+        console.error('❌ Token test failed immediately after saving:', errorMsg);
+
+        await logError('token_test_failed_immediate', errorMsg, {
+          userId: user.id,
+          userEmail: user.email,
+          testDetails: saveResult.tokenTestResult
+        });
+
+        setErrorDetails({
+          title: 'Connection Issue Detected',
+          message: 'We successfully connected to Google, but the authorization seems invalid. This usually means your Google OAuth setup needs attention.',
+          technicalDetails: errorMsg,
+          suggestion: 'The token refresh test failed. This indicates an OAuth client configuration issue or stale permissions.'
+        });
+
+        setStatus('error');
+        setMessage('Gmail connection test failed');
+
+        await supabase
+          .from('user_gmail_tokens')
+          .delete()
+          .eq('user_id', user.id);
+
+        setTimeout(() => {
+          const returnPath = localStorage.getItem('gmail_oauth_return_path') || '/settings';
+          localStorage.removeItem('gmail_oauth_return_path');
+          navigate(returnPath);
+        }, 5000);
+        return;
+      }
+
+      console.log('✅ Token test passed - connection is healthy');
+
       // Verify the data was actually saved by reading it back
       const { data: verifyData, error: verifyError } = await supabase
         .from('user_gmail_tokens')

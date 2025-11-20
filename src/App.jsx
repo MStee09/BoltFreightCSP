@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AuthProvider } from './contexts/AuthContext'
 import { EmailComposerProvider } from './contexts/EmailComposerContext'
 import { ImpersonationProvider } from './contexts/ImpersonationContext'
+import { GmailReconnectProvider } from './contexts/GmailReconnectContext'
 import Pages from "./pages/index.jsx"
 import { Toaster } from "./components/ui/toaster"
 import { Toaster as SonnerToaster } from 'sonner'
@@ -21,11 +22,13 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <ImpersonationProvider>
-          <EmailComposerProvider>
-            <Pages />
-            <Toaster />
-            <SonnerToaster position="top-right" />
-          </EmailComposerProvider>
+          <GmailReconnectProvider>
+            <EmailComposerProvider>
+              <Pages />
+              <Toaster />
+              <SonnerToaster position="top-right" />
+            </EmailComposerProvider>
+          </GmailReconnectProvider>
         </ImpersonationProvider>
       </AuthProvider>
     </QueryClientProvider>
