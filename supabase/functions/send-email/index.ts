@@ -158,7 +158,7 @@ Deno.serve(async (req: Request) => {
               error_type: 'token_refresh_failed',
               error_message: errorData.error || 'Unknown error',
               error_details: errorData,
-              provider: 'gmail'
+              oauth_provider: 'gmail'
             });
 
           // ONLY delete tokens if the refresh token itself is revoked/invalid
