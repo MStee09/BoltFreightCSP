@@ -311,6 +311,20 @@ export function GmailSetupSimple() {
     }
   };
 
+  const handleReconnect = async () => {
+    try {
+      setLoading(true);
+      await handleDisconnect();
+      // Wait a moment for the UI to update
+      setTimeout(() => {
+        handleConnectGmail();
+      }, 500);
+    } catch (error) {
+      console.error('Error reconnecting:', error);
+      setLoading(false);
+    }
+  };
+
   if (credentialsLoading || (loading && !isConnected)) {
     return (
       <Card>
@@ -470,12 +484,26 @@ export function GmailSetupSimple() {
               </div>
             </div>
 
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-2">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-xs font-medium text-amber-900">
+                    Connection Issues?
+                  </p>
+                  <p className="text-xs text-amber-800 mt-0.5">
+                    If emails fail to send, click "Reconnect Gmail" to refresh your authorization.
+                  </p>
+                </div>
+              </div>
+            </div>
+
             <div className="flex gap-2">
               <Button
                 variant="default"
                 onClick={handleSendTestEmail}
                 className="flex-1"
-                disabled={sendingTest}
+                disabled={sendingTest || loading}
               >
                 {sendingTest ? (
                   <>
@@ -488,6 +516,18 @@ export function GmailSetupSimple() {
                     Send Test Email
                   </>
                 )}
+              </Button>
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={handleReconnect}
+                className="flex-1"
+                disabled={loading || sendingTest}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Reconnect Gmail
               </Button>
               <Button
                 variant="outline"
