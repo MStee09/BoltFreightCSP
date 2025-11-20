@@ -42,6 +42,18 @@ export default function GmailCallback() {
         throw new Error('No authorization code received');
       }
 
+      // CRITICAL: Check if we already have a valid Supabase session
+      // Supabase automatically restores sessions from localStorage
+      console.log('Checking for existing Supabase session...');
+      const { data: { session: existingSession }, error: sessionCheckError } = await supabase.auth.getSession();
+
+      console.log('Session check result:', {
+        hasSession: !!existingSession,
+        userId: existingSession?.user?.id,
+        userEmail: existingSession?.user?.email,
+        error: sessionCheckError?.message
+      });
+
       setMessage('Loading OAuth credentials...');
 
       // Try to get credentials from localStorage first (for popup scenario)
@@ -63,28 +75,35 @@ export default function GmailCallback() {
       } else {
         console.log('Credentials not in localStorage, trying to restore session...');
 
-        // Try to restore the session from localStorage
-        const sessionData = localStorage.getItem('gmail_auth_session');
-        if (sessionData) {
-          console.log('Restoring session from localStorage...');
-          const session = JSON.parse(sessionData);
-          const { data: sessionResult, error: sessionError } = await supabase.auth.setSession({
-            access_token: session.access_token,
-            refresh_token: session.refresh_token
-          });
-
-          if (sessionError) {
-            console.error('Failed to restore session:', sessionError);
-          } else {
-            console.log('Session restored successfully:', {
-              userId: sessionResult.user?.id,
-              email: sessionResult.user?.email
+        // Only manually restore if Supabase doesn't already have a session
+        if (!existingSession) {
+          const sessionData = localStorage.getItem('gmail_auth_session');
+          if (sessionData) {
+            console.log('No existing session found - manually restoring from localStorage...');
+            const session = JSON.parse(sessionData);
+            const { data: sessionResult, error: sessionError } = await supabase.auth.setSession({
+              access_token: session.access_token,
+              refresh_token: session.refresh_token
             });
-          }
 
-          localStorage.removeItem('gmail_auth_session');
+            if (sessionError) {
+              console.error('Failed to restore session:', sessionError);
+            } else {
+              console.log('Session restored successfully:', {
+                userId: sessionResult.user?.id,
+                email: sessionResult.user?.email
+              });
+            }
+
+            localStorage.removeItem('gmail_auth_session');
+          } else {
+            console.error('CRITICAL: No Supabase session and no session data in localStorage!');
+            console.error('User will not be able to save Gmail tokens');
+          }
         } else {
-          console.warn('No session data found in localStorage - user may not be authenticated');
+          console.log('✅ Supabase session already exists, no manual restore needed');
+          // Clean up the manual session data since we don't need it
+          localStorage.removeItem('gmail_auth_session');
         }
 
         // Fallback to database (for non-popup scenario)
