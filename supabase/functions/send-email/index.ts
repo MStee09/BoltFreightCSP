@@ -105,7 +105,10 @@ Deno.serve(async (req: Request) => {
     }
 
     if (oauthTokens) {
-      const { data: oauthSettings } = await supabaseClient
+      // CRITICAL: Use service role to fetch OAuth credentials - bypasses RLS
+      // The system_settings table has admin-only RLS policies, but we need
+      // these credentials to send emails for any authenticated user
+      const { data: oauthSettings } = await supabaseServiceClient
         .from('system_settings')
         .select('setting_value')
         .eq('setting_key', 'gmail_oauth_credentials')
