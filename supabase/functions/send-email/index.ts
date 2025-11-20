@@ -118,6 +118,21 @@ Deno.serve(async (req: Request) => {
       let accessToken = oauthTokens.access_token;
       let tokenRefreshed = false;
 
+      console.log('🔍 DIAGNOSTIC: Token details from database:', {
+        email: oauthTokens.email_address,
+        access_token_length: oauthTokens.access_token?.length,
+        refresh_token_length: oauthTokens.refresh_token?.length,
+        refresh_token_first_30: oauthTokens.refresh_token?.substring(0, 30) + '...',
+        token_expiry: oauthTokens.token_expiry,
+        created_at: oauthTokens.created_at,
+        updated_at: oauthTokens.updated_at
+      });
+
+      console.log('🔍 DIAGNOSTIC: OAuth credentials being used:', {
+        client_id: oauthSettings.setting_value.client_id?.substring(0, 30) + '...',
+        client_secret_length: oauthSettings.setting_value.client_secret?.length
+      });
+
       try {
         console.log('🔄 Refreshing OAuth token for:', oauthTokens.email_address);
 
@@ -148,7 +163,9 @@ Deno.serve(async (req: Request) => {
           console.log('✅ Token refreshed successfully');
         } else {
           const errorData = await tokenResponse.json();
-          console.warn('⚠️ Token refresh failed:', errorData);
+          console.error('❌ DIAGNOSTIC: Token refresh FAILED in send-email!');
+          console.error('❌ DIAGNOSTIC: Error from Google:', JSON.stringify(errorData));
+          console.error('❌ DIAGNOSTIC: HTTP Status:', tokenResponse.status);
 
           // Log the error to the database for debugging
           await supabaseServiceClient
@@ -157,12 +174,22 @@ Deno.serve(async (req: Request) => {
               user_id: effectiveUserId,
               error_type: 'token_refresh_failed',
               error_message: errorData.error || 'Unknown error',
-              error_details: errorData,
+              error_details: {
+                ...errorData,
+                http_status: tokenResponse.status,
+                client_id_used: oauthSettings.setting_value.client_id?.substring(0, 30) + '...',
+                refresh_token_first_30: oauthTokens.refresh_token?.substring(0, 30) + '...',
+                diagnostic: 'Token refresh failed when attempting to send email'
+              },
               oauth_provider: 'gmail'
             });
 
           // ONLY delete tokens if the refresh token itself is revoked/invalid
           if (errorData.error === 'invalid_grant') {
+            console.error('❌ DIAGNOSTIC: invalid_grant - This means:');
+            console.error('   - The refresh token is INVALID or REVOKED');
+            console.error('   - OR the client_id/client_secret used to refresh != the ones used to get the token');
+            console.error('   - OR the OAuth client was deleted/recreated in Google Cloud Console');
             console.log('🗑️ Refresh token is permanently invalid, deleting...');
             await supabaseServiceClient
               .from('user_gmail_tokens')

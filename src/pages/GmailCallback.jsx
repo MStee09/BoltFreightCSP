@@ -157,6 +157,8 @@ export default function GmailCallback() {
       }
 
       console.log('Credentials loaded successfully');
+      console.log('🔍 DIAGNOSTIC: OAuth client_id being used for token exchange:', client_id.substring(0, 30) + '...');
+      console.log('🔍 DIAGNOSTIC: Client secret length:', client_secret.length);
 
       setMessage('Exchanging authorization code...');
 
@@ -200,6 +202,14 @@ export default function GmailCallback() {
         hasAccessToken: !!tokens.access_token,
         hasRefreshToken: !!tokens.refresh_token,
         expiresIn: tokens.expires_in
+      });
+
+      console.log('🔍 DIAGNOSTIC: Received tokens from Google:', {
+        access_token_length: tokens.access_token?.length,
+        refresh_token_length: tokens.refresh_token?.length,
+        refresh_token_first_30: tokens.refresh_token?.substring(0, 30) + '...',
+        token_type: tokens.token_type,
+        scope: tokens.scope
       });
 
       if (!tokens.refresh_token) {
