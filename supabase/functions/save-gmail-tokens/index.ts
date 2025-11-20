@@ -140,8 +140,8 @@ Deno.serve(async (req: Request) => {
       email: insertedData[0].email_address
     });
 
-    // CRITICAL DIAGNOSTIC: Test if the refresh token actually works RIGHT NOW
-    console.log('🧪 DIAGNOSTIC: Testing refresh token immediately...');
+    // CRITICAL: Test if the refresh token actually works RIGHT NOW before returning success
+    console.log('🧪 CRITICAL: Testing refresh token immediately...');
 
     const { data: oauthSettings } = await supabaseServiceClient
       .from('system_settings')
@@ -149,59 +149,117 @@ Deno.serve(async (req: Request) => {
       .eq('setting_key', 'gmail_oauth_credentials')
       .maybeSingle();
 
+    let tokenTestResult = {
+      success: false,
+      error: 'OAuth credentials not configured'
+    };
+
     if (!oauthSettings?.setting_value?.client_id) {
-      console.error('⚠️ DIAGNOSTIC: OAuth credentials not found in system_settings');
-    } else {
-      console.log('🔍 DIAGNOSTIC: OAuth client_id from database:', oauthSettings.setting_value.client_id.substring(0, 30) + '...');
-      console.log('🔍 DIAGNOSTIC: Refresh token (first 30 chars):', refresh_token.substring(0, 30) + '...');
-      console.log('🔍 DIAGNOSTIC: Refresh token length:', refresh_token.length);
+      console.error('❌ CRITICAL: OAuth credentials not found in system_settings');
 
-      // Try to refresh the token immediately
-      try {
-        const testRefreshResponse = await fetch('https://oauth2.googleapis.com/token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({
-            client_id: oauthSettings.setting_value.client_id,
-            client_secret: oauthSettings.setting_value.client_secret,
-            refresh_token: refresh_token,
-            grant_type: 'refresh_token',
-          }),
-        });
+      // Delete the tokens we just saved since they can't be used
+      await supabaseServiceClient
+        .from('user_gmail_tokens')
+        .delete()
+        .eq('id', insertedData[0].id);
 
-        if (testRefreshResponse.ok) {
-          const testRefreshData = await testRefreshResponse.json();
-          console.log('✅ DIAGNOSTIC: Refresh token WORKS! New access token received:', testRefreshData.access_token.substring(0, 30) + '...');
-        } else {
-          const errorData = await testRefreshResponse.json();
-          console.error('❌ DIAGNOSTIC: Refresh token FAILED immediately!');
-          console.error('❌ DIAGNOSTIC: Error from Google:', JSON.stringify(errorData));
-          console.error('❌ DIAGNOSTIC: This means the refresh token is ALREADY INVALID when we receive it!');
-          console.error('❌ DIAGNOSTIC: Possible causes:');
-          console.error('   1. OAuth client_id mismatch (used different client to get token vs store it)');
-          console.error('   2. OAuth client was deleted/recreated in Google Cloud Console');
-          console.error('   3. Refresh token limit exceeded (100 per user per client)');
-          console.error('   4. OAuth app is in Testing mode and tokens expired');
+      throw new Error('OAuth credentials not configured in system settings');
+    }
 
-          // Log to database for user visibility
-          await supabaseServiceClient
-            .from('oauth_error_logs')
-            .insert({
-              user_id: user.id,
-              error_type: 'token_validation_failed_on_save',
-              error_message: errorData.error || 'Unknown error',
-              error_details: {
-                ...errorData,
-                diagnostic: 'Token failed validation immediately after exchange',
-                client_id_used: oauthSettings.setting_value.client_id.substring(0, 30) + '...',
-                refresh_token_length: refresh_token.length
-              },
-              oauth_provider: 'gmail'
-            });
-        }
-      } catch (refreshError) {
-        console.error('⚠️ DIAGNOSTIC: Error testing refresh:', refreshError.message);
+    console.log('🔍 DIAGNOSTIC: OAuth client_id from database:', oauthSettings.setting_value.client_id.substring(0, 30) + '...');
+    console.log('🔍 DIAGNOSTIC: Refresh token (first 30 chars):', refresh_token.substring(0, 30) + '...');
+    console.log('🔍 DIAGNOSTIC: Refresh token length:', refresh_token.length);
+
+    // Try to refresh the token immediately - THIS IS THE CRITICAL TEST
+    try {
+      const testRefreshResponse = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: oauthSettings.setting_value.client_id,
+          client_secret: oauthSettings.setting_value.client_secret,
+          refresh_token: refresh_token,
+          grant_type: 'refresh_token',
+        }),
+      });
+
+      if (testRefreshResponse.ok) {
+        const testRefreshData = await testRefreshResponse.json();
+        console.log('✅ CRITICAL: Refresh token WORKS! New access token received:', testRefreshData.access_token.substring(0, 30) + '...');
+
+        // Update the token with the refreshed access token
+        await supabaseServiceClient
+          .from('user_gmail_tokens')
+          .update({
+            access_token: testRefreshData.access_token,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', insertedData[0].id);
+
+        tokenTestResult = {
+          success: true,
+          message: 'Token refresh test passed'
+        };
+      } else {
+        const errorData = await testRefreshResponse.json();
+        console.error('❌ CRITICAL: Refresh token FAILED immediately!');
+        console.error('❌ DIAGNOSTIC: Error from Google:', JSON.stringify(errorData));
+        console.error('❌ DIAGNOSTIC: HTTP Status:', testRefreshResponse.status);
+        console.error('❌ DIAGNOSTIC: This means the refresh token is ALREADY INVALID when we receive it!');
+        console.error('❌ DIAGNOSTIC: Possible causes:');
+        console.error('   1. OAuth client_id MISMATCH - different client used to get token vs refresh it');
+        console.error('   2. OAuth client was deleted/recreated in Google Cloud Console');
+        console.error('   3. Refresh token limit exceeded (100 per user per client)');
+        console.error('   4. OAuth app is in Testing mode and needs Publishing');
+
+        // Log to database for user visibility
+        await supabaseServiceClient
+          .from('oauth_error_logs')
+          .insert({
+            user_id: user.id,
+            error_type: 'token_validation_failed_on_save',
+            error_message: errorData.error || 'Unknown error',
+            error_details: {
+              ...errorData,
+              http_status: testRefreshResponse.status,
+              diagnostic: 'Token failed validation immediately after exchange',
+              client_id_used: oauthSettings.setting_value.client_id.substring(0, 30) + '...',
+              refresh_token_length: refresh_token.length
+            },
+            oauth_provider: 'gmail'
+          });
+
+        // Delete the invalid tokens
+        console.log('🗑️ CRITICAL: Deleting invalid tokens from database');
+        await supabaseServiceClient
+          .from('user_gmail_tokens')
+          .delete()
+          .eq('id', insertedData[0].id);
+
+        tokenTestResult = {
+          success: false,
+          error: `Token refresh failed: ${errorData.error || 'Unknown error'}`,
+          errorDetails: errorData
+        };
+
+        // FAIL THE ENTIRE OPERATION - don't return success if tokens don't work
+        throw new Error(`Gmail token validation failed: ${errorData.error || 'Unknown error'}. This usually means your OAuth client configuration needs attention. Error details: ${JSON.stringify(errorData)}`);
       }
+    } catch (refreshError) {
+      console.error('❌ CRITICAL: Error testing refresh:', refreshError.message);
+
+      // If this is our thrown error, re-throw it
+      if (refreshError.message.includes('Gmail token validation failed')) {
+        throw refreshError;
+      }
+
+      // For network errors, still fail
+      tokenTestResult = {
+        success: false,
+        error: `Token test error: ${refreshError.message}`
+      };
+
+      throw new Error(`Failed to test Gmail token: ${refreshError.message}`);
     }
 
     return new Response(
@@ -209,7 +267,8 @@ Deno.serve(async (req: Request) => {
         success: true,
         userId: insertedData[0].user_id,
         email: insertedData[0].email_address,
-        tokenId: insertedData[0].id
+        tokenId: insertedData[0].id,
+        tokenTestResult
       }),
       {
         headers: {
