@@ -11,6 +11,7 @@ import { SystemSettings } from '@/components/admin/SystemSettings';
 import { DatabaseManagement } from '@/components/admin/DatabaseManagement';
 import { SecurityAudit } from '@/components/admin/SecurityAudit';
 import { RoleDescriptions } from '@/components/admin/RoleDescriptions';
+import { OAuthErrorLogs } from '@/components/admin/OAuthErrorLogs';
 import { AISettings } from '@/components/settings/AISettings';
 import { EmailTemplatesManagement } from '@/components/settings/EmailTemplatesManagement';
 import { AlertSettings } from '@/components/settings/AlertSettings';
@@ -338,6 +339,8 @@ export default function Settings() {
               </Alert>
 
               <RoleDescriptions />
+
+              <OAuthErrorLogs />
 
               <SystemSettings />
 

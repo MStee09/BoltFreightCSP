@@ -9,10 +9,34 @@ export default function GmailCallback() {
   const navigate = useNavigate();
   const [status, setStatus] = useState('processing');
   const [message, setMessage] = useState('Connecting to Gmail...');
+  const [errorDetails, setErrorDetails] = useState(null);
 
   useEffect(() => {
     handleCallback();
   }, []);
+
+  const logError = async (errorType, errorMessage, details = {}) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+
+      await supabase.from('oauth_error_logs').insert({
+        user_id: user?.id || null,
+        user_email: user?.email || details.attemptedEmail || null,
+        error_type: errorType,
+        error_message: errorMessage,
+        error_details: {
+          ...details,
+          timestamp: new Date().toISOString(),
+          url: window.location.href
+        },
+        oauth_provider: 'gmail',
+        callback_url: window.location.href,
+        user_agent: navigator.userAgent
+      });
+    } catch (logError) {
+      console.error('Failed to log OAuth error:', logError);
+    }
+  };
 
   const handleCallback = async () => {
     // Check if we're in a popup window
@@ -234,13 +258,22 @@ export default function GmailCallback() {
       }
 
       if (!user) {
-        console.error('❌ FAILED: User not authenticated after all attempts');
-        console.error('This means the Supabase session was not properly restored');
-        console.error('Possible causes:');
-        console.error('1. Session expired during OAuth flow');
-        console.error('2. localStorage was cleared');
-        console.error('3. Browser security settings blocking session persistence');
-        throw new Error('Authentication session lost. Please try connecting again from the Settings page.');
+        await logError('session_lost', 'User session not found after OAuth redirect', {
+          attempts: maxAttempts,
+          hasExistingSession: !!existingSession,
+          localStorageSessionData: !!localStorage.getItem('gmail_auth_session')
+        });
+
+        const friendlyMessage = 'We couldn\'t restore your session after connecting to Google. This can happen if your session expired during the connection process. Please try again, and if the problem persists, try logging out and back in.';
+
+        setErrorDetails({
+          title: 'Session Lost',
+          message: friendlyMessage,
+          technicalDetails: 'Session not found after OAuth redirect',
+          suggestion: 'Try logging out and back in, then connect Gmail again'
+        });
+
+        throw new Error(friendlyMessage);
       }
 
       const expiryDate = new Date();
@@ -318,8 +351,24 @@ export default function GmailCallback() {
       }
     } catch (error) {
       console.error('Gmail callback error:', error);
+
+      // Log to database if not already logged (and not a user-friendly error we already logged)
+      if (!errorDetails) {
+        await logError('callback_error', error.message || 'Unknown error during Gmail OAuth', {
+          errorStack: error.stack,
+          errorName: error.name
+        });
+
+        setErrorDetails({
+          title: 'Connection Failed',
+          message: error.message || 'An unexpected error occurred while connecting Gmail',
+          technicalDetails: error.stack || error.toString(),
+          suggestion: 'Please try again. If this keeps happening, contact support.'
+        });
+      }
+
       setStatus('error');
-      setMessage(error.message || 'Failed to connect Gmail');
+      setMessage(errorDetails?.message || error.message || 'Failed to connect Gmail');
 
       // If in popup, close it and notify parent
       if (isPopup) {
@@ -370,9 +419,19 @@ export default function GmailCallback() {
                 <div className="rounded-full bg-red-100 p-3">
                   <X className="h-12 w-12 text-red-600" />
                 </div>
-                <h2 className="text-xl font-semibold text-red-600">Connection Failed</h2>
+                <h2 className="text-xl font-semibold text-red-600">
+                  {errorDetails?.title || 'Connection Failed'}
+                </h2>
                 <p className="text-muted-foreground">{message}</p>
-                <p className="text-sm text-muted-foreground">Redirecting...</p>
+                {errorDetails?.suggestion && (
+                  <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-md text-left">
+                    <p className="text-sm font-medium text-blue-900 mb-1">What to try:</p>
+                    <p className="text-sm text-blue-700">{errorDetails.suggestion}</p>
+                  </div>
+                )}
+                <p className="text-sm text-muted-foreground mt-2">
+                  {errorDetails ? 'An error report has been saved. ' : ''}Redirecting...
+                </p>
               </>
             )}
           </div>
