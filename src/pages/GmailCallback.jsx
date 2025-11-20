@@ -305,50 +305,47 @@ export default function GmailCallback() {
 
       console.log('Attempting to save tokens for user:', user.id);
 
-      // Use UPSERT to handle both new inserts and updates of existing tokens
-      // This handles the UNIQUE constraint on user_id elegantly
-      const { data: upsertData, error: upsertError } = await supabase
-        .from('user_gmail_tokens')
-        .upsert({
-          user_id: user.id,
-          email_address: profile.email,
-          access_token: tokens.access_token,
-          refresh_token: tokens.refresh_token,
-          token_expiry: expiryDate.toISOString(),
-          updated_at: new Date().toISOString(),
-        }, {
-          onConflict: 'user_id',
-          ignoreDuplicates: false
-        })
-        .select()
-        .maybeSingle();
+      // ALWAYS use edge function with service role to save tokens
+      // This bypasses any RLS issues completely
+      const { data: { session } } = await supabase.auth.getSession();
 
-      if (upsertError) {
-        console.error('Failed to save tokens:', upsertError);
-        await logError('token_save_failed', upsertError.message, {
+      if (!session) {
+        throw new Error('No active session found');
+      }
+
+      console.log('Calling save-gmail-tokens edge function...');
+
+      const saveResponse = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/save-gmail-tokens`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email_address: profile.email,
+            access_token: tokens.access_token,
+            refresh_token: tokens.refresh_token,
+            token_expiry: expiryDate.toISOString(),
+          }),
+        }
+      );
+
+      const saveResult = await saveResponse.json();
+
+      if (!saveResponse.ok) {
+        console.error('Edge function failed:', saveResult);
+        await logError('token_save_failed', saveResult.error || 'Unknown error', {
           userId: user.id,
           userEmail: user.email,
-          errorCode: upsertError.code,
-          errorDetails: upsertError.details,
-          errorHint: upsertError.hint
+          statusCode: saveResponse.status,
+          details: saveResult.details
         });
-        throw new Error(`Failed to save Gmail credentials: ${upsertError.message}`);
+        throw new Error(`Failed to save Gmail credentials: ${saveResult.error || 'Unknown error'}`);
       }
 
-      // Verify we actually got data back
-      if (!upsertData) {
-        console.error('UPSERT returned no data - possible RLS issue');
-        await logError('token_save_no_data', 'UPSERT returned null', {
-          userId: user.id,
-          userEmail: user.email
-        });
-        throw new Error('Failed to save Gmail credentials - no data returned. This may be an RLS policy issue.');
-      }
-
-      console.log('Gmail tokens saved successfully:', {
-        id: upsertData.id,
-        email: upsertData.email_address
-      });
+      console.log('Gmail tokens saved successfully via edge function:', saveResult);
 
       // Verify the data was actually saved by reading it back
       const { data: verifyData, error: verifyError } = await supabase
