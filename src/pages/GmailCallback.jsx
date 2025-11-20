@@ -66,12 +66,25 @@ export default function GmailCallback() {
         // Try to restore the session from localStorage
         const sessionData = localStorage.getItem('gmail_auth_session');
         if (sessionData) {
+          console.log('Restoring session from localStorage...');
           const session = JSON.parse(sessionData);
-          await supabase.auth.setSession({
+          const { data: sessionResult, error: sessionError } = await supabase.auth.setSession({
             access_token: session.access_token,
             refresh_token: session.refresh_token
           });
+
+          if (sessionError) {
+            console.error('Failed to restore session:', sessionError);
+          } else {
+            console.log('Session restored successfully:', {
+              userId: sessionResult.user?.id,
+              email: sessionResult.user?.email
+            });
+          }
+
           localStorage.removeItem('gmail_auth_session');
+        } else {
+          console.warn('No session data found in localStorage - user may not be authenticated');
         }
 
         // Fallback to database (for non-popup scenario)
@@ -166,9 +179,19 @@ export default function GmailCallback() {
 
       setMessage('Saving credentials...');
 
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user }, error: getUserError } = await supabase.auth.getUser();
+
+      console.log('Current auth state:', {
+        hasUser: !!user,
+        userId: user?.id,
+        userEmail: user?.email,
+        error: getUserError?.message
+      });
+
       if (!user) {
-        throw new Error('Not authenticated');
+        console.error('User not authenticated when trying to save Gmail tokens');
+        console.error('This usually means the session was not properly restored');
+        throw new Error('Authentication session lost. Please close this window and try connecting again from the Settings page.');
       }
 
       const expiryDate = new Date();
