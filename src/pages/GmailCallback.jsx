@@ -305,17 +305,26 @@ export default function GmailCallback() {
 
       console.log('Attempting to save tokens for user:', user.id);
 
+      // First, try to delete any existing tokens to ensure clean state
+      const { error: deleteError } = await supabase
+        .from('user_gmail_tokens')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (deleteError) {
+        console.warn('Error deleting existing tokens (may not exist):', deleteError);
+      }
+
+      // Now insert fresh tokens
       const { data: insertedData, error: dbError } = await supabase
         .from('user_gmail_tokens')
-        .upsert({
+        .insert({
           user_id: user.id,
           email_address: profile.email,
           access_token: tokens.access_token,
           refresh_token: tokens.refresh_token,
           token_expiry: expiryDate.toISOString(),
           updated_at: new Date().toISOString(),
-        }, {
-          onConflict: 'user_id'
         })
         .select();
 
@@ -323,12 +332,24 @@ export default function GmailCallback() {
 
       if (dbError) {
         console.error('Database error saving tokens:', dbError);
+        await logError('token_save_failed', dbError.message, {
+          userId: user.id,
+          userEmail: user.email,
+          errorCode: dbError.code,
+          errorDetails: dbError.details,
+          errorHint: dbError.hint
+        });
         throw new Error(`Failed to save Gmail credentials: ${dbError.message}`);
       }
 
       if (!insertedData || insertedData.length === 0) {
-        console.error('No data returned from upsert - RLS may have blocked the operation');
-        throw new Error('Failed to save Gmail credentials - permission denied');
+        console.error('No data returned from insert - RLS may have blocked the operation');
+        await logError('token_save_blocked', 'RLS policy may have blocked token insert', {
+          userId: user.id,
+          userEmail: user.email,
+          hasSession: true
+        });
+        throw new Error('Failed to save Gmail credentials - permission denied. Please ensure you are logged in as an admin or the account owner.');
       }
 
       console.log('Gmail tokens saved successfully:', {
