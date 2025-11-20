@@ -212,7 +212,19 @@ export default function GmailCallback() {
         console.error('Find "CSP Freight CRM" and click "Remove Access"');
         console.error('Then reconnect from Settings → Integrations');
 
-        throw new Error('Google did not provide a refresh token. This app may have been previously authorized. Please go to https://myaccount.google.com/permissions, remove "CSP Freight CRM" access, then reconnect.');
+        await logError('no_refresh_token', 'Google did not issue a refresh token', {
+          hasAccessToken: !!tokens.access_token,
+          scopes: tokens.scope
+        });
+
+        setErrorDetails({
+          title: 'Refresh Token Missing',
+          message: 'Google did not provide the necessary credentials for long-term access. This happens when you\'ve previously authorized this app.',
+          technicalDetails: 'No refresh token in OAuth response',
+          suggestion: 'Go to https://myaccount.google.com/permissions, find this app, click "Remove Access", wait 10 seconds, then reconnect.'
+        });
+
+        throw new Error('Google did not provide a refresh token. Please revoke existing access first.');
       }
 
       setMessage('Fetching Gmail profile...');
