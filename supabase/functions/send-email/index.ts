@@ -97,20 +97,12 @@ Deno.serve(async (req: Request) => {
       error: oauthError?.message
     });
 
-    const { data: appPasswordCreds, error: appPasswordError } = await clientForCredentials
-      .from('user_gmail_credentials')
-      .select('*')
-      .eq('user_id', effectiveUserId)
-      .maybeSingle();
-
-    console.log('🔑 App password query:', {
-      effectiveUserId,
-      hasCreds: !!appPasswordCreds,
-      error: appPasswordError?.message
-    });
-
     let transporter;
     let fromEmail = userProfile.email;
+
+    if (!oauthTokens) {
+      throw new Error('Gmail not connected. Please connect your Gmail account in Settings → Integrations using the "Connect Gmail" button.');
+    }
 
     if (oauthTokens) {
       const { data: oauthSettings } = await supabaseClient
@@ -194,23 +186,6 @@ Deno.serve(async (req: Request) => {
         },
       });
       fromEmail = oauthTokens.email_address;
-    }
-
-    if (!transporter && appPasswordCreds) {
-      transporter = nodemailer.createTransport({
-        host: 'smtp.gmail.com',
-        port: 587,
-        secure: false,
-        auth: {
-          user: appPasswordCreds.email_address,
-          pass: appPasswordCreds.app_password,
-        },
-      });
-      fromEmail = appPasswordCreds.email_address;
-    }
-
-    if (!transporter) {
-      throw new Error('Gmail not connected. Please connect your Gmail account in Settings → Integrations to send emails.');
     }
 
     const mailOptions: any = {
