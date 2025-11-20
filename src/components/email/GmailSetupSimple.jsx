@@ -255,18 +255,24 @@ export function GmailSetupSimple() {
       });
 
       if (!response.ok) {
+        console.error('❌ send-email request failed with status:', response.status);
         let errorData = { error: 'Failed to send test email' };
         try {
           const contentType = response.headers.get('content-type');
+          console.log('Response content-type:', contentType);
           if (contentType && contentType.includes('application/json')) {
             errorData = await response.json();
+            console.error('❌ SERVER ERROR RESPONSE:', JSON.stringify(errorData, null, 2));
+            console.error('❌ Error message:', errorData.error);
+            console.error('❌ Error type:', errorData.errorType);
+            console.error('❌ Stack trace:', errorData.stack);
           } else {
             const textResponse = await response.text();
-            console.error('Non-JSON error response:', textResponse);
+            console.error('❌ Non-JSON error response:', textResponse);
             errorData.error = `Server error (${response.status}). The send-email function may not be deployed or configured correctly.`;
           }
         } catch (parseError) {
-          console.error('Error parsing response:', parseError);
+          console.error('❌ Error parsing response:', parseError);
           errorData.error = `Server error (${response.status}). The send-email function may not be deployed or configured correctly.`;
         }
 
