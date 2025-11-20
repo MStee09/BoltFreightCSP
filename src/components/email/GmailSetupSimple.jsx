@@ -156,12 +156,19 @@ export function GmailSetupSimple() {
       }));
     }
 
-    const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+    // CRITICAL: Use explicit production URL if env var is undefined
+    const envAppUrl = import.meta.env.VITE_APP_URL;
+    const appUrl = envAppUrl || (window.location.hostname === 'freight-csp-tool-p8de.bolt.host'
+      ? 'https://freight-csp-tool-p8de.bolt.host'
+      : window.location.origin);
     const redirectUri = `${appUrl}/gmail-callback`;
     const scope = 'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.settings.basic https://www.googleapis.com/auth/userinfo.email';
 
     console.log('OAuth Debug:', {
-      appUrl,
+      envAppUrl,
+      windowOrigin: window.location.origin,
+      hostname: window.location.hostname,
+      computedAppUrl: appUrl,
       redirectUri,
       clientId: googleClientId
     });

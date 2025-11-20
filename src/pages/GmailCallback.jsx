@@ -160,8 +160,20 @@ export default function GmailCallback() {
 
       setMessage('Exchanging authorization code...');
 
-      const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+      // CRITICAL: Use explicit production URL if env var is undefined
+      const envAppUrl = import.meta.env.VITE_APP_URL;
+      const appUrl = envAppUrl || (window.location.hostname === 'freight-csp-tool-p8de.bolt.host'
+        ? 'https://freight-csp-tool-p8de.bolt.host'
+        : window.location.origin);
       const redirectUri = `${appUrl}/gmail-callback`;
+
+      console.log('Token exchange redirect URI:', {
+        envAppUrl,
+        windowOrigin: window.location.origin,
+        hostname: window.location.hostname,
+        computedAppUrl: appUrl,
+        redirectUri
+      });
       const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
         method: 'POST',
         headers: {
