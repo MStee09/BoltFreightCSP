@@ -212,6 +212,51 @@ export default function GmailCallback() {
         scope: tokens.scope
       });
 
+      // CRITICAL: Check if gmail.send scope was granted
+      const requestedScopes = [
+        'https://www.googleapis.com/auth/gmail.send',
+        'https://www.googleapis.com/auth/gmail.readonly',
+        'https://www.googleapis.com/auth/gmail.modify',
+        'https://www.googleapis.com/auth/gmail.settings.basic',
+        'https://www.googleapis.com/auth/userinfo.email'
+      ];
+
+      const grantedScopes = tokens.scope ? tokens.scope.split(' ') : [];
+      const missingScopes = requestedScopes.filter(scope => !grantedScopes.includes(scope));
+
+      if (missingScopes.length > 0) {
+        console.error('❌ CRITICAL: Google did NOT grant all requested scopes!');
+        console.error('❌ Missing scopes:', missingScopes);
+        console.error('');
+        console.error('This means your OAuth app needs additional configuration:');
+        console.error('1. Go to: https://console.cloud.google.com/apis/credentials/consent');
+        console.error('2. Click "EDIT APP" on your OAuth consent screen');
+        console.error('3. Scroll to "Scopes" section and click "ADD OR REMOVE SCOPES"');
+        console.error('4. Make sure these scopes are checked:');
+        missingScopes.forEach(scope => console.error(`   - ${scope}`));
+        console.error('5. Click "SAVE AND CONTINUE"');
+        console.error('6. If app is in "Testing" mode, make sure your email is listed under "Test users"');
+        console.error('');
+        console.error('IMPORTANT: Without gmail.send scope, you CANNOT send emails!');
+
+        await logError('missing_oauth_scopes', `Missing required OAuth scopes: ${missingScopes.join(', ')}`, {
+          requested: requestedScopes,
+          granted: grantedScopes,
+          missing: missingScopes
+        });
+
+        setErrorDetails({
+          title: 'Missing OAuth Permissions',
+          message: `Google did not grant all necessary permissions. Missing: ${missingScopes.map(s => s.split('/').pop()).join(', ')}`,
+          technicalDetails: `The OAuth app needs to be configured with these scopes in Google Cloud Console: ${missingScopes.join(', ')}`,
+          suggestion: 'Go to Google Cloud Console → APIs & Services → OAuth consent screen → Edit App → Scopes → Add the missing scopes. If in Testing mode, add your email as a Test User.'
+        });
+
+        throw new Error('Missing required OAuth scopes. Configure the OAuth app in Google Cloud Console.');
+      }
+
+      console.log('✅ All required scopes were granted successfully!');
+
       if (!tokens.refresh_token) {
         console.error('❌ No refresh token received from Google');
         console.error('This usually means:');
