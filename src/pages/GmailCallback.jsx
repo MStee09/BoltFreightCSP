@@ -198,19 +198,49 @@ export default function GmailCallback() {
 
       setMessage('Saving credentials...');
 
-      const { data: { user }, error: getUserError } = await supabase.auth.getUser();
+      // Wait a bit for Supabase to fully initialize the session
+      // This is important because the callback page loads fresh
+      console.log('Waiting for Supabase session to be ready...');
+      await new Promise(resolve => setTimeout(resolve, 500));
 
-      console.log('Current auth state:', {
-        hasUser: !!user,
-        userId: user?.id,
-        userEmail: user?.email,
-        error: getUserError?.message
-      });
+      // Try multiple times to get the user session
+      let user = null;
+      let attempts = 0;
+      const maxAttempts = 5;
+
+      while (!user && attempts < maxAttempts) {
+        attempts++;
+        console.log(`Attempt ${attempts}/${maxAttempts} to get authenticated user...`);
+
+        const { data: { user: currentUser }, error: getUserError } = await supabase.auth.getUser();
+
+        if (getUserError) {
+          console.error(`Attempt ${attempts} error:`, getUserError);
+        }
+
+        if (currentUser) {
+          user = currentUser;
+          console.log('✅ User session found:', {
+            userId: user.id,
+            userEmail: user.email
+          });
+          break;
+        }
+
+        if (attempts < maxAttempts) {
+          console.log('No user yet, waiting 300ms before retry...');
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+      }
 
       if (!user) {
-        console.error('User not authenticated when trying to save Gmail tokens');
-        console.error('This usually means the session was not properly restored');
-        throw new Error('Authentication session lost. Please close this window and try connecting again from the Settings page.');
+        console.error('❌ FAILED: User not authenticated after all attempts');
+        console.error('This means the Supabase session was not properly restored');
+        console.error('Possible causes:');
+        console.error('1. Session expired during OAuth flow');
+        console.error('2. localStorage was cleared');
+        console.error('3. Browser security settings blocking session persistence');
+        throw new Error('Authentication session lost. Please try connecting again from the Settings page.');
       }
 
       const expiryDate = new Date();
