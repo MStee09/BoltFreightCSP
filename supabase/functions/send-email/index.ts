@@ -149,7 +149,18 @@ Deno.serve(async (req: Request) => {
         } else {
           const errorData = await tokenResponse.json();
           console.warn('⚠️ Token refresh failed:', errorData);
-          
+
+          // Log the error to the database for debugging
+          await supabaseServiceClient
+            .from('oauth_error_logs')
+            .insert({
+              user_id: effectiveUserId,
+              error_type: 'token_refresh_failed',
+              error_message: errorData.error || 'Unknown error',
+              error_details: errorData,
+              provider: 'gmail'
+            });
+
           // ONLY delete tokens if the refresh token itself is revoked/invalid
           if (errorData.error === 'invalid_grant') {
             console.log('🗑️ Refresh token is permanently invalid, deleting...');
@@ -157,7 +168,7 @@ Deno.serve(async (req: Request) => {
               .from('user_gmail_tokens')
               .delete()
               .eq('id', oauthTokens.id);
-            
+
             throw new Error('Your Gmail connection has expired or is invalid. Please reconnect your Gmail account in Settings to send emails.');
           }
           // For other errors (network, temporary issues), just log and try to use existing token
