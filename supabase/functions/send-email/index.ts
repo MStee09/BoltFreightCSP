@@ -231,26 +231,28 @@ Deno.serve(async (req: Request) => {
               oauth_provider: 'gmail'
             });
 
-          // ONLY delete tokens if the refresh token itself is revoked/invalid
+          // IMPORTANT: DO NOT delete tokens on token refresh failure!
+          // The issue could be:
+          // 1. Environment variables (GOOGLE_CLIENT_ID/SECRET) not set or mismatched
+          // 2. Temporary network issue
+          // 3. Rate limiting
+          // Let user troubleshoot before deleting tokens
           if (errorData.error === 'invalid_grant') {
             console.error('❌ DIAGNOSTIC: invalid_grant - This means:');
             console.error('   - The refresh token is INVALID or REVOKED');
             console.error('   - OR the client_id/client_secret used to refresh != the ones used to get the token');
+            console.error('   - OR the GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET env vars are not set in Supabase');
             console.error('   - OR the OAuth client was deleted/recreated in Google Cloud Console');
-            console.log('🗑️ Refresh token is permanently invalid, deleting...');
-            await supabaseServiceClient
-              .from('user_gmail_tokens')
-              .delete()
-              .eq('id', oauthTokens.id);
+            console.log('⚠️ NOT deleting tokens - check environment variables first');
 
-            throw new Error('Your Gmail connection has expired or is invalid. Please reconnect your Gmail account in Settings to send emails.');
+            throw new Error('Gmail token refresh failed. Please verify:\n1. GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are configured in Supabase Edge Functions\n2. Values match the OAuth client used to obtain the tokens\n\nIf issue persists, disconnect and reconnect Gmail in Settings.');
           }
           // For other errors (network, temporary issues), just log and try to use existing token
           console.log('⚠️ Temporary refresh error, attempting to use existing token');
         }
       } catch (refreshError) {
-        // Only throw if we already deleted tokens above
-        if (refreshError.message.includes('expired or is invalid')) {
+        // Throw errors related to configuration issues
+        if (refreshError.message.includes('Gmail token refresh failed')) {
           throw refreshError;
         }
         console.warn('⚠️ Token refresh error (will try existing token):', refreshError.message);
@@ -313,16 +315,15 @@ Deno.serve(async (req: Request) => {
       console.error('❌ Full error:', JSON.stringify(sendErr, null, 2));
       sendError = sendErr;
 
-      // ONLY delete OAuth tokens if it's specifically an auth error
+      // IMPORTANT: DO NOT delete tokens on send failure!
+      // The error could be temporary or due to misconfiguration
+      // Let user troubleshoot instead of forcing reconnection
       if (oauthTokens && sendErr.message &&
           (sendErr.message.includes('Invalid credentials') ||
            sendErr.message.includes('Invalid login') ||
            sendErr.message.includes('535'))) {
-        console.log('🗑️ Authentication failed, deleting invalid OAuth tokens');
-        await supabaseServiceClient
-          .from('user_gmail_tokens')
-          .delete()
-          .eq('id', oauthTokens.id);
+        console.error('❌ Authentication error during send, but NOT deleting tokens');
+        console.error('❌ User should verify environment variables and OAuth settings');
       }
 
       // Provide user-friendly error message
