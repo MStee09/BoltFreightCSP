@@ -85,27 +85,12 @@ Deno.serve(async (req: Request) => {
       if (tokenExpiry <= now) {
         console.log('Access token expired, refreshing...');
 
-        const { data: oauthCreds, error: credError } = await supabaseClient
-          .from('system_settings')
-          .select('setting_value')
-          .eq('setting_key', 'gmail_oauth_credentials')
-          .maybeSingle();
-
-        if (credError) {
-          console.error('Error fetching OAuth credentials:', credError);
-          throw new Error('Failed to fetch OAuth credentials');
-        }
-
-        if (!oauthCreds?.setting_value) {
-          throw new Error('OAuth credentials not configured in system settings');
-        }
-
-        const credentials = oauthCreds.setting_value;
-        const clientId = credentials.client_id ?? '';
-        const clientSecret = credentials.client_secret ?? '';
+        // Get OAuth credentials from environment variables
+        const clientId = Deno.env.get('GOOGLE_CLIENT_ID');
+        const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
 
         if (!clientId || !clientSecret) {
-          throw new Error('Invalid OAuth credentials. Missing client_id or client_secret.');
+          throw new Error('OAuth credentials not configured in environment variables (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET)');
         }
 
         if (!gmailTokens.refresh_token) {

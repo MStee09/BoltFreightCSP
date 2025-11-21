@@ -143,19 +143,17 @@ Deno.serve(async (req: Request) => {
     // CRITICAL: Test if the refresh token actually works RIGHT NOW before returning success
     console.log('🧪 CRITICAL: Testing refresh token immediately...');
 
-    const { data: oauthSettings } = await supabaseServiceClient
-      .from('system_settings')
-      .select('setting_value')
-      .eq('setting_key', 'gmail_oauth_credentials')
-      .maybeSingle();
+    // Get OAuth credentials from environment variables
+    const googleClientId = Deno.env.get('GOOGLE_CLIENT_ID');
+    const googleClientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
 
     let tokenTestResult = {
       success: false,
       error: 'OAuth credentials not configured'
     };
 
-    if (!oauthSettings?.setting_value?.client_id) {
-      console.error('❌ CRITICAL: OAuth credentials not found in system_settings');
+    if (!googleClientId || !googleClientSecret) {
+      console.error('❌ CRITICAL: OAuth credentials not found in environment variables');
 
       // Delete the tokens we just saved since they can't be used
       await supabaseServiceClient
@@ -163,10 +161,10 @@ Deno.serve(async (req: Request) => {
         .delete()
         .eq('id', insertedData[0].id);
 
-      throw new Error('OAuth credentials not configured in system settings');
+      throw new Error('OAuth credentials not configured in environment variables (GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET)');
     }
 
-    console.log('🔍 DIAGNOSTIC: OAuth client_id from database:', oauthSettings.setting_value.client_id.substring(0, 30) + '...');
+    console.log('🔍 DIAGNOSTIC: OAuth client_id from environment:', googleClientId.substring(0, 30) + '...');
     console.log('🔍 DIAGNOSTIC: Refresh token (first 30 chars):', refresh_token.substring(0, 30) + '...');
     console.log('🔍 DIAGNOSTIC: Refresh token length:', refresh_token.length);
 
@@ -176,8 +174,8 @@ Deno.serve(async (req: Request) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
-          client_id: oauthSettings.setting_value.client_id,
-          client_secret: oauthSettings.setting_value.client_secret,
+          client_id: googleClientId,
+          client_secret: googleClientSecret,
           refresh_token: refresh_token,
           grant_type: 'refresh_token',
         }),
@@ -223,7 +221,7 @@ Deno.serve(async (req: Request) => {
               ...errorData,
               http_status: testRefreshResponse.status,
               diagnostic: 'Token failed validation immediately after exchange',
-              client_id_used: oauthSettings.setting_value.client_id.substring(0, 30) + '...',
+              client_id_used: googleClientId.substring(0, 30) + '...',
               refresh_token_length: refresh_token.length
             },
             oauth_provider: 'gmail'

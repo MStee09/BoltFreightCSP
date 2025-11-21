@@ -204,17 +204,13 @@ async function refreshAccessToken(
   tokenId: string,
   refreshToken: string
 ): Promise<string> {
-  const { data: credentials } = await supabaseClient
-    .from('system_settings')
-    .select('setting_value')
-    .eq('setting_key', 'gmail_oauth_credentials')
-    .maybeSingle();
+  // Get OAuth credentials from environment variables
+  const client_id = Deno.env.get('GOOGLE_CLIENT_ID');
+  const client_secret = Deno.env.get('GOOGLE_CLIENT_SECRET');
 
-  if (!credentials?.setting_value) {
-    throw new Error('OAuth credentials not configured');
+  if (!client_id || !client_secret) {
+    throw new Error('OAuth credentials not configured in environment variables');
   }
-
-  const { client_id, client_secret } = credentials.setting_value;
 
   const response = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',

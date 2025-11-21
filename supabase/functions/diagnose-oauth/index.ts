@@ -56,12 +56,9 @@ Deno.serve(async (req: Request) => {
 
     console.log('🔍 Starting OAuth diagnostic for user:', user.id);
 
-    // Get OAuth credentials from system_settings
-    const { data: oauthSettings } = await supabaseServiceClient
-      .from('system_settings')
-      .select('setting_value, created_at, updated_at')
-      .eq('setting_key', 'gmail_oauth_credentials')
-      .maybeSingle();
+    // Get OAuth credentials from environment variables
+    const googleClientId = Deno.env.get('GOOGLE_CLIENT_ID');
+    const googleClientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
 
     // Get user's tokens
     const { data: userTokens } = await supabaseServiceClient
@@ -85,13 +82,11 @@ Deno.serve(async (req: Request) => {
         email: user.email
       },
       oauthCredentials: {
-        exists: !!oauthSettings,
-        clientId: oauthSettings?.setting_value?.client_id?.substring(0, 40) + '...',
-        clientIdFull: oauthSettings?.setting_value?.client_id,
-        clientSecretLength: oauthSettings?.setting_value?.client_secret?.length,
-        createdAt: oauthSettings?.created_at,
-        updatedAt: oauthSettings?.updated_at,
-        lastModified: oauthSettings?.updated_at || oauthSettings?.created_at
+        exists: !!(googleClientId && googleClientSecret),
+        clientId: googleClientId?.substring(0, 40) + '...',
+        clientIdFull: googleClientId,
+        clientSecretLength: googleClientSecret?.length,
+        source: 'environment_variables'
       },
       userTokens: {
         exists: !!userTokens,
@@ -116,15 +111,15 @@ Deno.serve(async (req: Request) => {
     };
 
     // Analyze potential issues
-    if (!oauthSettings) {
-      diagnostics.potentialIssues.push('❌ No OAuth credentials configured in system_settings');
+    if (!googleClientId || !googleClientSecret) {
+      diagnostics.potentialIssues.push('❌ No OAuth credentials configured in environment variables (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET)');
     }
 
     if (!userTokens) {
       diagnostics.potentialIssues.push('⚠️ No tokens saved for this user');
     }
 
-    if (userTokens && oauthSettings) {
+    if (userTokens && googleClientId && googleClientSecret) {
       // Test token refresh with current credentials
       console.log('🧪 Testing token refresh with current credentials...');
 
@@ -133,8 +128,8 @@ Deno.serve(async (req: Request) => {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: new URLSearchParams({
-            client_id: oauthSettings.setting_value.client_id,
-            client_secret: oauthSettings.setting_value.client_secret,
+            client_id: googleClientId,
+            client_secret: googleClientSecret,
             refresh_token: userTokens.refresh_token,
             grant_type: 'refresh_token',
           }),

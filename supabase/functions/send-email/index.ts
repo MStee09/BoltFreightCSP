@@ -144,34 +144,23 @@ Deno.serve(async (req: Request) => {
     console.log('✅ OAuth tokens found in database');
 
     if (oauthTokens) {
-      // CRITICAL: Use service role to fetch OAuth credentials - bypasses RLS
-      // The system_settings table has admin-only RLS policies, but we need
-      // these credentials to send emails for any authenticated user
-      console.log('🔵 Fetching OAuth credentials from system_settings...');
-      const { data: oauthSettings, error: settingsError } = await supabaseServiceClient
-        .from('system_settings')
-        .select('setting_value')
-        .eq('setting_key', 'gmail_oauth_credentials')
-        .maybeSingle();
+      // Get OAuth credentials from environment variables
+      console.log('🔵 Loading OAuth credentials from environment variables...');
+      const googleClientId = Deno.env.get('GOOGLE_CLIENT_ID');
+      const googleClientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
 
-      console.log('🔍 OAuth settings query result:', {
-        hasSettings: !!oauthSettings,
-        hasClientId: !!oauthSettings?.setting_value?.client_id,
-        hasClientSecret: !!oauthSettings?.setting_value?.client_secret,
-        error: settingsError?.message
+      console.log('🔍 OAuth environment variables:', {
+        hasClientId: !!googleClientId,
+        hasClientSecret: !!googleClientSecret,
+        clientIdPrefix: googleClientId?.substring(0, 30)
       });
 
-      if (settingsError) {
-        console.error('❌ Settings error:', settingsError);
-        throw new Error('Failed to fetch OAuth credentials: ' + settingsError.message);
+      if (!googleClientId || !googleClientSecret) {
+        console.error('❌ OAuth credentials not found in environment variables');
+        throw new Error('Gmail OAuth not configured. Missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET environment variables.');
       }
 
-      if (!oauthSettings?.setting_value?.client_id) {
-        console.error('❌ No OAuth credentials in system_settings');
-        throw new Error('Gmail OAuth not configured. Please contact administrator.');
-      }
-
-      console.log('✅ OAuth credentials loaded from database');
+      console.log('✅ OAuth credentials loaded from environment');
 
       let accessToken = oauthTokens.access_token;
       let tokenRefreshed = false;
@@ -187,8 +176,8 @@ Deno.serve(async (req: Request) => {
       });
 
       console.log('🔍 DIAGNOSTIC: OAuth credentials being used:', {
-        client_id: oauthSettings.setting_value.client_id?.substring(0, 30) + '...',
-        client_secret_length: oauthSettings.setting_value.client_secret?.length
+        client_id: googleClientId?.substring(0, 30) + '...',
+        client_secret_length: googleClientSecret?.length
       });
 
       try {
@@ -198,8 +187,8 @@ Deno.serve(async (req: Request) => {
           method: 'POST',
           headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
           body: new URLSearchParams({
-            client_id: oauthSettings.setting_value.client_id,
-            client_secret: oauthSettings.setting_value.client_secret,
+            client_id: googleClientId,
+            client_secret: googleClientSecret,
             refresh_token: oauthTokens.refresh_token,
             grant_type: 'refresh_token',
           }),
@@ -235,7 +224,7 @@ Deno.serve(async (req: Request) => {
               error_details: {
                 ...errorData,
                 http_status: tokenResponse.status,
-                client_id_used: oauthSettings.setting_value.client_id?.substring(0, 30) + '...',
+                client_id_used: googleClientId?.substring(0, 30) + '...',
                 refresh_token_first_30: oauthTokens.refresh_token?.substring(0, 30) + '...',
                 diagnostic: 'Token refresh failed when attempting to send email'
               },
@@ -277,8 +266,8 @@ Deno.serve(async (req: Request) => {
           auth: {
             type: 'OAuth2',
             user: oauthTokens.email_address,
-            clientId: oauthSettings.setting_value.client_id,
-            clientSecret: oauthSettings.setting_value.client_secret,
+            clientId: googleClientId,
+            clientSecret: googleClientSecret,
             refreshToken: oauthTokens.refresh_token,
             accessToken: accessToken,
           },
