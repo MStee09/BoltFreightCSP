@@ -176,7 +176,9 @@ export function GmailSetupSimple() {
       ? 'https://freight-csp-tool-p8de.bolt.host'
       : window.location.origin);
     const redirectUri = `${appUrl}/gmail-callback`;
-    const scope = 'https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.settings.basic https://www.googleapis.com/auth/userinfo.email';
+    // CRITICAL: https://mail.google.com/ scope is required for SMTP OAuth2 authentication
+    // Gmail API scopes alone are NOT sufficient for nodemailer SMTP
+    const scope = 'https://mail.google.com/ https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/gmail.modify https://www.googleapis.com/auth/gmail.settings.basic https://www.googleapis.com/auth/userinfo.email';
 
     console.log('OAuth Debug:', {
       envAppUrl,
@@ -212,6 +214,7 @@ export function GmailSetupSimple() {
       `response_type=code&` +
       `scope=${encodeURIComponent(scope)}&` +
       `access_type=offline&` +
+      `include_granted_scopes=true&` +
       `prompt=consent&` +
       `state=${encodeURIComponent(state)}`;
 

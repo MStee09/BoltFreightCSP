@@ -7,11 +7,15 @@ import { toast } from 'sonner';
 import { supabase } from '@/api/supabaseClient';
 
 const GMAIL_CLIENT_ID = import.meta.env.VITE_GMAIL_CLIENT_ID;
+// CRITICAL: https://mail.google.com/ scope is required for SMTP OAuth2 authentication
+// Gmail API scopes alone are NOT sufficient for nodemailer SMTP
 const GMAIL_SCOPES = [
+  'https://mail.google.com/',
   'https://www.googleapis.com/auth/gmail.send',
   'https://www.googleapis.com/auth/gmail.readonly',
   'https://www.googleapis.com/auth/gmail.modify',
   'https://www.googleapis.com/auth/gmail.settings.basic',
+  'https://www.googleapis.com/auth/userinfo.email',
 ].join(' ');
 
 export function GmailSetup() {
@@ -73,6 +77,7 @@ export function GmailSetup() {
       `&response_type=code` +
       `&scope=${encodeURIComponent(GMAIL_SCOPES)}` +
       `&access_type=offline` +
+      `&include_granted_scopes=true` +
       `&prompt=consent`;
 
     window.location.href = authUrl;
