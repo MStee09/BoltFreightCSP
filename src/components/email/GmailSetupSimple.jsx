@@ -3,6 +3,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Mail, Check, AlertCircle, RefreshCw, Send, Copy, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/api/supabaseClient';
@@ -19,6 +21,7 @@ export function GmailSetupSimple() {
   const [googleClientId, setGoogleClientId] = useState(null);
   const [credentialsLoading, setCredentialsLoading] = useState(true);
   const [showManualSetup, setShowManualSetup] = useState(false);
+  const [testEmailAddress, setTestEmailAddress] = useState('');
 
   useEffect(() => {
     loadOAuthCredentials();
@@ -233,6 +236,9 @@ export function GmailSetupSimple() {
 
       const effectiveUserId = isImpersonating ? impersonatedUser.id : user.id;
 
+      // Use testEmailAddress if provided, otherwise use the connected email
+      const recipientEmail = testEmailAddress.trim() || emailAddress;
+
       const testTrackingCode = `TEST-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
       const testSubject = 'CRM Email Integration Test';
       const testBody = `Hello!\n\nThis is a test email from your CRM system.\n\nIf you're reading this, your email integration is working perfectly! 🎉\n\nTest Details:\n- Tracking Code: ${testTrackingCode}\n- Sent At: ${new Date().toLocaleString()}\n- From: ${emailAddress}\n\nYou can now send tracked emails from CSP Events, Customers, and Carriers in your CRM.\n\nBest regards,\nYour CRM System`;
@@ -246,7 +252,7 @@ export function GmailSetupSimple() {
         },
         body: JSON.stringify({
           trackingCode: testTrackingCode,
-          to: [emailAddress],
+          to: [recipientEmail],
           cc: [],
           subject: testSubject,
           body: testBody,
@@ -286,7 +292,7 @@ export function GmailSetupSimple() {
         throw new Error(errorData.error);
       }
 
-      toast.success(`Test email sent successfully to ${emailAddress}!`, {
+      toast.success(`Test email sent successfully to ${recipientEmail}!`, {
         description: 'Check your inbox. If you don\'t see it, check your spam folder.',
         duration: 5000
       });
@@ -524,6 +530,25 @@ export function GmailSetupSimple() {
                     If emails fail to send, click "Reconnect Gmail" to refresh your authorization.
                   </p>
                 </div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="test-email" className="text-sm font-medium">
+                  Test Email Recipient
+                </Label>
+                <Input
+                  id="test-email"
+                  type="email"
+                  placeholder={`Send to... (default: ${emailAddress})`}
+                  value={testEmailAddress}
+                  onChange={(e) => setTestEmailAddress(e.target.value)}
+                  className="text-sm"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Leave empty to send to your own account ({emailAddress})
+                </p>
               </div>
             </div>
 
