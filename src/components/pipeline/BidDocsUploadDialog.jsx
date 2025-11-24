@@ -6,22 +6,34 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { useToast } from '../ui/use-toast';
-import { Upload, Loader2, X, FileText } from 'lucide-react';
+import { Upload, Loader2, X, FileText, Pencil, Check } from 'lucide-react';
 import { Card, CardContent } from '../ui/card';
 
 export default function BidDocsUploadDialog({ eventCarrier, open, onOpenChange }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedFiles, setSelectedFiles] = useState([]);
+  const [fileNames, setFileNames] = useState([]);
+  const [editingIndex, setEditingIndex] = useState(null);
   const [uploading, setUploading] = useState(false);
 
   const handleFileSelect = (e) => {
     const files = Array.from(e.target.files);
     setSelectedFiles(prev => [...prev, ...files]);
+    setFileNames(prev => [...prev, ...files.map(f => f.name)]);
   };
 
   const removeFile = (index) => {
     setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+    setFileNames(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const updateFileName = (index, newName) => {
+    setFileNames(prev => {
+      const updated = [...prev];
+      updated[index] = newName;
+      return updated;
+    });
   };
 
   const uploadMutation = useMutation({
@@ -34,7 +46,9 @@ export default function BidDocsUploadDialog({ eventCarrier, open, onOpenChange }
       const { data: { user } } = await supabase.auth.getUser();
       const uploadedDocs = [];
 
-      for (const file of selectedFiles) {
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+        const customName = fileNames[i] || file.name;
         const fileExt = file.name.split('.').pop();
         const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
         const filePath = `csp_bids/${eventCarrier.csp_event_id}/${eventCarrier.carrier_id}/${fileName}`;
@@ -46,7 +60,7 @@ export default function BidDocsUploadDialog({ eventCarrier, open, onOpenChange }
         if (uploadError) throw uploadError;
 
         uploadedDocs.push({
-          file_name: file.name,
+          file_name: customName,
           file_path: filePath,
           uploaded_at: new Date().toISOString(),
           uploaded_by: user?.id || '00000000-0000-0000-0000-000000000000',
@@ -89,6 +103,8 @@ export default function BidDocsUploadDialog({ eventCarrier, open, onOpenChange }
         description: `${uploadedDocs.length} document(s) uploaded successfully`,
       });
       setSelectedFiles([]);
+      setFileNames([]);
+      setEditingIndex(null);
       setUploading(false);
       onOpenChange(false);
     },
@@ -142,11 +158,51 @@ export default function BidDocsUploadDialog({ eventCarrier, open, onOpenChange }
                 {selectedFiles.map((file, index) => (
                   <Card key={index}>
                     <CardContent className="p-3">
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between gap-2">
                         <div className="flex items-center gap-2 flex-1 min-w-0">
                           <FileText className="w-4 h-4 text-slate-500 flex-shrink-0" />
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{file.name}</p>
+                            {editingIndex === index ? (
+                              <div className="flex items-center gap-1">
+                                <Input
+                                  value={fileNames[index] || file.name}
+                                  onChange={(e) => updateFileName(index, e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      setEditingIndex(null);
+                                    } else if (e.key === 'Escape') {
+                                      updateFileName(index, file.name);
+                                      setEditingIndex(null);
+                                    }
+                                  }}
+                                  className="h-7 text-sm"
+                                  autoFocus
+                                  disabled={uploading}
+                                />
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 flex-shrink-0"
+                                  onClick={() => setEditingIndex(null)}
+                                  disabled={uploading}
+                                >
+                                  <Check className="w-3 h-3 text-green-600" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1">
+                                <p className="text-sm font-medium truncate">{fileNames[index] || file.name}</p>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-5 w-5 flex-shrink-0"
+                                  onClick={() => setEditingIndex(index)}
+                                  disabled={uploading}
+                                >
+                                  <Pencil className="w-3 h-3 text-slate-400" />
+                                </Button>
+                              </div>
+                            )}
                             <p className="text-xs text-slate-500">{formatFileSize(file.size)}</p>
                           </div>
                         </div>

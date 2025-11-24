@@ -11,7 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popove
 import { Calendar } from '../components/ui/calendar';
 import { Label } from '../components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
-import { UploadCloud, Calendar as CalendarIcon, ArrowLeft, File, X, Loader2, Check, ChevronsUpDown, ExternalLink } from 'lucide-react';
+import { UploadCloud, Calendar as CalendarIcon, ArrowLeft, File, X, Loader2, Check, ChevronsUpDown, ExternalLink, Pencil } from 'lucide-react';
 import { format } from 'date-fns';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "../components/ui/command"
 import { cn } from "../lib/utils";
@@ -124,6 +124,8 @@ export default function TariffUploadPage() {
     const [isDragging, setIsDragging] = useState(false);
     const [isBlanket, setIsBlanket] = useState(false);
     const [cspEventId, setCspEventId] = useState(preselectedCspEventId || '');
+    const [customFileName, setCustomFileName] = useState('');
+    const [isRenamingFile, setIsRenamingFile] = useState(false);
 
     const isRocketOrP1 = ownershipType === 'Rocket' || ownershipType === 'Priority 1';
 
@@ -254,6 +256,7 @@ export default function TariffUploadPage() {
     const handleFileChange = (e) => {
         if (e.target.files && e.target.files[0]) {
             setFile(e.target.files[0]);
+            setCustomFileName(e.target.files[0].name);
         }
     };
     
@@ -266,6 +269,7 @@ export default function TariffUploadPage() {
         setIsDragging(false);
         if (e.dataTransfer.files && e.dataTransfer.files[0]) {
             setFile(e.dataTransfer.files[0]);
+            setCustomFileName(e.dataTransfer.files[0].name);
         }
     };
 
@@ -435,15 +439,58 @@ export default function TariffUploadPage() {
                         <div className="space-y-2">
                             <Label>Tariff Document (Optional)</Label>
                             {file ? (
-                                <div className="p-4 border rounded-lg flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <File className="w-6 h-6 text-blue-500"/>
-                                        <div>
-                                            <p className="font-medium text-sm">{file.name}</p>
-                                            <p className="text-xs text-slate-500">{(file.size / 1024).toFixed(2)} KB</p>
+                                <div className="p-4 border rounded-lg space-y-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                                            <File className="w-6 h-6 text-blue-500 shrink-0"/>
+                                            <div className="flex-1 min-w-0">
+                                                {isRenamingFile ? (
+                                                    <div className="flex items-center gap-2">
+                                                        <Input
+                                                            value={customFileName}
+                                                            onChange={(e) => setCustomFileName(e.target.value)}
+                                                            onKeyDown={(e) => {
+                                                                if (e.key === 'Enter') {
+                                                                    setIsRenamingFile(false);
+                                                                } else if (e.key === 'Escape') {
+                                                                    setCustomFileName(file.name);
+                                                                    setIsRenamingFile(false);
+                                                                }
+                                                            }}
+                                                            className="h-8 text-sm"
+                                                            autoFocus
+                                                        />
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-8 w-8"
+                                                            onClick={() => setIsRenamingFile(false)}
+                                                        >
+                                                            <Check className="w-4 h-4 text-green-600"/>
+                                                        </Button>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="font-medium text-sm truncate">{customFileName}</p>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="icon"
+                                                            className="h-6 w-6 shrink-0"
+                                                            onClick={() => setIsRenamingFile(true)}
+                                                        >
+                                                            <Pencil className="w-3 h-3 text-slate-500"/>
+                                                        </Button>
+                                                    </div>
+                                                )}
+                                                <p className="text-xs text-slate-500">{(file.size / 1024).toFixed(2)} KB</p>
+                                            </div>
                                         </div>
+                                        <Button variant="ghost" size="icon" onClick={() => {
+                                            setFile(null);
+                                            setCustomFileName('');
+                                            setIsRenamingFile(false);
+                                        }}><X className="w-4 h-4"/></Button>
                                     </div>
-                                    <Button variant="ghost" size="icon" onClick={() => setFile(null)}><X className="w-4 h-4"/></Button>
                                 </div>
                             ) : (
                                 <div onDragEnter={handleDragEnter} onDragLeave={handleDragLeave} onDragOver={handleDragOver} onDrop={handleDrop} className={`relative p-8 border-2 border-dashed rounded-lg text-center cursor-pointer hover:border-blue-500 transition-colors ${isDragging ? 'border-blue-500 bg-blue-50' : 'border-slate-300'}`}>

@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { useToast } from '../ui/use-toast';
-import { Upload, Loader2, X, FileText, Check } from 'lucide-react';
+import { Upload, Loader2, X, FileText, Check, Pencil } from 'lucide-react';
 import { Card, CardContent } from '../ui/card';
 import { Checkbox } from '../ui/checkbox';
 import { ScrollArea } from '../ui/scroll-area';
@@ -14,18 +14,29 @@ export default function BulkUploadDialog({ selectedCarriers, carriers, cspEventI
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedFiles, setSelectedFiles] = useState([]);
+  const [fileNames, setFileNames] = useState([]);
+  const [editingIndex, setEditingIndex] = useState(null);
   const [fileCarrierMap, setFileCarrierMap] = useState({});
   const [uploading, setUploading] = useState(false);
 
   const handleFileSelect = (e) => {
     const files = Array.from(e.target.files);
     setSelectedFiles(files);
+    setFileNames(files.map(f => f.name));
 
     const newMap = {};
     files.forEach((file, index) => {
       newMap[index] = new Set(selectedCarriers);
     });
     setFileCarrierMap(newMap);
+  };
+
+  const updateFileName = (index, newName) => {
+    setFileNames(prev => {
+      const updated = [...prev];
+      updated[index] = newName;
+      return updated;
+    });
   };
 
   const toggleCarrierForFile = (fileIndex, carrierId) => {
@@ -56,6 +67,7 @@ export default function BulkUploadDialog({ selectedCarriers, carriers, cspEventI
 
       for (let fileIndex = 0; fileIndex < selectedFiles.length; fileIndex++) {
         const file = selectedFiles[fileIndex];
+        const customName = fileNames[fileIndex] || file.name;
         const assignedCarriers = Array.from(fileCarrierMap[fileIndex] || []);
 
         if (assignedCarriers.length === 0) continue;
@@ -71,7 +83,7 @@ export default function BulkUploadDialog({ selectedCarriers, carriers, cspEventI
         if (uploadError) throw uploadError;
 
         const docMetadata = {
-          file_name: file.name,
+          file_name: customName,
           file_path: filePath,
           uploaded_at: new Date().toISOString(),
           uploaded_by: user?.id || '00000000-0000-0000-0000-000000000000',
@@ -115,6 +127,8 @@ export default function BulkUploadDialog({ selectedCarriers, carriers, cspEventI
         description: `${fileCount} file(s) uploaded to ${carrierCount} carrier(s)`,
       });
       setSelectedFiles([]);
+      setFileNames([]);
+      setEditingIndex(null);
       setFileCarrierMap({});
       setUploading(false);
       onSuccess?.();
@@ -171,7 +185,47 @@ export default function BulkUploadDialog({ selectedCarriers, carriers, cspEventI
                         <div className="flex items-center gap-2">
                           <FileText className="w-4 h-4 text-slate-500 flex-shrink-0" />
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium truncate">{file.name}</p>
+                            {editingIndex === fileIndex ? (
+                              <div className="flex items-center gap-1">
+                                <Input
+                                  value={fileNames[fileIndex] || file.name}
+                                  onChange={(e) => updateFileName(fileIndex, e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      setEditingIndex(null);
+                                    } else if (e.key === 'Escape') {
+                                      updateFileName(fileIndex, file.name);
+                                      setEditingIndex(null);
+                                    }
+                                  }}
+                                  className="h-7 text-sm"
+                                  autoFocus
+                                  disabled={uploading}
+                                />
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6 flex-shrink-0"
+                                  onClick={() => setEditingIndex(null)}
+                                  disabled={uploading}
+                                >
+                                  <Check className="w-3 h-3 text-green-600" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-1">
+                                <p className="text-sm font-medium truncate">{fileNames[fileIndex] || file.name}</p>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-5 w-5 flex-shrink-0"
+                                  onClick={() => setEditingIndex(fileIndex)}
+                                  disabled={uploading}
+                                >
+                                  <Pencil className="w-3 h-3 text-slate-400" />
+                                </Button>
+                              </div>
+                            )}
                             <p className="text-xs text-slate-500">{formatFileSize(file.size)}</p>
                           </div>
                         </div>
