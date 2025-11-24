@@ -16,7 +16,8 @@ import { format } from 'date-fns';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "../components/ui/command"
 import { cn } from "../lib/utils";
 import { Badge } from "../components/ui/badge";
-import { Switch } from "../components/ui/switch"; // Added Switch import
+import { Switch } from "../components/ui/switch";
+import { useToast } from "../components/ui/use-toast";
 
 const MultiSelect = ({ options, selected, onChange, placeholder, searchPlaceholder, onCreateNew, emptyText = "No results found", createNewText = "Create new" }) => {
     const [open, setOpen] = useState(false);
@@ -107,6 +108,7 @@ const MultiSelect = ({ options, selected, onChange, placeholder, searchPlacehold
 export default function TariffUploadPage() {
     const queryClient = useQueryClient();
     const navigate = useNavigate();
+    const { toast } = useToast();
 
     const urlParams = new URLSearchParams(window.location.search);
     const preselectedCspEventId = urlParams.get('cspEventId');
@@ -246,10 +248,19 @@ export default function TariffUploadPage() {
         },
         onSuccess: (newTariff) => {
             queryClient.invalidateQueries({ queryKey: ['tariffs'] });
+            toast({
+                title: "Success!",
+                description: "Tariff created successfully.",
+            });
             navigate(createPageUrl(`TariffDetail?id=${newTariff.id}`));
         },
         onError: (error) => {
             console.error("Error creating tariff:", error);
+            toast({
+                title: "Error",
+                description: error.message || "Failed to create tariff. Please try again.",
+                variant: "destructive",
+            });
         }
     });
 
@@ -275,13 +286,14 @@ export default function TariffUploadPage() {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        
+
         let missingFields = [];
+        if (!ownershipType) missingFields.push("Ownership Type");
         if (!version) missingFields.push("Tariff Version");
         if (carrierIds.length === 0) missingFields.push("Carrier");
         if (!effectiveDate) missingFields.push("Effective Date");
         if (!expiryDate) missingFields.push("Expiry Date");
-        
+
         if (!isBlanket && !customerId) {
             missingFields.push("Customer");
         }
