@@ -413,7 +413,21 @@ export default function TariffUploadPage() {
                                             {effectiveDate ? format(effectiveDate, "PPP") : <span>Pick a date</span>}
                                         </Button>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={effectiveDate} onSelect={setEffectiveDate} /></PopoverContent>
+                                    <PopoverContent className="w-auto p-0">
+                                        <Calendar
+                                            mode="single"
+                                            selected={effectiveDate}
+                                            onSelect={(date) => {
+                                                setEffectiveDate(date);
+                                                if (date && !expiryDate) {
+                                                    const oneYearLater = new Date(date);
+                                                    oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
+                                                    oneYearLater.setDate(oneYearLater.getDate() - 1);
+                                                    setExpiryDate(oneYearLater);
+                                                }
+                                            }}
+                                        />
+                                    </PopoverContent>
                                 </Popover>
                             </div>
                             <div className="space-y-2">
@@ -425,7 +439,21 @@ export default function TariffUploadPage() {
                                             {expiryDate ? format(expiryDate, "PPP") : <span>Pick a date</span>}
                                         </Button>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={expiryDate} onSelect={setExpiryDate} /></PopoverContent>
+                                    <PopoverContent className="w-auto p-0">
+                                        <Calendar
+                                            mode="single"
+                                            selected={expiryDate}
+                                            onSelect={(date) => {
+                                                setExpiryDate(date);
+                                                if (date && !effectiveDate) {
+                                                    const oneYearEarlier = new Date(date);
+                                                    oneYearEarlier.setFullYear(oneYearEarlier.getFullYear() - 1);
+                                                    oneYearEarlier.setDate(oneYearEarlier.getDate() + 1);
+                                                    setEffectiveDate(oneYearEarlier);
+                                                }
+                                            }}
+                                        />
+                                    </PopoverContent>
                                 </Popover>
                             </div>
                         </div>
