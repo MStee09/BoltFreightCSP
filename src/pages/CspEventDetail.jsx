@@ -7,7 +7,7 @@ import { Button } from '../components/ui/button';
 import { Skeleton } from '../components/ui/skeleton';
 import { Badge } from '../components/ui/badge';
 import { Card, CardContent } from '../components/ui/card';
-import { ArrowLeft, Edit, Mail, Phone, ExternalLink, Building2 } from 'lucide-react';
+import { ArrowLeft, Edit, Mail, Phone, ExternalLink, Building2, Trash2 } from 'lucide-react';
 import { createPageUrl } from '../utils';
 import { useEmailComposer } from '../contexts/EmailComposerContext';
 import { EmailTimeline } from '../components/email/EmailTimeline';
@@ -22,6 +22,18 @@ import DocumentsTab from '../components/customers/DocumentsTab';
 import VolumeSpendTab from '../components/pipeline/VolumeSpendTab';
 import CspCarriersTab from '../components/pipeline/CspCarriersTab';
 import { BackButton } from '../components/navigation/BackButton';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from '../components/ui/alert-dialog';
+import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 
 export default function CspEventDetail() {
     const navigate = useNavigate();
@@ -31,7 +43,10 @@ export default function CspEventDetail() {
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [isManageCarriersOpen, setIsManageCarriersOpen] = useState(false);
     const [emailViewMode, setEmailViewMode] = useState('threads');
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
     const { openComposer } = useEmailComposer();
+    const queryClient = useQueryClient();
 
     const { data: event, isLoading } = useQuery({
         queryKey: ['csp_event', eventId],
@@ -63,6 +78,22 @@ export default function CspEventDetail() {
             carrier: carriers.find(c => c.id === assignment.carrier_id)
         }))
         .filter(assignment => assignment.carrier);
+
+    const handleDelete = async () => {
+        setIsDeleting(true);
+        try {
+            await CSPEvent.delete(eventId);
+            toast.success('CSP event deleted successfully');
+            queryClient.invalidateQueries(['csp_events']);
+            navigate('/Pipeline');
+        } catch (error) {
+            console.error('Error deleting CSP event:', error);
+            toast.error('Failed to delete CSP event');
+        } finally {
+            setIsDeleting(false);
+            setIsDeleteDialogOpen(false);
+        }
+    };
 
     if (isLoading) {
         return (
@@ -98,6 +129,13 @@ export default function CspEventDetail() {
                         </Button>
                         <Button variant="outline" onClick={() => setIsEditDialogOpen(true)}>
                             <Edit className="w-4 h-4 mr-2" /> Edit
+                        </Button>
+                        <Button
+                            variant="outline"
+                            className="text-red-600 hover:text-red-700 hover:border-red-300"
+                            onClick={() => setIsDeleteDialogOpen(true)}
+                        >
+                            <Trash2 className="w-4 h-4 mr-2" /> Delete
                         </Button>
                     </div>
                 </div>
@@ -219,6 +257,28 @@ export default function CspEventDetail() {
                 onOpenChange={setIsManageCarriersOpen}
                 cspEventId={eventId}
             />
+
+            <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete CSP Event</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to delete "{event?.title}"? This action cannot be undone.
+                            All associated carriers, documents, activities, and emails will remain but will no longer be linked to this event.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleDelete}
+                            disabled={isDeleting}
+                            className="bg-red-600 hover:bg-red-700"
+                        >
+                            {isDeleting ? 'Deleting...' : 'Delete Event'}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </>
     );
 }
