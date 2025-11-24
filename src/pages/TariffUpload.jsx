@@ -225,7 +225,20 @@ export default function TariffUploadPage() {
             };
 
             // Auto-set status to active if effective date has passed
-            const effectiveDate = data.effectiveDate ? format(data.effectiveDate, 'yyyy-MM-dd') : null;
+            const effectiveDate = data.effectiveDate ? (() => {
+                const d = data.effectiveDate;
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            })() : null;
+            const expiryDate = data.expiryDate ? (() => {
+                const d = data.expiryDate;
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            })() : null;
             const effectiveDatePassed = effectiveDate && new Date(effectiveDate) <= new Date();
             const status = effectiveDatePassed ? 'active' : (data.cspEventId ? 'active' : 'proposed');
 
@@ -237,7 +250,7 @@ export default function TariffUploadPage() {
                 ownership_type: ownershipTypeMap[data.ownershipType] || 'customer_direct',
                 is_blanket_tariff: data.isBlanket,
                 effective_date: effectiveDate,
-                expiry_date: data.expiryDate ? format(data.expiryDate, 'yyyy-MM-dd') : null,
+                expiry_date: expiryDate,
                 file_url: null,
                 csp_event_id: data.cspEventId || null,
                 status: status

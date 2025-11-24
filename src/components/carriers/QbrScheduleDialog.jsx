@@ -17,7 +17,7 @@ const QbrScheduleDialog = ({ carrier, open, onOpenChange }) => {
 
     useEffect(() => {
         if (carrier?.next_qbr_date) {
-            setDate(new Date(carrier.next_qbr_date));
+            setDate(new Date(carrier.next_qbr_date + 'T00:00:00'));
         } else {
             setDate(null);
         }
@@ -28,8 +28,11 @@ const QbrScheduleDialog = ({ carrier, open, onOpenChange }) => {
 
         setIsSubmitting(true);
         try {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
             await Carrier.update(carrier.id, {
-                next_qbr_date: format(date, 'yyyy-MM-dd')
+                next_qbr_date: `${year}-${month}-${day}`
             });
 
             queryClient.invalidateQueries(['carriers']);

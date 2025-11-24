@@ -359,14 +359,23 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers: custome
                                     )}
                                 >
                                     <CalendarIcon className="mr-2 h-4 w-4" />
-                                    {newEvent.due_date ? format(new Date(newEvent.due_date), "PPP") : "Select due date"}
+                                    {newEvent.due_date ? format(new Date(newEvent.due_date + 'T00:00:00'), "PPP") : "Select due date"}
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="start">
                                 <Calendar
                                     mode="single"
-                                    selected={newEvent.due_date ? new Date(newEvent.due_date) : undefined}
-                                    onSelect={(date) => handleValueChange('due_date', date ? format(date, 'yyyy-MM-dd') : null)}
+                                    selected={newEvent.due_date ? new Date(newEvent.due_date + 'T00:00:00') : undefined}
+                                    onSelect={(date) => {
+                                        if (date) {
+                                            const year = date.getFullYear();
+                                            const month = String(date.getMonth() + 1).padStart(2, '0');
+                                            const day = String(date.getDate()).padStart(2, '0');
+                                            handleValueChange('due_date', `${year}-${month}-${day}`);
+                                        } else {
+                                            handleValueChange('due_date', null);
+                                        }
+                                    }}
                                     initialFocus
                                 />
                             </PopoverContent>

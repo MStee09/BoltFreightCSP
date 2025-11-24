@@ -572,8 +572,17 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                                     <PopoverContent className="w-auto p-0" align="start">
                                         <Calendar
                                             mode="single"
-                                            selected={formData.data_start_date ? new Date(formData.data_start_date) : undefined}
-                                            onSelect={(date) => handleValueChange('data_start_date', date ? format(date, 'yyyy-MM-dd') : null)}
+                                            selected={formData.data_start_date ? new Date(formData.data_start_date + 'T00:00:00') : undefined}
+                                            onSelect={(date) => {
+                                                if (date) {
+                                                    const year = date.getFullYear();
+                                                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                                                    const day = String(date.getDate()).padStart(2, '0');
+                                                    handleValueChange('data_start_date', `${year}-${month}-${day}`);
+                                                } else {
+                                                    handleValueChange('data_start_date', null);
+                                                }
+                                            }}
                                         />
                                     </PopoverContent>
                                 </Popover>
@@ -583,7 +592,7 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                                     isCalculatedFromDataset ? "bg-slate-100 text-slate-500" : "text-slate-900"
                                 )}>
                                     <CalendarIcon className="h-4 w-4" />
-                                    {formData.data_start_date ? format(new Date(formData.data_start_date), "MMM d, yyyy") : '-'}
+                                    {formData.data_start_date ? format(new Date(formData.data_start_date + 'T00:00:00'), "MMM d, yyyy") : '-'}
                                 </div>
                             )}
                         </div>
@@ -600,14 +609,23 @@ export default function VolumeSpendTab({ cspEvent, cspEventId }) {
                                             )}
                                         >
                                             <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {formData.data_end_date ? format(new Date(formData.data_end_date), "PP") : "Select date"}
+                                            {formData.data_end_date ? format(new Date(formData.data_end_date + 'T00:00:00'), "PP") : "Select date"}
                                         </Button>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-auto p-0" align="start">
                                         <Calendar
                                             mode="single"
-                                            selected={formData.data_end_date ? new Date(formData.data_end_date) : undefined}
-                                            onSelect={(date) => handleValueChange('data_end_date', date ? format(date, 'yyyy-MM-dd') : null)}
+                                            selected={formData.data_end_date ? new Date(formData.data_end_date + 'T00:00:00') : undefined}
+                                            onSelect={(date) => {
+                                                if (date) {
+                                                    const year = date.getFullYear();
+                                                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                                                    const day = String(date.getDate()).padStart(2, '0');
+                                                    handleValueChange('data_end_date', `${year}-${month}-${day}`);
+                                                } else {
+                                                    handleValueChange('data_end_date', null);
+                                                }
+                                            }}
                                         />
                                     </PopoverContent>
                                 </Popover>
