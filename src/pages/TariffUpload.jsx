@@ -127,6 +127,11 @@ export default function TariffUploadPage() {
 
     const isRocketOrP1 = ownershipType === 'Rocket' || ownershipType === 'Priority 1';
 
+    // Data queries MUST come before useEffect hooks that depend on them
+    const { data: customers = [] } = useQuery({ queryKey: ["customers"], queryFn: () => Customer.list(), initialData: [] });
+    const { data: carriers = [] } = useQuery({ queryKey: ["carriers"], queryFn: () => Carrier.list(), initialData: [] });
+    const { data: existingTariffs = [] } = useQuery({ queryKey: ["tariffs"], queryFn: () => Tariff.list(), initialData: [] });
+
     useEffect(() => {
         if (!isRocketOrP1) {
             setIsBlanket(false);
@@ -136,7 +141,7 @@ export default function TariffUploadPage() {
 
     useEffect(() => {
         if (isBlanket && ownershipType === 'Rocket') {
-            const rocketCustomer = customers.find(c => c.name === 'Rocket Shipping');
+            const rocketCustomer = customers?.find(c => c.name === 'Rocket Shipping');
             if (rocketCustomer) {
                 setCustomerId(rocketCustomer.id);
             }
@@ -144,10 +149,6 @@ export default function TariffUploadPage() {
             setCustomerId(null);
         }
     }, [isBlanket, ownershipType, customers]);
-
-    const { data: customers = [] } = useQuery({ queryKey: ["customers"], queryFn: () => Customer.list(), initialData: [] });
-    const { data: carriers = [] } = useQuery({ queryKey: ["carriers"], queryFn: () => Carrier.list(), initialData: [] });
-    const { data: existingTariffs = [] } = useQuery({ queryKey: ["tariffs"], queryFn: () => Tariff.list(), initialData: [] });
 
     useEffect(() => {
         if (carrierIds.length === 0 || !effectiveDate) {
