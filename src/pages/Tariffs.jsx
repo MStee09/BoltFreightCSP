@@ -12,6 +12,7 @@ import { Badge } from "../components/ui/badge";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "../components/ui/dropdown-menu";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "../components/ui/command";
 import { Popover, PopoverContent, PopoverTrigger } from "../components/ui/popover";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "../components/ui/alert-dialog";
 import { PlusCircle, Search, Upload, ChevronDown, ChevronRight, AlertCircle, Eye, GitCompare, Download, FileText, Plus, Calendar, Link2, UploadCloud, RefreshCw, FileCheck, ArrowUpDown, Briefcase, FolderOpen, TrendingUp, Clock, X, Pin, User, Truck, Package, CreditCard as Edit, History, FileSpreadsheet, Repeat, ChevronsDown, ChevronsUp, Star, MoreVertical, Trash2, CheckCircle } from "lucide-react";
 import { format, isAfter, isBefore, differenceInDays } from "date-fns";
 import { Skeleton } from "../components/ui/skeleton";
@@ -98,6 +99,8 @@ export default function TariffsPage() {
   const [showSearchSuggestion, setShowSearchSuggestion] = useState(false);
   const [suggestedCustomer, setSuggestedCustomer] = useState(null);
   const [blanketUsageDrawer, setBlanketUsageDrawer] = useState({ isOpen: false, tariff: null, carrier: null });
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [tariffToDelete, setTariffToDelete] = useState(null);
 
   useEffect(() => {
     const view = searchParams.get('view');
@@ -145,15 +148,20 @@ export default function TariffsPage() {
     }
   };
 
-  const handleDeleteTariff = async (tariffId, tariffName) => {
-    if (!confirm(`Are you sure you want to delete ${tariffName}? This action cannot be undone.`)) {
-      return;
-    }
+  const handleDeleteTariff = (tariffId, tariffName) => {
+    setTariffToDelete({ id: tariffId, name: tariffName });
+    setShowDeleteDialog(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!tariffToDelete) return;
 
     try {
-      await Tariff.delete(tariffId);
+      await Tariff.delete(tariffToDelete.id);
       queryClient.invalidateQueries({ queryKey: ["tariffs"] });
       toast.success('Tariff deleted successfully');
+      setShowDeleteDialog(false);
+      setTariffToDelete(null);
     } catch (error) {
       console.error('Error deleting tariff:', error);
       toast.error('Failed to delete tariff');
@@ -2261,6 +2269,26 @@ export default function TariffsPage() {
         tariff={blanketUsageDrawer.tariff}
         carrier={blanketUsageDrawer.carrier}
       />
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Tariff</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete tariff "{tariffToDelete?.name}"? This action cannot be undone and will remove all associated data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              Delete Tariff
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
