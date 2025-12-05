@@ -1867,8 +1867,6 @@ export default function TariffsPage() {
                               const isHistory = !isLive && (tariff.status === 'expired' || tariff.status === 'superseded' ||
                                               (expiryDate && isBefore(expiryDate, today)));
                               const sopCount = sopCounts[tariff.id] || 0;
-                              const effectiveDate = tariff.effective_date ? new Date(tariff.effective_date) : null;
-                              const daysActive = effectiveDate && tariff.status === 'active' ? differenceInDays(today, effectiveDate) : null;
 
                               if (isHistory && !showHistory && !expandedFamilyHistory.has(family.familyId)) {
                                 return null;
@@ -1912,16 +1910,25 @@ export default function TariffsPage() {
                                         {sopCount}
                                       </Badge>
                                     )}
-                                    {daysActive !== null && daysActive > 0 && (
+                                    {daysUntilExpiry !== null && daysUntilExpiry > 0 && tariff.status === 'active' && (
                                       <TooltipProvider>
                                         <Tooltip>
                                           <TooltipTrigger asChild>
-                                            <Badge variant="outline" className="text-xs h-5 px-1.5 bg-green-50 text-green-700 border-green-200">
+                                            <Badge
+                                              variant="outline"
+                                              className={`text-xs h-5 px-1.5 ${
+                                                daysUntilExpiry > 90
+                                                  ? 'bg-green-50 text-green-700 border-green-200'
+                                                  : daysUntilExpiry > 30
+                                                  ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                                                  : 'bg-red-50 text-red-700 border-red-200'
+                                              }`}
+                                            >
                                               <Clock className="h-3 w-3 mr-1" />
-                                              {daysActive}d
+                                              {daysUntilExpiry}d
                                             </Badge>
                                           </TooltipTrigger>
-                                          <TooltipContent>Active for {daysActive} days</TooltipContent>
+                                          <TooltipContent>Expires in {daysUntilExpiry} days</TooltipContent>
                                         </Tooltip>
                                       </TooltipProvider>
                                     )}
