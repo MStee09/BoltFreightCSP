@@ -7,7 +7,7 @@ import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../components/ui/table";
-import { ArrowLeft, Edit, Users, FileText, BarChart2, ShieldCheck, Ban, Anchor, Mail, Trash2 } from 'lucide-react';
+import { ArrowLeft, Edit, Users, FileText, BarChart2, ShieldCheck, Ban, Anchor, Mail, Trash2, PlusCircle } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Skeleton } from '../components/ui/skeleton';
 import { createPageUrl } from '../utils';
@@ -24,6 +24,7 @@ import { EmailThreadBadge } from '../components/email/EmailThreadBadge';
 import { BackButton } from '../components/navigation/BackButton';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '../components/ui/alert-dialog';
 import { toast } from 'sonner';
+import EditTariffDialog from '../components/tariffs/EditTariffDialog';
 
 const PlaceholderTab = ({ title, icon }) => (
     <div className="py-12 text-center text-slate-500 border border-dashed rounded-lg mt-4">
@@ -361,6 +362,9 @@ const CarrierCommitments = ({ carrier }) => {
 };
 
 const CarrierTariffs = ({ carrierId, highlightId }) => {
+    const [showCreateTariffDialog, setShowCreateTariffDialog] = useState(false);
+    const queryClient = useQueryClient();
+
     const { data: tariffs = [], isLoading: isLoadingTariffs } = useQuery({
         queryKey: ['tariffs', { carrierForTariffs: carrierId }],
         queryFn: async () => {
@@ -376,11 +380,11 @@ const CarrierTariffs = ({ carrierId, highlightId }) => {
         enabled: !!carrierId,
         initialData: []
     });
-    
+
     const { data: customers = [], isLoading: isLoadingCustomers } = useQuery({
         queryKey: ['customers'],
         queryFn: () => Customer.list(),
-        initialData: [] // Ensure it starts as an array to prevent crashes if data isn't loaded yet
+        initialData: []
     });
 
     const isLoading = isLoadingTariffs || isLoadingCustomers;
@@ -395,47 +399,90 @@ const CarrierTariffs = ({ carrierId, highlightId }) => {
         return <Badge className={`${colors[status] || 'bg-gray-100'} hover:bg-opacity-80`}>{status}</Badge>;
     };
 
+    const getOwnershipBadge = (ownershipType) => {
+        const types = {
+            rocket_csp: { label: 'Rocket CSP', color: 'bg-purple-100 text-purple-800 border-purple-200' },
+            customer_direct: { label: 'Customer Direct', color: 'bg-blue-100 text-blue-800 border-blue-200' },
+            rocket_blanket: { label: 'Rocket Blanket', color: 'bg-orange-100 text-orange-800 border-orange-200' },
+            priority_1_csp: { label: 'Priority 1 CSP', color: 'bg-green-100 text-green-800 border-green-200' }
+        };
+        const type = types[ownershipType] || { label: ownershipType, color: 'bg-gray-100 text-gray-800' };
+        return <Badge variant="outline" className={`${type.color}`}>{type.label}</Badge>;
+    };
+
+    const handleCreateSuccess = () => {
+        queryClient.invalidateQueries({ queryKey: ['tariffs'] });
+        setShowCreateTariffDialog(false);
+        toast.success('Tariff created successfully');
+    };
+
     return (
-        <Card className="mt-4 shadow-md">
-            <CardHeader>
-                <CardTitle>Tariff Library</CardTitle>
-                <CardDescription>All tariffs associated with this carrier, across all customers.</CardDescription>
-            </CardHeader>
-            <CardContent>
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>Customer</TableHead>
-                            <TableHead>Tariff ID</TableHead>
-                            <TableHead>Status</TableHead>
-                            <TableHead>Days Left</TableHead>
-                            <TableHead>Last Updated</TableHead>
-                        </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                        {isLoading ? Array(3).fill(0).map((_, i) => (
-                            <TableRow key={i}><TableCell colSpan={5}><Skeleton className="h-6 w-full" /></TableCell></TableRow>
-                        )) : tariffs.map(tariff => {
-                            const customer = customers.find(c => c.id === tariff.customer_id);
-                            const daysLeft = tariff.expiry_date ? differenceInDays(new Date(tariff.expiry_date), new Date()) : null;
-                            return (
-                                <TableRow
-                                    key={tariff.id}
-                                    className={`cursor-pointer hover:bg-slate-50 ${tariff.id === highlightId ? 'bg-blue-50' : ''}`}
-                                    onClick={() => window.location.href = createPageUrl(`TariffDetail?id=${tariff.id}`)}
-                                >
-                                    <TableCell className="font-medium">{customer?.name || (tariff.is_blanket_tariff ? 'Blanket' : 'N/A')}</TableCell>
-                                    <TableCell>{tariff.tariff_reference_id}</TableCell>
-                                    <TableCell>{getStatusBadge(tariff.status)}</TableCell>
-                                    <TableCell>{daysLeft !== null && daysLeft >= 0 ? `${daysLeft} days` : 'Expired'}</TableCell>
-                                    <TableCell>{formatDistanceToNow(new Date(tariff.updated_date), { addSuffix: true })}</TableCell>
+        <>
+            <Card className="mt-4 shadow-md">
+                <CardHeader>
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <CardTitle>Tariff Library</CardTitle>
+                            <CardDescription>All tariffs associated with this carrier, across all customers.</CardDescription>
+                        </div>
+                        <Button onClick={() => setShowCreateTariffDialog(true)}>
+                            <PlusCircle className="w-4 h-4 mr-2" />
+                            Create Tariff
+                        </Button>
+                    </div>
+                </CardHeader>
+                <CardContent>
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Customer</TableHead>
+                                <TableHead>Ownership Type</TableHead>
+                                <TableHead>Tariff ID</TableHead>
+                                <TableHead>Status</TableHead>
+                                <TableHead>Days Left</TableHead>
+                                <TableHead>Last Updated</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {isLoading ? Array(3).fill(0).map((_, i) => (
+                                <TableRow key={i}><TableCell colSpan={6}><Skeleton className="h-6 w-full" /></TableCell></TableRow>
+                            )) : tariffs.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={6} className="text-center py-8 text-slate-500">
+                                        No tariffs found for this carrier. Click "Create Tariff" to add one.
+                                    </TableCell>
                                 </TableRow>
-                            );
-                        })}
-                    </TableBody>
-                </Table>
-            </CardContent>
-        </Card>
+                            ) : tariffs.map(tariff => {
+                                const customer = customers.find(c => c.id === tariff.customer_id);
+                                const daysLeft = tariff.expiry_date ? differenceInDays(new Date(tariff.expiry_date), new Date()) : null;
+                                return (
+                                    <TableRow
+                                        key={tariff.id}
+                                        className={`cursor-pointer hover:bg-slate-50 ${tariff.id === highlightId ? 'bg-blue-50' : ''}`}
+                                        onClick={() => window.location.href = createPageUrl(`TariffDetail?id=${tariff.id}`)}
+                                    >
+                                        <TableCell className="font-medium">{customer?.name || (tariff.is_blanket_tariff ? 'Blanket' : 'N/A')}</TableCell>
+                                        <TableCell>{getOwnershipBadge(tariff.ownership_type)}</TableCell>
+                                        <TableCell>{tariff.tariff_reference_id}</TableCell>
+                                        <TableCell>{getStatusBadge(tariff.status)}</TableCell>
+                                        <TableCell>{daysLeft !== null && daysLeft >= 0 ? `${daysLeft} days` : 'Expired'}</TableCell>
+                                        <TableCell>{formatDistanceToNow(new Date(tariff.updated_date), { addSuffix: true })}</TableCell>
+                                    </TableRow>
+                                );
+                            })}
+                        </TableBody>
+                    </Table>
+                </CardContent>
+            </Card>
+
+            <EditTariffDialog
+                open={showCreateTariffDialog}
+                onOpenChange={setShowCreateTariffDialog}
+                tariff={null}
+                preselectedCarrierIds={[carrierId]}
+                onSuccess={handleCreateSuccess}
+            />
+        </>
     )
 };
 
