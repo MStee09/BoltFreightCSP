@@ -79,8 +79,14 @@ export default function EditTariffDialog({
             const effectiveDatePassed = tariff.effective_date && new Date(tariff.effective_date) <= new Date();
             setStatus(effectiveDatePassed && tariff.status === 'proposed' ? 'active' : (tariff.status || 'proposed'));
 
-            setOwnershipType(tariff.ownership_type || 'customer_direct');
-            setRocketCspSubtype(tariff.rocket_csp_subtype || 'rocket_owned');
+            // Handle Priority types - if rocket_csp_subtype is a Priority, show it in ownershipType
+            if (tariff.rocket_csp_subtype && (tariff.rocket_csp_subtype === 'Priority 1' || tariff.rocket_csp_subtype === 'Priority 2' || tariff.rocket_csp_subtype === 'Priority 3')) {
+                setOwnershipType(tariff.rocket_csp_subtype);
+                setRocketCspSubtype('rocket_owned');
+            } else {
+                setOwnershipType(tariff.ownership_type || 'customer_direct');
+                setRocketCspSubtype(tariff.rocket_csp_subtype || 'rocket_owned');
+            }
             setMode(tariff.mode || '');
             setEffectiveDate(tariff.effective_date || '');
             setExpiryDate(tariff.expiry_date || '');
@@ -257,10 +263,21 @@ export default function EditTariffDialog({
             finalStatus = 'active';
         }
 
+        // Handle Priority types - they are stored in rocket_csp_subtype field
+        let finalOwnershipType = ownershipType;
+        let finalRocketCspSubtype = null;
+
+        if (ownershipType === 'Priority 1' || ownershipType === 'Priority 2' || ownershipType === 'Priority 3') {
+            finalOwnershipType = 'rocket_csp';
+            finalRocketCspSubtype = ownershipType;
+        } else if (ownershipType === 'rocket_csp') {
+            finalRocketCspSubtype = rocketCspSubtype;
+        }
+
         const data = {
             status: finalStatus,
-            ownership_type: ownershipType,
-            rocket_csp_subtype: ownershipType === 'rocket_csp' ? rocketCspSubtype : null,
+            ownership_type: finalOwnershipType,
+            rocket_csp_subtype: finalRocketCspSubtype,
             mode,
             effective_date: effectiveDate,
             expiry_date: expiryDate || null,
@@ -365,7 +382,7 @@ export default function EditTariffDialog({
 
                         <div className="space-y-2">
                             <Label htmlFor="ownership_type" className="flex items-center gap-1">
-                                Type *
+                                Ownership *
                                 {tariff?.tariff_family_id && (
                                     <Lock className="h-3 w-3 text-gray-400" title="Changing ownership creates new family" />
                                 )}
@@ -378,6 +395,9 @@ export default function EditTariffDialog({
                                     <SelectItem value="customer_direct">Customer Direct</SelectItem>
                                     <SelectItem value="rocket_csp">Rocket CSP</SelectItem>
                                     <SelectItem value="customer_csp">Customer CSP</SelectItem>
+                                    <SelectItem value="Priority 1">Priority 1</SelectItem>
+                                    <SelectItem value="Priority 2">Priority 2</SelectItem>
+                                    <SelectItem value="Priority 3">Priority 3</SelectItem>
                                 </SelectContent>
                             </Select>
                             {ownershipChangeWarning && (

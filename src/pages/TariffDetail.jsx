@@ -677,11 +677,18 @@ export default function TariffDetailPage() {
         }
     }, [location.hash, tariff]);
 
-    const ownershipTypeLabel = {
-        rocket_csp: 'Rocket CSP',
-        customer_direct: 'Customer Direct',
-        customer_csp: 'Customer CSP'
-    }[tariff?.ownership_type] || tariff?.ownership_type || 'N/A';
+    // Display Priority types (P1 CSP, P2 CSP, etc.) if present in rocket_csp_subtype
+    const ownershipTypeLabel = (() => {
+        if (tariff?.rocket_csp_subtype && (tariff.rocket_csp_subtype === 'Priority 1' || tariff.rocket_csp_subtype === 'Priority 2' || tariff.rocket_csp_subtype === 'Priority 3')) {
+            return `${tariff.rocket_csp_subtype.replace('Priority ', 'P')} CSP`;
+        }
+        const labels = {
+            rocket_csp: 'Rocket CSP',
+            customer_direct: 'Customer Direct',
+            customer_csp: 'Customer CSP'
+        };
+        return labels[tariff?.ownership_type] || tariff?.ownership_type || 'N/A';
+    })();
     
     if (isLoading) {
         return (
