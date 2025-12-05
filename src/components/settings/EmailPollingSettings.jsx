@@ -5,7 +5,7 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { RefreshCw, CheckCircle2, AlertCircle, Mail, Clock, Shield } from 'lucide-react';
+import { RefreshCw, CheckCircle2, AlertCircle, Mail, Clock, Shield, History } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/api/supabaseClient';
 import { formatDistanceToNow } from 'date-fns';
@@ -15,6 +15,7 @@ export function EmailPollingSettings() {
   const { isAdmin } = useUserRole();
   const [loading, setLoading] = useState(true);
   const [polling, setPolling] = useState(false);
+  const [resyncing, setResyncing] = useState(false);
   const [hasGmail, setHasGmail] = useState(false);
   const [pollingEnabled, setPollingEnabled] = useState(false);
   const [lastChecked, setLastChecked] = useState(null);
@@ -138,6 +139,65 @@ export function EmailPollingSettings() {
     }
   };
 
+  const resyncGmail = async () => {
+    setResyncing(true);
+    try {
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+      const { data: { session } } = await supabase.auth.getSession();
+
+      toast.info('Starting Gmail re-sync. This may take a minute...');
+
+      const response = await fetch(`${supabaseUrl}/functions/v1/resync-gmail`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session?.access_token}`,
+          'apikey': anonKey,
+        },
+        body: JSON.stringify({ daysBack: 14 })
+      });
+
+      const contentType = response.headers.get('content-type');
+      let result;
+
+      try {
+        if (contentType && contentType.includes('application/json')) {
+          result = await response.json();
+        } else {
+          const textResponse = await response.text();
+          console.error('Non-JSON response:', textResponse);
+          result = { error: textResponse };
+        }
+      } catch (parseError) {
+        console.error('Error parsing response:', parseError);
+        result = { error: 'Failed to parse server response' };
+      }
+
+      if (!response.ok) {
+        const errorMessage = result.error || 'Failed to re-sync Gmail';
+        throw new Error(errorMessage);
+      }
+
+      const { newEmails, alreadyExisted, totalMessages } = result;
+
+      if (newEmails > 0) {
+        toast.success(`Found ${newEmails} new email${newEmails > 1 ? 's' : ''} from the last 14 days!`);
+      } else if (alreadyExisted > 0) {
+        toast.info(`All ${alreadyExisted} email${alreadyExisted > 1 ? 's' : ''} from the last 14 days already tracked`);
+      } else {
+        toast.info('No emails found in the last 14 days');
+      }
+
+      await checkPollingStatus();
+    } catch (error) {
+      console.error('Error re-syncing Gmail:', error);
+      toast.error(`Failed to re-sync Gmail: ${error.message}`);
+    } finally {
+      setResyncing(false);
+    }
+  };
+
   if (loading) {
     return (
       <Card>
@@ -245,6 +305,30 @@ export function EmailPollingSettings() {
             </>
           )}
         </Button>
+
+        <div className="pt-2 border-t">
+          <p className="text-xs text-muted-foreground mb-3">
+            Re-sync past emails from the last 14 days. Useful for recovering missed emails or after fixing tracking issues.
+          </p>
+          <Button
+            onClick={resyncGmail}
+            disabled={resyncing || !pollingEnabled}
+            variant="outline"
+            className="w-full"
+          >
+            {resyncing ? (
+              <>
+                <History className="h-4 w-4 mr-2 animate-spin" />
+                Re-syncing...
+              </>
+            ) : (
+              <>
+                <History className="h-4 w-4 mr-2" />
+                Re-sync Last 14 Days
+              </>
+            )}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );
