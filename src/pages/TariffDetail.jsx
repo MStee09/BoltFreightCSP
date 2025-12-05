@@ -703,9 +703,25 @@ export default function TariffDetailPage() {
         return <div className="p-8 text-center">Tariff not found.</div>;
     }
 
-    const headerDescription = tariff.is_blanket_tariff
-        ? `Blanket Tariff for ${customer?.name || 'Unknown Customer'}${carrier ? ` with ${carrier.name}` : ''}`
-        : `For ${customer?.name || '...'}${carrier ? ` with ${carrier.name}` : ''}`;
+    const headerDescription = (() => {
+        const carrierName = carrier?.name || '';
+        const customerName = customer?.name || '...';
+
+        if (tariff.ownership_type === 'rocket_blanket') {
+            return `Blanket Tariff for Rocket Shipping${carrierName ? ` with ${carrierName}` : ''}`;
+        }
+
+        if (tariff.ownership_type === 'priority_1_csp') {
+            return `For ${customerName} C/O Priority 1${carrierName ? ` with ${carrierName}` : ''}`;
+        }
+
+        if (tariff.ownership_type === 'rocket_csp') {
+            return `For ${customerName} C/O Rocket${carrierName ? ` with ${carrierName}` : ''}`;
+        }
+
+        // customer_direct and others
+        return `For ${customerName}${carrierName ? ` with ${carrierName}` : ''}`;
+    })();
 
     return (
         <div className="p-6 lg:p-8 max-w-4xl mx-auto">
