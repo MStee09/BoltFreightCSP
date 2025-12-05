@@ -177,7 +177,11 @@ Deno.serve(async (req: Request) => {
 
           if (customers) {
             for (const customer of customers) {
-              if (subject.toLowerCase().includes(customer.name.toLowerCase())) {
+              const customerWords = customer.name.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3);
+              const subjectLower = subject.toLowerCase();
+              const hasMatch = customerWords.some((word: string) => subjectLower.includes(word));
+
+              if (hasMatch) {
                 console.log(`✅ Found customer match: ${customer.name}`);
                 customerId = customer.id;
 
