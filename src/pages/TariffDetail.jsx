@@ -793,7 +793,7 @@ export default function TariffDetailPage() {
                                 <span className={`px-2 py-1 text-xs font-medium rounded-full ${ {active: 'bg-green-100 text-green-800', proposed: 'bg-blue-100 text-blue-800', expired: 'bg-slate-100 text-slate-700', superseded: 'bg-purple-100 text-purple-700'}[tariff.status] || 'bg-gray-100'}`}>{tariff.status}</span>
                             </InfoItem>
                             <InfoItem label="Type" value={ownershipTypeLabel} />
-                            {tariff.ownership_type === 'rocket_csp' && tariff.rocket_csp_subtype && (
+                            {tariff.ownership_type === 'rocket_csp' && tariff.rocket_csp_subtype && !['Priority 1', 'Priority 2', 'Priority 3'].includes(tariff.rocket_csp_subtype) && (
                                 <InfoItem label="Rocket CSP Type">
                                     <Badge variant="default">
                                         {tariff.rocket_csp_subtype === 'rocket_owned' && 'Rocket Owned'}
