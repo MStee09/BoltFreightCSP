@@ -218,11 +218,20 @@ export default function TariffUploadPage() {
 
     const createTariffMutation = useMutation({
         mutationFn: async (data) => {
+            // Map ownership types to database values
             const ownershipTypeMap = {
                 'Customer Direct': 'customer_direct',
-                'Priority 1': data.isBlanket ? 'priority1_blanket' : 'customer_direct',
+                'Priority 1': 'rocket_csp',  // Priority 1 is stored as rocket_csp with rocket_csp_subtype='Priority 1'
                 'Rocket': data.isBlanket ? 'rocket_blanket' : 'rocket_csp'
             };
+
+            // Determine rocket_csp_subtype
+            let rocketCspSubtype = null;
+            if (data.ownershipType === 'Priority 1') {
+                rocketCspSubtype = 'Priority 1';
+            } else if (data.ownershipType === 'Rocket' && !data.isBlanket) {
+                rocketCspSubtype = 'rocket_owned';
+            }
 
             // Auto-set status to active if effective date has passed
             const effectiveDate = data.effectiveDate ? (() => {
@@ -248,6 +257,7 @@ export default function TariffUploadPage() {
                 customer_ids: data.isBlanket ? data.subCustomerIds : [],
                 version: data.version,
                 ownership_type: ownershipTypeMap[data.ownershipType] || 'customer_direct',
+                rocket_csp_subtype: rocketCspSubtype,
                 is_blanket_tariff: data.isBlanket,
                 effective_date: effectiveDate,
                 expiry_date: expiryDate,
