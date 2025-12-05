@@ -209,7 +209,15 @@ export default function EditTariffDialog({
     };
 
     const updateMutation = useMutation({
-        mutationFn: (data) => tariff ? Tariff.update(tariff.id, data) : Tariff.create(data),
+        mutationFn: async (data) => {
+            try {
+                const result = tariff ? await Tariff.update(tariff.id, data) : await Tariff.create(data);
+                return result;
+            } catch (error) {
+                console.error('Tariff mutation error:', error);
+                throw error;
+            }
+        },
         onSuccess: () => {
             if (tariff) {
                 queryClient.invalidateQueries({ queryKey: ['tariff', tariff.id] });
@@ -220,7 +228,8 @@ export default function EditTariffDialog({
             if (onSuccess) onSuccess();
         },
         onError: (error) => {
-            toast.error(`Failed to ${tariff ? 'update' : 'create'} tariff: ` + error.message);
+            console.error('Tariff update/create failed:', error);
+            toast.error(`Failed to ${tariff ? 'update' : 'create'} tariff: ` + (error?.message || 'Unknown error'));
         },
     });
 
