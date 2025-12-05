@@ -130,7 +130,8 @@ Deno.serve(async (req: Request) => {
             supabaseClient,
             accessToken,
             message.id,
-            gmailTokens.email_address
+            gmailTokens.email_address,
+            gmailTokens.user_id
           );
           if (processed) newMessagesCount++;
         }
@@ -154,7 +155,8 @@ Deno.serve(async (req: Request) => {
                 supabaseClient,
                 accessToken,
                 messageAdded.message.id,
-                gmailTokens.email_address
+                gmailTokens.email_address,
+                gmailTokens.user_id
               );
               if (processed) newMessagesCount++;
             }
@@ -247,7 +249,8 @@ async function processMessage(
   supabaseClient: any,
   accessToken: string,
   messageId: string,
-  userEmail: string
+  userEmail: string,
+  userId: string
 ): Promise<boolean> {
   try {
     const { data: existing } = await supabaseClient
@@ -295,12 +298,49 @@ async function processMessage(
     let matchedThreadId = matchedEntities?.[0]?.matched_thread_id || parsed.threadId;
     let foToken = matchedEntities?.[0]?.fo_token;
 
+    // If no entities matched, try to match by customer name in subject
     if (!cspEventId && !customerId && !carrierId) {
-      console.log('No matching entities found for:', parsed.subject);
-      return false;
+      console.log('No entities matched via RPC. Attempting subject-based customer matching for:', parsed.subject);
+
+      // Try to match customer by name in subject
+      const { data: customers } = await supabaseClient
+        .from('customers')
+        .select('id, name');
+
+      if (customers) {
+        for (const customer of customers) {
+          // Check if customer name appears in subject (case-insensitive)
+          if (parsed.subject.toLowerCase().includes(customer.name.toLowerCase())) {
+            console.log(`Found customer match in subject: ${customer.name}`);
+            customerId = customer.id;
+
+            // Try to find an active CSP event for this customer
+            const { data: activeCsp } = await supabaseClient
+              .from('csp_events')
+              .select('id')
+              .eq('customer_id', customer.id)
+              .in('stage', ['carrier_invites_sent', 'bids_due_soon', 'bids_received', 'selection', 'awarded'])
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .maybeSingle();
+
+            if (activeCsp) {
+              console.log(`Found active CSP event for customer: ${activeCsp.id}`);
+              cspEventId = activeCsp.id;
+            }
+            break;
+          }
+        }
+      }
     }
 
-    const trackingCode = parsed.trackingCode || (isOutbound ? `OUTBOUND-${Date.now().toString(36).toUpperCase()}` : `INBOUND-${Date.now().toString(36).toUpperCase()}`);
+    // Save email even if no entities matched - allows manual classification later
+    if (!cspEventId && !customerId && !carrierId) {
+      console.log('⚠️ No matching entities found, saving unclassified email:', parsed.subject);
+      // Email will be saved with null entity IDs
+    }
+
+    const trackingCode = parsed.trackingCode || (isOutbound ? `OUTBOUND-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}` : `INBOUND-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`);
 
     let ownerId = null;
     if (matchedThreadId) {
@@ -314,7 +354,7 @@ async function processMessage(
       ownerId = threadOwner?.owner_id;
     }
 
-    await supabaseClient.from('email_activities').insert({
+    const insertData: any = {
       tracking_code: trackingCode,
       csp_event_id: cspEventId,
       customer_id: customerId,
@@ -335,7 +375,34 @@ async function processMessage(
       owner_id: isOutbound ? null : ownerId,
       is_thread_starter: false,
       visible_to_team: true,
+    };
+
+    // For outbound emails, set created_by to the user who sent it
+    if (isOutbound) {
+      insertData.created_by = userId;
+    }
+
+    console.log('📧 Saving email activity:', {
+      tracking_code: trackingCode,
+      subject: parsed.subject,
+      direction: isOutbound ? 'outbound' : 'inbound',
+      csp_event_id: cspEventId,
+      customer_id: customerId,
+      carrier_id: carrierId,
+      created_by: insertData.created_by
     });
+
+    const { error: insertError } = await supabaseClient
+      .from('email_activities')
+      .insert(insertData);
+
+    if (insertError) {
+      console.error('❌ Error inserting email activity:', insertError);
+      console.error('❌ Insert data:', JSON.stringify(insertData, null, 2));
+      throw insertError;
+    }
+
+    console.log('✅ Email activity saved successfully');
 
     return true;
   } catch (error) {

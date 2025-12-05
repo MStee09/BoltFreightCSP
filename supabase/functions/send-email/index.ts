@@ -112,8 +112,6 @@ Deno.serve(async (req: Request) => {
     }
     console.log('✅ User profile loaded:', userProfile.email);
 
-    // ALWAYS use service role to fetch tokens - bypasses RLS completely
-    // This is safe because we already verified the user is authenticated above
     console.log('🔵 Fetching OAuth tokens from database...');
     const { data: oauthTokens, error: oauthError } = await supabaseServiceClient
       .from('user_gmail_tokens')
@@ -144,7 +142,6 @@ Deno.serve(async (req: Request) => {
     console.log('✅ OAuth tokens found in database');
 
     if (oauthTokens) {
-      // Get OAuth credentials from environment variables
       console.log('🔵 Loading OAuth credentials from environment variables...');
       const googleClientId = Deno.env.get('GOOGLE_CLIENT_ID');
       const googleClientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
@@ -214,7 +211,6 @@ Deno.serve(async (req: Request) => {
           console.error('❌ DIAGNOSTIC: Error from Google:', JSON.stringify(errorData));
           console.error('❌ DIAGNOSTIC: HTTP Status:', tokenResponse.status);
 
-          // Log the error to the database for debugging
           await supabaseServiceClient
             .from('oauth_error_logs')
             .insert({
@@ -231,12 +227,6 @@ Deno.serve(async (req: Request) => {
               oauth_provider: 'gmail'
             });
 
-          // IMPORTANT: DO NOT delete tokens on token refresh failure!
-          // The issue could be:
-          // 1. Environment variables (GOOGLE_CLIENT_ID/SECRET) not set or mismatched
-          // 2. Temporary network issue
-          // 3. Rate limiting
-          // Let user troubleshoot before deleting tokens
           if (errorData.error === 'invalid_grant') {
             console.error('❌ DIAGNOSTIC: invalid_grant - This means:');
             console.error('   - The refresh token is INVALID or REVOKED');
@@ -247,18 +237,15 @@ Deno.serve(async (req: Request) => {
 
             throw new Error('Gmail token refresh failed. Please verify:\n1. GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are configured in Supabase Edge Functions\n2. Values match the OAuth client used to obtain the tokens\n\nIf issue persists, disconnect and reconnect Gmail in Settings.');
           }
-          // For other errors (network, temporary issues), just log and try to use existing token
           console.log('⚠️ Temporary refresh error, attempting to use existing token');
         }
       } catch (refreshError) {
-        // Throw errors related to configuration issues
         if (refreshError.message.includes('Gmail token refresh failed')) {
           throw refreshError;
         }
         console.warn('⚠️ Token refresh error (will try existing token):', refreshError.message);
       }
 
-      // Try to create transporter with OAuth
       console.log('🔵 Creating nodemailer transporter with OAuth2...');
       try {
         transporter = nodemailer.createTransport({
@@ -315,9 +302,6 @@ Deno.serve(async (req: Request) => {
       console.error('❌ Full error:', JSON.stringify(sendErr, null, 2));
       sendError = sendErr;
 
-      // IMPORTANT: DO NOT delete tokens on send failure!
-      // The error could be temporary or due to misconfiguration
-      // Let user troubleshoot instead of forcing reconnection
       if (oauthTokens && sendErr.message &&
           (sendErr.message.includes('Invalid credentials') ||
            sendErr.message.includes('Invalid login') ||
@@ -326,7 +310,6 @@ Deno.serve(async (req: Request) => {
         console.error('❌ User should verify environment variables and OAuth settings');
       }
 
-      // Provide user-friendly error message
       const errorMsg = sendError.message || 'Unknown error';
       if (errorMsg.includes('Invalid credentials') || errorMsg.includes('535')) {
         throw new Error('Your Gmail connection has expired or is invalid. Please reconnect your Gmail account in Settings to send emails.');
@@ -334,21 +317,38 @@ Deno.serve(async (req: Request) => {
       throw new Error(`Failed to send email: ${errorMsg}`);
     }
 
+    const trackingCode = `OUTBOUND-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
+
     const activityData: any = {
-      user_id: effectiveUserId,
+      tracking_code: trackingCode,
+      created_by: effectiveUserId,
       direction: 'outbound',
       subject,
-      body,
-      to_addresses: to,
-      cc_addresses: cc || [],
+      body_text: body,
+      to_emails: to,
+      cc_emails: cc || [],
+      from_email: fromEmail,
+      from_name: userProfile.full_name || userProfile.email,
       message_id: mailOptions.messageId,
       csp_event_id: cspEventId || null,
       customer_id: customerId || null,
       carrier_id: carrierId || null,
-      thread_id: threadId,
-      in_reply_to: inReplyTo,
+      thread_id: threadId || mailOptions.messageId,
+      in_reply_to_message_id: inReplyTo,
       gmail_thread_id: null,
+      sent_at: new Date().toISOString(),
+      is_thread_starter: !inReplyTo && !threadId,
+      visible_to_team: true,
     };
+
+    console.log('📧 Logging email activity to database:', {
+      trackingCode,
+      subject,
+      to: to,
+      cspEventId,
+      customerId,
+      carrierId
+    });
 
     const { data: activity, error: activityError } = await supabaseClient
       .from('email_activities')
@@ -357,7 +357,11 @@ Deno.serve(async (req: Request) => {
       .single();
 
     if (activityError) {
-      console.error('Error logging email activity:', activityError);
+      console.error('❌ Error logging email activity:', activityError);
+      console.error('❌ Activity data that failed:', JSON.stringify(activityData, null, 2));
+      throw new Error('Failed to log email activity: ' + activityError.message);
+    } else {
+      console.log('✅ Email activity logged successfully:', activity?.id);
     }
 
     return new Response(
