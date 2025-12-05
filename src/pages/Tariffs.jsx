@@ -1910,14 +1910,16 @@ export default function TariffsPage() {
                                         {sopCount}
                                       </Badge>
                                     )}
-                                    {daysUntilExpiry !== null && daysUntilExpiry > 0 && tariff.status === 'active' && (
+                                    {daysUntilExpiry !== null && expiryDate && (
                                       <TooltipProvider>
                                         <Tooltip>
                                           <TooltipTrigger asChild>
                                             <Badge
                                               variant="outline"
                                               className={`text-xs h-5 px-1.5 ${
-                                                daysUntilExpiry > 90
+                                                daysUntilExpiry < 0
+                                                  ? 'bg-slate-100 text-slate-600 border-slate-300'
+                                                  : daysUntilExpiry > 90
                                                   ? 'bg-green-50 text-green-700 border-green-200'
                                                   : daysUntilExpiry > 30
                                                   ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
@@ -1925,10 +1927,15 @@ export default function TariffsPage() {
                                               }`}
                                             >
                                               <Clock className="h-3 w-3 mr-1" />
-                                              {daysUntilExpiry}d
+                                              {daysUntilExpiry < 0 ? `${Math.abs(daysUntilExpiry)}d ago` : `${daysUntilExpiry}d`}
                                             </Badge>
                                           </TooltipTrigger>
-                                          <TooltipContent>Expires in {daysUntilExpiry} days</TooltipContent>
+                                          <TooltipContent>
+                                            {daysUntilExpiry < 0
+                                              ? `Expired ${Math.abs(daysUntilExpiry)} days ago`
+                                              : `Expires in ${daysUntilExpiry} days`
+                                            }
+                                          </TooltipContent>
                                         </Tooltip>
                                       </TooltipProvider>
                                     )}
