@@ -206,7 +206,6 @@ async function refreshAccessToken(
   tokenId: string,
   refreshToken: string
 ): Promise<string> {
-  // Get OAuth credentials from environment variables
   const client_id = Deno.env.get('GOOGLE_CLIENT_ID');
   const client_secret = Deno.env.get('GOOGLE_CLIENT_SECRET');
 
@@ -253,16 +252,6 @@ async function processMessage(
   userId: string
 ): Promise<boolean> {
   try {
-    const { data: existing } = await supabaseClient
-      .from('email_activities')
-      .select('id')
-      .eq('message_id', messageId)
-      .maybeSingle();
-
-    if (existing) {
-      return false;
-    }
-
     const messageResponse = await fetch(
       `https://www.googleapis.com/gmail/v1/users/me/messages/${messageId}?format=full`,
       {
@@ -278,6 +267,16 @@ async function processMessage(
 
     const message: GmailMessage = await messageResponse.json();
     const parsed = parseMessage(message);
+
+    const { data: existing } = await supabaseClient
+      .from('email_activities')
+      .select('id')
+      .eq('message_id', parsed.messageId)
+      .maybeSingle();
+
+    if (existing) {
+      return false;
+    }
 
     const isOutbound = parsed.fromEmail.toLowerCase() === userEmail.toLowerCase();
 
@@ -298,29 +297,29 @@ async function processMessage(
     let matchedThreadId = matchedEntities?.[0]?.matched_thread_id || parsed.threadId;
     let foToken = matchedEntities?.[0]?.fo_token;
 
-    // If no entities matched, try to match by customer name in subject
     if (!cspEventId && !customerId && !carrierId) {
       console.log('No entities matched via RPC. Attempting subject-based customer matching for:', parsed.subject);
 
-      // Try to match customer by name in subject
       const { data: customers } = await supabaseClient
         .from('customers')
         .select('id, name');
 
       if (customers) {
         for (const customer of customers) {
-          // Check if customer name appears in subject (case-insensitive)
-          if (parsed.subject.toLowerCase().includes(customer.name.toLowerCase())) {
+          const customerWords = customer.name.toLowerCase().split(/\s+/).filter((w: string) => w.length > 3);
+          const subjectLower = parsed.subject.toLowerCase();
+          const hasMatch = customerWords.some((word: string) => subjectLower.includes(word));
+
+          if (hasMatch) {
             console.log(`Found customer match in subject: ${customer.name}`);
             customerId = customer.id;
 
-            // Try to find an active CSP event for this customer
             const { data: activeCsp } = await supabaseClient
               .from('csp_events')
               .select('id')
               .eq('customer_id', customer.id)
               .in('stage', ['carrier_invites_sent', 'bids_due_soon', 'bids_received', 'selection', 'awarded'])
-              .order('created_at', { ascending: false })
+              .order('created_date', { ascending: false })
               .limit(1)
               .maybeSingle();
 
@@ -334,10 +333,8 @@ async function processMessage(
       }
     }
 
-    // Save email even if no entities matched - allows manual classification later
     if (!cspEventId && !customerId && !carrierId) {
       console.log('⚠️ No matching entities found, saving unclassified email:', parsed.subject);
-      // Email will be saved with null entity IDs
     }
 
     const trackingCode = parsed.trackingCode || (isOutbound ? `OUTBOUND-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}` : `INBOUND-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`);
@@ -377,7 +374,6 @@ async function processMessage(
       visible_to_team: true,
     };
 
-    // For outbound emails, set created_by to the user who sent it
     if (isOutbound) {
       insertData.created_by = userId;
     }
@@ -423,6 +419,7 @@ function parseMessage(message: GmailMessage) {
   const to = getHeader('To');
   const cc = getHeader('Cc');
   const date = getHeader('Date');
+  const messageIdHeader = getHeader('Message-ID');
 
   let trackingCode = getHeader('X-CSP-Tracking-Code');
   const foToken = getHeader('X-FreightOps-Token');
@@ -455,7 +452,8 @@ function parseMessage(message: GmailMessage) {
   }
 
   return {
-    messageId: message.id,
+    messageId: messageIdHeader,
+    gmailMessageId: message.id,
     threadId: message.threadId,
     subject,
     fromEmail,
