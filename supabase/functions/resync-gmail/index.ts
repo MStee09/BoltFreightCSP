@@ -8,30 +8,19 @@ const corsHeaders = {
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      status: 200,
-      headers: corsHeaders,
-    });
+    return new Response(null, { status: 200, headers: corsHeaders });
   }
 
   try {
     console.log('🔄 === RESYNC GMAIL FUNCTION STARTED ===');
 
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error('No authorization header');
-    }
+    if (!authHeader) throw new Error('No authorization header');
 
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: {
-            Authorization: authHeader,
-          },
-        },
-      }
+      { global: { headers: { Authorization: authHeader } } }
     );
 
     const supabaseServiceClient = createClient(
@@ -40,13 +29,12 @@ Deno.serve(async (req: Request) => {
     );
 
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    if (userError || !user) {
-      throw new Error('Unauthorized');
-    }
+    if (userError || !user) throw new Error('Unauthorized');
 
     console.log('✅ User authenticated:', user.id);
 
-    const { daysBack = 14 } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const { daysBack = 14 } = body;
 
     const { data: gmailTokens, error: tokensError } = await supabaseServiceClient
       .from('user_gmail_tokens')
@@ -54,9 +42,7 @@ Deno.serve(async (req: Request) => {
       .eq('user_id', user.id)
       .maybeSingle();
 
-    if (tokensError || !gmailTokens) {
-      throw new Error('Gmail not connected');
-    }
+    if (tokensError || !gmailTokens) throw new Error('Gmail not connected');
 
     console.log('✅ Gmail tokens found');
 
@@ -94,70 +80,61 @@ Deno.serve(async (req: Request) => {
     afterDate.setDate(afterDate.getDate() - daysBack);
     const afterTimestamp = Math.floor(afterDate.getTime() / 1000);
 
-    console.log(`🔍 Searching for emails from last ${daysBack} days (after ${afterDate.toISOString()})`);
+    console.log(`🔍 Searching for emails from last ${daysBack} days`);
 
     const query = `after:${afterTimestamp}`;
     const searchUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages?q=${encodeURIComponent(query)}&maxResults=100`;
 
     const searchResponse = await fetch(searchUrl, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-      },
+      headers: { 'Authorization': `Bearer ${accessToken}` },
     });
 
-    if (!searchResponse.ok) {
-      throw new Error('Failed to search Gmail messages');
-    }
+    if (!searchResponse.ok) throw new Error('Failed to search Gmail messages');
 
     const searchData = await searchResponse.json();
     console.log(`📧 Found ${searchData.messages?.length || 0} messages`);
 
-    let processedCount = 0;
     let newEmailsCount = 0;
     let skippedCount = 0;
 
     if (searchData.messages) {
       for (const message of searchData.messages) {
         try {
+          const messageUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?format=full`;
+          const messageResponse = await fetch(messageUrl, {
+            headers: { 'Authorization': `Bearer ${accessToken}` },
+          });
+
+          if (!messageResponse.ok) continue;
+
+          const messageData = await messageResponse.json();
+          const headers = messageData.payload.headers;
+          const getHeader = (name: string) =>
+            headers.find((h: any) => h.name.toLowerCase() === name.toLowerCase())?.value || '';
+
+          const messageIdHeader = getHeader('Message-ID');
+          if (!messageIdHeader) continue;
+
           const { data: existing } = await supabaseClient
             .from('email_activities')
             .select('id')
-            .eq('message_id', message.id)
+            .eq('message_id', messageIdHeader)
             .maybeSingle();
 
           if (existing) {
-            console.log(`⏭️ Skipping existing message: ${message.id}`);
             skippedCount++;
             continue;
           }
-
-          const messageUrl = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${message.id}?format=full`;
-          const messageResponse = await fetch(messageUrl, {
-            headers: {
-              'Authorization': `Bearer ${accessToken}`,
-            },
-          });
-
-          if (!messageResponse.ok) {
-            console.error(`Failed to fetch message ${message.id}`);
-            continue;
-          }
-
-          const messageData = await messageResponse.json();
-
-          const headers = messageData.payload.headers;
-          const getHeader = (name: string) => headers.find((h: any) => h.name.toLowerCase() === name.toLowerCase())?.value || '';
 
           const subject = getHeader('Subject');
           const fromHeader = getHeader('From');
           const toHeader = getHeader('To');
           const ccHeader = getHeader('Cc');
           const dateHeader = getHeader('Date');
-          const messageIdHeader = getHeader('Message-ID');
           const inReplyToHeader = getHeader('In-Reply-To');
 
           const fromEmail = fromHeader.match(/<(.+?)>/)?.[1] || fromHeader;
-          const fromName = fromHeader.replace(/<.+?>/, '').trim().replace(/^"|"$/g, '');
+          const fromName = fromHeader.replace(/<.+?>/, '').trim().replace(/^"|\"$/g, '');
 
           const toEmails = toHeader ? toHeader.split(',').map((e: string) => {
             const match = e.match(/<(.+?)>/);
@@ -169,7 +146,6 @@ Deno.serve(async (req: Request) => {
             return match ? match[1] : e.trim();
           }) : [];
 
-          let bodyText = '';
           const getBodyFromPart = (part: any): string => {
             if (part.mimeType === 'text/plain' && part.body?.data) {
               return atob(part.body.data.replace(/-/g, '+').replace(/_/g, '/'));
@@ -186,57 +162,39 @@ Deno.serve(async (req: Request) => {
             return '';
           };
 
-          bodyText = getBodyFromPart(messageData.payload);
-
+          const bodyText = getBodyFromPart(messageData.payload);
           const isOutbound = fromEmail.toLowerCase() === gmailTokens.email_address.toLowerCase();
 
           console.log(`📧 Processing ${isOutbound ? 'OUTBOUND' : 'INBOUND'}: ${subject}`);
 
-          const { data: matchedEntities } = await supabaseClient.rpc(
-            'match_email_to_entities',
-            {
-              p_to_emails: toEmails,
-              p_from_email: fromEmail,
-              p_subject: subject,
-              p_body: bodyText.substring(0, 5000),
-              p_thread_id: messageData.threadId,
-              p_in_reply_to: inReplyToHeader
-            }
-          );
+          let cspEventId = null;
+          let customerId = null;
+          let carrierId = null;
 
-          let cspEventId = matchedEntities?.[0]?.csp_event_id;
-          let customerId = matchedEntities?.[0]?.customer_id;
-          let carrierId = matchedEntities?.[0]?.carrier_id;
-          let matchedThreadId = matchedEntities?.[0]?.matched_thread_id || messageData.threadId;
+          const { data: customers } = await supabaseClient
+            .from('customers')
+            .select('id, name');
 
-          if (!cspEventId && !customerId && !carrierId) {
-            console.log('🔍 Attempting customer name match in subject:', subject);
+          if (customers) {
+            for (const customer of customers) {
+              if (subject.toLowerCase().includes(customer.name.toLowerCase())) {
+                console.log(`✅ Found customer match: ${customer.name}`);
+                customerId = customer.id;
 
-            const { data: customers } = await supabaseClient
-              .from('customers')
-              .select('id, name');
+                const { data: activeCsp } = await supabaseClient
+                  .from('csp_events')
+                  .select('id')
+                  .eq('customer_id', customer.id)
+                  .in('stage', ['carrier_invites_sent', 'bids_due_soon', 'bids_received', 'selection', 'awarded'])
+                  .order('created_at', { ascending: false })
+                  .limit(1)
+                  .maybeSingle();
 
-            if (customers) {
-              for (const customer of customers) {
-                if (subject.toLowerCase().includes(customer.name.toLowerCase())) {
-                  console.log(`✅ Found customer match: ${customer.name}`);
-                  customerId = customer.id;
-
-                  const { data: activeCsp } = await supabaseClient
-                    .from('csp_events')
-                    .select('id')
-                    .eq('customer_id', customer.id)
-                    .in('stage', ['carrier_invites_sent', 'bids_due_soon', 'bids_received', 'selection', 'awarded'])
-                    .order('created_at', { ascending: false })
-                    .limit(1)
-                    .maybeSingle();
-
-                  if (activeCsp) {
-                    console.log(`✅ Found active CSP event: ${activeCsp.id}`);
-                    cspEventId = activeCsp.id;
-                  }
-                  break;
+                if (activeCsp) {
+                  console.log(`✅ Found active CSP event: ${activeCsp.id}`);
+                  cspEventId = activeCsp.id;
                 }
+                break;
               }
             }
           }
@@ -261,7 +219,7 @@ Deno.serve(async (req: Request) => {
             csp_event_id: cspEventId,
             customer_id: customerId,
             carrier_id: carrierId,
-            thread_id: matchedThreadId,
+            thread_id: messageData.threadId,
             gmail_thread_id: messageData.threadId,
             message_id: messageIdHeader,
             in_reply_to_message_id: inReplyToHeader,
@@ -291,7 +249,6 @@ Deno.serve(async (req: Request) => {
           }
 
           console.log(`✅ Saved email: ${subject.substring(0, 50)}`);
-          processedCount++;
           newEmailsCount++;
 
         } catch (error) {
@@ -301,7 +258,6 @@ Deno.serve(async (req: Request) => {
     }
 
     console.log('🎉 Re-sync complete!');
-    console.log(`📊 Total messages found: ${searchData.messages?.length || 0}`);
     console.log(`✅ New emails saved: ${newEmailsCount}`);
     console.log(`⏭️ Already existed: ${skippedCount}`);
 
@@ -311,28 +267,14 @@ Deno.serve(async (req: Request) => {
         totalMessages: searchData.messages?.length || 0,
         newEmails: newEmailsCount,
         alreadyExisted: skippedCount,
-        processed: processedCount,
       }),
-      {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
     console.error('❌ Error:', error);
     return new Response(
-      JSON.stringify({
-        error: error.message,
-      }),
-      {
-        status: 500,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-      }
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
