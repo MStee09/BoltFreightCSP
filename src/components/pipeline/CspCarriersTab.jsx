@@ -450,7 +450,7 @@ export default function CspCarriersTab({ cspEvent }) {
                                   {carrierData.ownership_type === 'rocket_csp' && 'Rocket CSP'}
                                   {carrierData.ownership_type === 'rocket_blanket' && 'Rocket Blanket'}
                                   {carrierData.ownership_type === 'customer_direct' && 'Customer Direct'}
-                                  {carrierData.ownership_type === 'priority1_blanket' && 'Priority 1 Blanket'}
+                                  {carrierData.ownership_type === 'priority_1_csp' && 'Priority 1 CSP'}
                                 </Badge>
                               )}
                             </div>

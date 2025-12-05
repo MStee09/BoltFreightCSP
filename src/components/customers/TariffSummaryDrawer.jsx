@@ -140,7 +140,7 @@ export default function TariffSummaryDrawer({ isOpen, onOpenChange, tariff }) {
                   {tariff.ownership_type === 'rocket_csp' && 'Rocket CSP'}
                   {tariff.ownership_type === 'customer_direct' && 'Customer Direct'}
                   {tariff.ownership_type === 'rocket_blanket' && 'Rocket Blanket'}
-                  {tariff.ownership_type === 'priority1_blanket' && 'Priority 1 CSP'}
+                  {tariff.ownership_type === 'priority_1_csp' && 'Priority 1 CSP'}
                 </Badge>
               </div>
             </>

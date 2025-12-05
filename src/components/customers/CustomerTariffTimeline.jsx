@@ -389,7 +389,7 @@ const CustomerTariffTimeline = ({ customerId }) => {
                         {renderGroup('rocket_csp', 'Rocket CSP', groupedTariffs.rocket_csp)}
                         {renderGroup('customer_direct', 'Customer Direct', groupedTariffs.customer_direct)}
                         {renderGroup('rocket_blanket', 'Rocket Blanket', groupedTariffs.rocket_blanket)}
-                        {renderGroup('priority1_blanket', 'Priority 1 CSP', groupedTariffs.priority1_blanket)}
+                        {renderGroup('priority_1_csp', 'Priority 1 CSP', groupedTariffs.priority_1_csp)}
                     </div>
                 )}
 

@@ -268,7 +268,7 @@ export default function ManageCarriersDialog({ isOpen, onOpenChange, cspEventId 
                                                                         <SelectItem value="rocket_csp">Rocket CSP</SelectItem>
                                                                         <SelectItem value="rocket_blanket">Rocket Blanket</SelectItem>
                                                                         <SelectItem value="customer_direct">Customer Direct</SelectItem>
-                                                                        <SelectItem value="priority1_blanket">Priority 1 Blanket</SelectItem>
+                                                                        <SelectItem value="priority_1_csp">Priority 1 CSP</SelectItem>
                                                                     </SelectContent>
                                                                 </Select>
                                                             </div>
@@ -352,7 +352,7 @@ export default function ManageCarriersDialog({ isOpen, onOpenChange, cspEventId 
                                                                 <SelectItem value="rocket_csp">Rocket CSP</SelectItem>
                                                                 <SelectItem value="rocket_blanket">Rocket Blanket</SelectItem>
                                                                 <SelectItem value="customer_direct">Customer Direct</SelectItem>
-                                                                <SelectItem value="priority1_blanket">Priority 1 Blanket</SelectItem>
+                                                                <SelectItem value="priority_1_csp">Priority 1 CSP</SelectItem>
                                                             </SelectContent>
                                                         </Select>
                                                     </div>

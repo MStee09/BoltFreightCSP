@@ -221,15 +221,13 @@ export default function TariffUploadPage() {
             // Map ownership types to database values
             const ownershipTypeMap = {
                 'Customer Direct': 'customer_direct',
-                'Priority 1': 'rocket_csp',  // Priority 1 is stored as rocket_csp with rocket_csp_subtype='Priority 1'
+                'Priority 1': 'priority_1_csp',
                 'Rocket': data.isBlanket ? 'rocket_blanket' : 'rocket_csp'
             };
 
-            // Determine rocket_csp_subtype
+            // Determine rocket_csp_subtype (only for Rocket CSP, not Priority 1)
             let rocketCspSubtype = null;
-            if (data.ownershipType === 'Priority 1') {
-                rocketCspSubtype = 'Priority 1';
-            } else if (data.ownershipType === 'Rocket' && !data.isBlanket) {
+            if (data.ownershipType === 'Rocket' && !data.isBlanket) {
                 rocketCspSubtype = 'rocket_owned';
             }
 
