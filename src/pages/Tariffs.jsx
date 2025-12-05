@@ -346,7 +346,17 @@ export default function TariffsPage() {
 
   const filteredTariffs = useMemo(() => {
     return tariffs.filter(t => {
-      if (t.ownership_type !== ownershipTab) return false;
+      // Filter by ownership type
+      // Priority 1 CSP tariffs have ownership_type='rocket_csp' and rocket_csp_subtype='Priority 1'
+      if (ownershipTab === 'priority1_blanket') {
+        if (t.ownership_type !== 'rocket_csp' || t.rocket_csp_subtype !== 'Priority 1') return false;
+      } else if (ownershipTab === 'rocket_csp') {
+        // Regular Rocket CSP tab should exclude Priority 1, 2, 3 tariffs
+        if (t.ownership_type !== 'rocket_csp') return false;
+        if (t.rocket_csp_subtype === 'Priority 1' || t.rocket_csp_subtype === 'Priority 2' || t.rocket_csp_subtype === 'Priority 3') return false;
+      } else {
+        if (t.ownership_type !== ownershipTab) return false;
+      }
 
       const customer = customers.find(c => c.id === t.customer_id);
 
@@ -831,7 +841,16 @@ export default function TariffsPage() {
     const counts = {};
     OWNERSHIP_TYPES.forEach(type => {
       const filteredByOwnership = tariffs.filter(t => {
-        if (t.ownership_type !== type.value) return false;
+        // Priority 1 CSP tariffs have ownership_type='rocket_csp' and rocket_csp_subtype='Priority 1'
+        if (type.value === 'priority1_blanket') {
+          if (t.ownership_type !== 'rocket_csp' || t.rocket_csp_subtype !== 'Priority 1') return false;
+        } else if (type.value === 'rocket_csp') {
+          // Regular Rocket CSP tab should exclude Priority 1, 2, 3 tariffs
+          if (t.ownership_type !== 'rocket_csp') return false;
+          if (t.rocket_csp_subtype === 'Priority 1' || t.rocket_csp_subtype === 'Priority 2' || t.rocket_csp_subtype === 'Priority 3') return false;
+        } else {
+          if (t.ownership_type !== type.value) return false;
+        }
 
         const customer = customers.find(c => c.id === t.customer_id);
 
@@ -867,7 +886,18 @@ export default function TariffsPage() {
 
   const tabSummary = useMemo(() => {
     const today = new Date();
-    const currentTabTariffs = tariffs.filter(t => t.ownership_type === ownershipTab);
+    const currentTabTariffs = tariffs.filter(t => {
+      // Priority 1 CSP tariffs have ownership_type='rocket_csp' and rocket_csp_subtype='Priority 1'
+      if (ownershipTab === 'priority1_blanket') {
+        return t.ownership_type === 'rocket_csp' && t.rocket_csp_subtype === 'Priority 1';
+      } else if (ownershipTab === 'rocket_csp') {
+        // Regular Rocket CSP tab should exclude Priority 1, 2, 3 tariffs
+        if (t.ownership_type !== 'rocket_csp') return false;
+        if (t.rocket_csp_subtype === 'Priority 1' || t.rocket_csp_subtype === 'Priority 2' || t.rocket_csp_subtype === 'Priority 3') return false;
+        return true;
+      }
+      return t.ownership_type === ownershipTab;
+    });
 
     const familyMap = new Map();
     currentTabTariffs.forEach(t => {
