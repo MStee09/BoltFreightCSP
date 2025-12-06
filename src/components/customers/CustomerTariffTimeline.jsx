@@ -20,13 +20,13 @@ const CustomerTariffTimeline = ({ customerId }) => {
         'rocket_csp': true,
         'customer_direct': false,
         'rocket_blanket': false,
-        'priority1_blanket': false
+        'priority_1_csp': false
     });
     const [visibleCounts, setVisibleCounts] = useState({
         'rocket_csp': 10,
         'customer_direct': 10,
         'rocket_blanket': 10,
-        'priority1_blanket': 10
+        'priority_1_csp': 10
     });
     const [hoveredTariffId, setHoveredTariffId] = useState(null);
     const [renewalDialogOpen, setRenewalDialogOpen] = useState(false);
@@ -81,7 +81,7 @@ const CustomerTariffTimeline = ({ customerId }) => {
             'rocket_csp': liveTariffs.filter(t => t.ownership_type === 'rocket_csp'),
             'customer_direct': liveTariffs.filter(t => t.ownership_type === 'customer_direct'),
             'rocket_blanket': liveTariffs.filter(t => t.ownership_type === 'rocket_blanket'),
-            'priority1_blanket': liveTariffs.filter(t => t.ownership_type === 'priority1_blanket')
+            'priority_1_csp': liveTariffs.filter(t => t.ownership_type === 'priority_1_csp')
         };
 
         return grouped;
