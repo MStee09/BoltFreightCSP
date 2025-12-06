@@ -339,7 +339,7 @@ export default function TariffsPage() {
       'rocket_csp': 'border-l-purple-400',
       'customer_direct': 'border-l-blue-400',
       'rocket_blanket': 'border-l-orange-400',
-      'priority1_blanket': 'border-l-green-400'
+      'priority_1_csp': 'border-l-green-400'
     };
     return colorMap[ownershipType] || 'border-l-slate-300';
   };
@@ -423,7 +423,7 @@ export default function TariffsPage() {
     filteredTariffs.forEach(tariff => {
       let groupKey, groupName, subGroupKey, subGroupName;
 
-      if (ownershipTab === 'rocket_blanket' || ownershipTab === 'priority1_blanket') {
+      if (ownershipTab === 'rocket_blanket' || ownershipTab === 'priority_1_csp') {
         const carrierIds = tariff.carrier_ids || [];
         const carrier = tariff.carriers || (carrierIds.length > 0
           ? carriers.find(c => carrierIds.includes(c.id))
@@ -1404,7 +1404,7 @@ export default function TariffsPage() {
                             <Star className={`w-3 h-3 mr-1 ${isPinned ? 'fill-blue-600' : ''}`} />
                             {isPinned ? 'Unpin' : 'Pin'}
                           </Button>
-                          {ownershipTab === 'rocket_blanket' || ownershipTab === 'priority1_blanket' ? (
+                          {ownershipTab === 'rocket_blanket' || ownershipTab === 'priority_1_csp' ? (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -1665,7 +1665,7 @@ export default function TariffsPage() {
                                           <span className="font-semibold text-sm text-slate-900">
                                             Tariff Family: {group.name} × {family.carrierName}
                                           </span>
-                                          {(ownershipTab === 'rocket_blanket' || ownershipTab === 'priority1_blanket') && (() => {
+                                          {(ownershipTab === 'rocket_blanket' || ownershipTab === 'priority_1_csp') && (() => {
                                             const firstVersion = family.versions[0];
                                             const customerCount = firstVersion?.customer_ids?.length || 0;
                                             return (
@@ -1701,7 +1701,7 @@ export default function TariffsPage() {
                                             </Badge>
                                           )}
                                           <div className="flex items-center gap-1 ml-2">
-                                            {ownershipTab !== 'rocket_blanket' && ownershipTab !== 'priority1_blanket' && (
+                                            {ownershipTab !== 'rocket_blanket' && ownershipTab !== 'priority_1_csp' && (
                                               <button
                                                 className="text-xs text-blue-600 hover:text-blue-700 hover:underline flex items-center gap-1"
                                                 onClick={(e) => {
