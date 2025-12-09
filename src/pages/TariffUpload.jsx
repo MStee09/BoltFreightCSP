@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Popover, PopoverContent, PopoverTrigger } from '../components/ui/popover';
 import { Calendar } from '../components/ui/calendar';
 import { Label } from '../components/ui/label';
+import { Textarea } from '../components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '../components/ui/card';
 import { UploadCloud, Calendar as CalendarIcon, ArrowLeft, File, X, Loader2, Check, ChevronsUpDown, ExternalLink, Pencil } from 'lucide-react';
 import { format } from 'date-fns';
@@ -122,6 +123,8 @@ export default function TariffUploadPage() {
     const [ownershipType, setOwnershipType] = useState('');
     const [effectiveDate, setEffectiveDate] = useState(null);
     const [expiryDate, setExpiryDate] = useState(null);
+    const [reviewDate, setReviewDate] = useState(null);
+    const [notes, setNotes] = useState('');
     const [file, setFile] = useState(null);
     const [isDragging, setIsDragging] = useState(false);
     const [isBlanket, setIsBlanket] = useState(false);
@@ -249,6 +252,14 @@ export default function TariffUploadPage() {
             const effectiveDatePassed = effectiveDate && new Date(effectiveDate) <= new Date();
             const status = effectiveDatePassed ? 'active' : (data.cspEventId ? 'active' : 'proposed');
 
+            const reviewDateFormatted = data.reviewDate ? (() => {
+                const d = data.reviewDate;
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            })() : null;
+
             const tariffData = {
                 customer_id: data.customerId,
                 carrier_id: data.carrierIds[0], // Use first carrier as carrier_id
@@ -259,6 +270,8 @@ export default function TariffUploadPage() {
                 is_blanket_tariff: data.isBlanket,
                 effective_date: effectiveDate,
                 expiry_date: expiryDate,
+                review_date: reviewDateFormatted,
+                notes: data.notes || null,
                 file_url: null,
                 csp_event_id: data.cspEventId || null,
                 status: status
@@ -332,6 +345,8 @@ export default function TariffUploadPage() {
             ownershipType,
             effectiveDate,
             expiryDate,
+            reviewDate,
+            notes,
             file,
             isBlanket,
             cspEventId
@@ -424,7 +439,7 @@ export default function TariffUploadPage() {
                             </div>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                             <div className="space-y-2">
                                 <Label htmlFor="effective-date">Effective Date</Label>
                                 <Popover>
@@ -477,6 +492,25 @@ export default function TariffUploadPage() {
                                     </PopoverContent>
                                 </Popover>
                             </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="review-date">Review Date <span className="text-xs text-slate-500 font-normal">(Optional)</span></Label>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button id="review-date" variant="outline" className="w-full justify-start text-left font-normal">
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {reviewDate ? format(reviewDate, "PPP") : <span>Pick a date</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0">
+                                        <Calendar
+                                            mode="single"
+                                            selected={reviewDate}
+                                            onSelect={setReviewDate}
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+                                <p className="text-xs text-slate-500">When to review this tariff for renewal or renegotiation</p>
+                            </div>
                         </div>
 
                         <div className="space-y-2">
@@ -495,6 +529,19 @@ export default function TariffUploadPage() {
                                 value={version}
                                 onChange={e => setVersion(e.target.value)}
                             />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="notes">Comments / Notes <span className="text-xs text-slate-500 font-normal">(Optional)</span></Label>
+                            <Textarea
+                                id="notes"
+                                placeholder="Context, negotiation notes, direction to take, special instructions..."
+                                rows={4}
+                                value={notes}
+                                onChange={(e) => setNotes(e.target.value)}
+                                className="resize-none"
+                            />
+                            <p className="text-xs text-slate-500">Add any relevant context, negotiation details, or instructions for this tariff</p>
                         </div>
 
                         <div className="space-y-2">

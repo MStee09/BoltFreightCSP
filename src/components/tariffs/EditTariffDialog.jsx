@@ -58,6 +58,8 @@ export default function EditTariffDialog({
     const [billingContactName, setBillingContactName] = useState('');
     const [billingContactEmail, setBillingContactEmail] = useState('');
     const [billingContactPhone, setBillingContactPhone] = useState('');
+    const [notes, setNotes] = useState('');
+    const [reviewDate, setReviewDate] = useState('');
 
     const { data: customers = [] } = useQuery({
         queryKey: ['customers'],
@@ -115,6 +117,8 @@ export default function EditTariffDialog({
             setBillingContactName(tariff.billing_contact_name || '');
             setBillingContactEmail(tariff.billing_contact_email || '');
             setBillingContactPhone(tariff.billing_contact_phone || '');
+            setNotes(tariff.notes || '');
+            setReviewDate(tariff.review_date || '');
         } else {
             setStatus('proposed');
             setOwnershipType('rocket_csp');
@@ -141,6 +145,8 @@ export default function EditTariffDialog({
             setBillingContactName('');
             setBillingContactEmail('');
             setBillingContactPhone('');
+            setNotes('');
+            setReviewDate('');
         }
 
         setUpdateReason('');
@@ -292,6 +298,8 @@ export default function EditTariffDialog({
             billing_contact_name: billingContactName || null,
             billing_contact_email: billingContactEmail || null,
             billing_contact_phone: billingContactPhone || null,
+            notes: notes || null,
+            review_date: reviewDate || null,
             updated_reason: updateReason || null,
         };
         updateMutation.mutate(data);
@@ -434,7 +442,7 @@ export default function EditTariffDialog({
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="effective_date">Effective Date *</Label>
                             <Input
@@ -455,8 +463,31 @@ export default function EditTariffDialog({
                                 onChange={(e) => setExpiryDate(e.target.value)}
                                 placeholder="Auto-defaults to +12 months"
                             />
-                            <p className="text-xs text-gray-500">Defaults to +12 months from effective date if not provided</p>
+                            <p className="text-xs text-gray-500">+12mo default</p>
                         </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="review_date">Review Date</Label>
+                            <Input
+                                id="review_date"
+                                type="date"
+                                value={reviewDate}
+                                onChange={(e) => setReviewDate(e.target.value)}
+                            />
+                            <p className="text-xs text-gray-500">For renewal planning</p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-2">
+                        <Label htmlFor="notes">Comments / Notes</Label>
+                        <Textarea
+                            id="notes"
+                            placeholder="Context, negotiation details, special instructions..."
+                            rows={3}
+                            value={notes}
+                            onChange={(e) => setNotes(e.target.value)}
+                            className="resize-none"
+                        />
                     </div>
 
                     <div className="space-y-2">

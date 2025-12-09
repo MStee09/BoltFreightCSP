@@ -819,11 +819,21 @@ export default function TariffDetailPage() {
                             <InfoItem label="Service Type" value={tariff.mode || 'N/A'} />
                             <InfoItem label="Effective Date" value={tariff.effective_date ? format(new Date(tariff.effective_date), 'MMM d, yyyy') : 'N/A'} />
                             <InfoItem label="Expiry Date" value={tariff.expiry_date ? format(new Date(tariff.expiry_date), 'MMM d, yyyy') : 'N/A'} />
+                            <InfoItem label="Review Date" value={tariff.review_date ? format(new Date(tariff.review_date), 'MMM d, yyyy') : 'N/A'} />
                             {!tariff.is_blanket_tariff && customer && <InfoItem label="Customer" value={customer.name} />}
                             <InfoItem label="Customer Contact" value={tariff.customer_contact_name} />
                             <InfoItem label="Carrier Contact" value={tariff.carrier_contact_name} />
                         </CardContent>
                     </Card>
+
+                    {tariff.notes && (
+                        <Card>
+                            <CardHeader><CardTitle>Notes & Comments</CardTitle></CardHeader>
+                            <CardContent>
+                                <p className="text-sm text-slate-700 whitespace-pre-wrap">{tariff.notes}</p>
+                            </CardContent>
+                        </Card>
+                    )}
 
                     {carrier && (
                         <Card>
