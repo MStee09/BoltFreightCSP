@@ -423,12 +423,18 @@ const EmailActivityCard = ({ activity, onReply, threadMessages }) => {
 };
 
 const NoteCard = ({ activity }) => {
+  const [expanded, setExpanded] = useState(false);
   const config = ACTIVITY_CONFIG.note;
   const fromNow = formatDistanceToNow(new Date(activity.timestamp), { addSuffix: true });
   const fullDate = format(new Date(activity.timestamp), 'MMM d, yyyy h:mm a');
 
+  const userName = activity.user?.full_name || activity.user?.email || 'Unknown';
+  const userInitials = activity.user?.full_name
+    ? activity.user.full_name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2)
+    : '?';
+
   return (
-    <Card className="border border-amber-200 bg-amber-50/30 hover:shadow-md transition-shadow">
+    <Card className="border border-amber-200 bg-amber-50/30 hover:shadow-md transition-shadow cursor-pointer" onClick={() => activity.details && setExpanded(!expanded)}>
       <CardContent className="p-4">
         <div className="flex items-start gap-3">
           <div className="p-2 rounded-lg bg-amber-100 text-amber-700 border border-amber-200">
@@ -453,10 +459,43 @@ const NoteCard = ({ activity }) => {
             </h4>
 
             {activity.details && (
-              <p className="text-xs text-slate-600 whitespace-pre-wrap">
+              <p className={`text-xs text-slate-600 whitespace-pre-wrap ${!expanded ? 'line-clamp-2' : ''}`}>
                 {activity.details}
               </p>
             )}
+
+            <div className="flex items-center justify-between mt-3">
+              <div className="flex items-center gap-2 text-xs text-slate-600">
+                <div className="w-5 h-5 rounded-full bg-amber-200 flex items-center justify-center text-[10px] font-semibold text-amber-800">
+                  {userInitials}
+                </div>
+                <span className="font-medium">{userName}</span>
+              </div>
+
+              {activity.details && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setExpanded(!expanded);
+                  }}
+                  className="text-xs h-6 px-2"
+                >
+                  {expanded ? (
+                    <>
+                      <ChevronUp className="w-3 h-3 mr-1" />
+                      Show less
+                    </>
+                  ) : (
+                    <>
+                      <ChevronDown className="w-3 h-3 mr-1" />
+                      Show more
+                    </>
+                  )}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </CardContent>

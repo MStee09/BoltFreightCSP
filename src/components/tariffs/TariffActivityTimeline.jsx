@@ -1,14 +1,15 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { supabase } from '../../api/supabaseClient';
 import { Card, CardContent } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Skeleton } from '../ui/skeleton';
+import { Button } from '../ui/button';
 import {
   TrendingUp, FileText, CheckCircle, XCircle, Clock,
   Mail, Upload, StickyNote, Users, Package, Edit,
-  ArrowRight
+  ArrowRight, ChevronDown, ChevronUp
 } from 'lucide-react';
 import { format, isToday, isYesterday, isThisWeek } from 'date-fns';
 import { createPageUrl } from '../../utils';
@@ -82,17 +83,34 @@ function groupActivitiesByDate(activities) {
 }
 
 export default function TariffActivityTimeline({ tariffId, tariffFamilyId }) {
+  const [expandedNotes, setExpandedNotes] = useState(new Set());
+
+  const toggleNote = (activityId) => {
+    const newExpanded = new Set(expandedNotes);
+    if (newExpanded.has(activityId)) {
+      newExpanded.delete(activityId);
+    } else {
+      newExpanded.add(activityId);
+    }
+    setExpandedNotes(newExpanded);
+  };
+
   const { data: activities = [], isLoading } = useQuery({
     queryKey: ['tariff-activities', tariffId, tariffFamilyId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('tariff_activities')
-        .select('*')
+        .select('*, user_profiles!tariff_activities_created_by_fkey(id, full_name, email)')
         .or(`tariff_id.eq.${tariffId},tariff_family_id.eq.${tariffFamilyId}`)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data || [];
+
+      return (data || []).map(activity => ({
+        ...activity,
+        user_name: activity.user_profiles?.full_name || activity.user_name || null,
+        user_email: activity.user_profiles?.email || null
+      }));
     },
     enabled: !!(tariffId || tariffFamilyId)
   });
@@ -142,6 +160,8 @@ export default function TariffActivityTimeline({ tariffId, tariffFamilyId }) {
               const Icon = ACTIVITY_ICONS[activity.activity_type] || FileText;
               const colorClass = ACTIVITY_COLORS[activity.activity_type] || 'text-slate-600 bg-slate-100';
               const isSystem = activity.is_system || !activity.user_name;
+              const isNote = activity.activity_type === 'note_added';
+              const isExpanded = expandedNotes.has(activity.id);
 
               return (
                 <div key={activity.id} className="flex gap-4 relative">
@@ -154,12 +174,25 @@ export default function TariffActivityTimeline({ tariffId, tariffFamilyId }) {
                   <div className="flex-1 pb-4">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-slate-900 text-sm">
-                          {activity.title || activity.description}
-                        </p>
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="font-medium text-slate-900 text-sm">
+                            {activity.title || activity.description}
+                          </p>
+                          {isNote && (
+                            <Badge variant="outline" className="text-xs bg-amber-50 border-amber-200 text-amber-700">
+                              Note
+                            </Badge>
+                          )}
+                        </div>
 
-                        {activity.description && activity.title && (
-                          <p className="text-sm text-slate-600 mt-1">
+                        {activity.description && activity.title && !isExpanded && (
+                          <p className="text-sm text-slate-600 mt-1 line-clamp-2">
+                            {activity.description}
+                          </p>
+                        )}
+
+                        {activity.description && activity.title && isExpanded && (
+                          <p className="text-sm text-slate-600 mt-1 whitespace-pre-wrap">
                             {activity.description}
                           </p>
                         )}
@@ -174,12 +207,34 @@ export default function TariffActivityTimeline({ tariffId, tariffFamilyId }) {
                               <div className="w-5 h-5 rounded-full bg-slate-300 flex items-center justify-center text-[10px] font-semibold text-slate-700">
                                 {activity.user_name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) || '?'}
                               </div>
-                              <span className="font-medium">{activity.user_name}</span>
+                              <span className="font-medium">{activity.user_name || 'Unknown'}</span>
                             </>
                           )}
                           <span>•</span>
                           <span>{format(new Date(activity.created_at), 'h:mm a')}</span>
                         </div>
+
+                        {/* Expand/Collapse for notes with description */}
+                        {isNote && activity.description && activity.title && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => toggleNote(activity.id)}
+                            className="text-xs h-7 px-2 mt-2"
+                          >
+                            {isExpanded ? (
+                              <>
+                                <ChevronUp className="w-3 h-3 mr-1" />
+                                Show less
+                              </>
+                            ) : (
+                              <>
+                                <ChevronDown className="w-3 h-3 mr-1" />
+                                Show more
+                              </>
+                            )}
+                          </Button>
+                        )}
 
                         {/* Deep link based on activity type */}
                         {activity.csp_event_id && (
