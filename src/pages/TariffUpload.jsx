@@ -460,6 +460,13 @@ export default function TariffUploadPage() {
                                                     oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
                                                     oneYearLater.setDate(oneYearLater.getDate() - 1);
                                                     setExpiryDate(oneYearLater);
+
+                                                    // Auto-set review date to 30 days before expiry
+                                                    if (!reviewDate) {
+                                                        const thirtyDaysBefore = new Date(oneYearLater);
+                                                        thirtyDaysBefore.setDate(thirtyDaysBefore.getDate() - 30);
+                                                        setReviewDate(thirtyDaysBefore);
+                                                    }
                                                 }
                                             }}
                                         />
@@ -486,6 +493,12 @@ export default function TariffUploadPage() {
                                                     oneYearEarlier.setFullYear(oneYearEarlier.getFullYear() - 1);
                                                     oneYearEarlier.setDate(oneYearEarlier.getDate() + 1);
                                                     setEffectiveDate(oneYearEarlier);
+                                                }
+                                                // Auto-set review date to 30 days before expiry
+                                                if (date) {
+                                                    const thirtyDaysBefore = new Date(date);
+                                                    thirtyDaysBefore.setDate(thirtyDaysBefore.getDate() - 30);
+                                                    setReviewDate(thirtyDaysBefore);
                                                 }
                                             }}
                                         />

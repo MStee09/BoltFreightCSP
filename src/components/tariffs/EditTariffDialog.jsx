@@ -188,6 +188,17 @@ export default function EditTariffDialog({
         }
     }, [status, tariff]);
 
+    // Auto-set review date to 30 days before expiry date
+    useEffect(() => {
+        if (expiryDate && !tariff) {
+            // Only auto-set for new tariffs, not when editing
+            const thirtyDaysBefore = new Date(expiryDate);
+            thirtyDaysBefore.setDate(thirtyDaysBefore.getDate() - 30);
+            const formattedDate = thirtyDaysBefore.toISOString().split('T')[0];
+            setReviewDate(formattedDate);
+        }
+    }, [expiryDate, tariff]);
+
     const checkForActiveTariffs = async () => {
         if (!tariff?.tariff_family_id) return;
 
