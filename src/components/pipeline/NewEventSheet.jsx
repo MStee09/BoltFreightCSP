@@ -174,17 +174,6 @@ export default function NewEventSheet({ isOpen, onOpenChange, customers: custome
                 }
             }
 
-            await Interaction.create({
-                entity_type: 'customer',
-                entity_id: createdEvent.customer_id,
-                interaction_type: 'csp_created',
-                summary: `New CSP Event Created: ${createdEvent.title}`,
-                details: `A new CSP event was initiated in the '${createdEvent.stage.replace(/_/g, ' ')}' stage.`,
-                metadata: {
-                    to_stage: createdEvent.stage,
-                    csp_event_id: createdEvent.id
-                }
-            });
             return createdEvent;
         },
         onSuccess: () => {
