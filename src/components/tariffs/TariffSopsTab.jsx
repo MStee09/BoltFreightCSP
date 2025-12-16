@@ -230,7 +230,9 @@ export default function TariffSopsTab({ tariffId, tariffFamilyId, carrierName, c
     const handleSubmit = async (e) => {
         e.preventDefault();
 
-        if (!formData.content && !selectedFile && !formData.document_url) {
+        const trimmedContent = formData.content?.trim();
+
+        if (!trimmedContent && !selectedFile && !formData.document_url) {
             toast({
                 title: 'Content Required',
                 description: 'Please add notes, upload a document, or both.',
@@ -242,19 +244,21 @@ export default function TariffSopsTab({ tariffId, tariffFamilyId, carrierName, c
         setIsUploading(true);
 
         try {
-            let sopData = { ...formData };
+            let sopData = { ...formData, content: trimmedContent };
 
             if (selectedFile) {
                 const { url, type } = await uploadFile(selectedFile);
                 sopData.document_url = url;
                 sopData.document_type = type;
                 sopData.type = 'document';
-            } else if (sopData.content && !sopData.document_url) {
+            } else if (trimmedContent && !sopData.document_url) {
                 sopData.type = 'note';
-            } else if (sopData.content && sopData.document_url) {
+            } else if (trimmedContent && sopData.document_url) {
                 sopData.type = 'document';
-            } else if (!sopData.content && sopData.document_url) {
+            } else if (!trimmedContent && sopData.document_url) {
                 sopData.type = 'document';
+            } else {
+                sopData.type = 'note';
             }
 
             if (editingSop) {
