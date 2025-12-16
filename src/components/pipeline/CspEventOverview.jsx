@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Alert, AlertDescription } from '../ui/alert';
 import { format } from 'date-fns';
-import { Calendar, Target, TrendingUp, Users, DollarSign, Package, AlertTriangle } from 'lucide-react';
+import { Calendar, Target, TrendingUp, Users, DollarSign, Package, AlertTriangle, FileText } from 'lucide-react';
 
 const InfoItem = ({ label, value, children }) => (
     <div className="flex flex-col gap-1">
@@ -296,6 +296,20 @@ export default function CspEventOverview({ event, customer }) {
                         )}
                     </CardContent>
                 </Card>
+
+                {event.notes && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <FileText className="w-4 h-4" />
+                                Notes
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <p className="text-sm text-slate-700 whitespace-pre-wrap">{event.notes}</p>
+                        </CardContent>
+                    </Card>
+                )}
             </div>
         </div>
     );
