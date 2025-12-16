@@ -88,7 +88,7 @@ export default function EditTariffDialog({
             setExpiryDate(tariff.expiry_date || '');
 
             // If it's a Rocket blanket tariff without a customer_id, set it to Rocket Shipping
-            if (tariff.is_blanket_tariff && (tariff.ownership_type === 'rocket_blanket' || tariff.ownership_type === 'rocket_csp') && !tariff.customer_id) {
+            if (tariff.is_blanket_tariff && tariff.ownership_type === 'rocket_blanket' && !tariff.customer_id) {
                 const rocketCustomer = customers.find(c => c.name === 'Rocket Shipping');
                 setCustomerId(rocketCustomer?.id || '');
             } else {
@@ -174,13 +174,8 @@ export default function EditTariffDialog({
         }
     }, [ownershipType, tariff]);
 
-    useEffect(() => {
-        if (ownershipType === 'rocket_csp' && rocketCspSubtype === 'blanket') {
-            setIsBlanketTariff(true);
-        } else if (ownershipType !== 'rocket_csp') {
-            setIsBlanketTariff(false);
-        }
-    }, [ownershipType, rocketCspSubtype]);
+    // Removed: Blanket tariffs can no longer be created under rocket_csp
+    // Blanket tariffs must use ownership_type = 'rocket_blanket'
 
     useEffect(() => {
         if (status === 'active' && tariff?.tariff_family_id) {
@@ -506,7 +501,7 @@ export default function EditTariffDialog({
                         <Select
                             value={customerId}
                             onValueChange={setCustomerId}
-                            disabled={isBlanketTariff && (ownershipType === 'rocket_blanket' || ownershipType === 'rocket_csp')}
+                            disabled={isBlanketTariff && ownershipType === 'rocket_blanket'}
                         >
                             <SelectTrigger>
                                 <SelectValue placeholder="Select a customer" />
@@ -519,7 +514,7 @@ export default function EditTariffDialog({
                                 ))}
                             </SelectContent>
                         </Select>
-                        {isBlanketTariff && (ownershipType === 'rocket_blanket' || ownershipType === 'rocket_csp') && (
+                        {isBlanketTariff && ownershipType === 'rocket_blanket' && (
                             <p className="text-xs text-gray-500">Rocket blanket tariffs are owned by Rocket Shipping</p>
                         )}
                     </div>

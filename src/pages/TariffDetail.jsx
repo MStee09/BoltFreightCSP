@@ -711,11 +711,6 @@ export default function TariffDetailPage() {
             return `Blanket Tariff for Rocket Shipping${carrierName ? ` with ${carrierName}` : ''}`;
         }
 
-        // Handle blanket tariffs under rocket_csp
-        if (tariff.ownership_type === 'rocket_csp' && tariff.rocket_csp_subtype === 'blanket') {
-            return `Blanket Tariff - C/O Rocket${carrierName ? ` with ${carrierName}` : ''}`;
-        }
-
         if (tariff.ownership_type === 'priority_1_csp') {
             return `For ${customerName} C/O Priority 1${carrierName ? ` with ${carrierName}` : ''}`;
         }
@@ -816,7 +811,6 @@ export default function TariffDetailPage() {
                                 <InfoItem label="Rocket CSP Type">
                                     <Badge variant="default">
                                         {tariff.rocket_csp_subtype === 'rocket_owned' && 'Rocket Owned'}
-                                        {tariff.rocket_csp_subtype === 'blanket' && 'Blanket Tariff'}
                                         {tariff.rocket_csp_subtype === 'care_of' && 'C/O (Care Of)'}
                                     </Badge>
                                 </InfoItem>
