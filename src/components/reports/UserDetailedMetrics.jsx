@@ -644,17 +644,17 @@ export function UserDetailedMetrics({ userId, userName, dateRange, open, onOpenC
                   <CardContent>
                     {metrics.activityTimeline.length > 0 ? (
                       <ResponsiveContainer width="100%" height={300}>
-                        <BarChart data={metrics.activityTimeline}>
+                        <LineChart data={metrics.activityTimeline}>
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="day" />
                           <YAxis />
                           <RechartsTooltip />
                           <Legend />
-                          <Bar dataKey="stageChanges" fill="#3b82f6" name="Stage Changes" />
-                          <Bar dataKey="emails" fill="#8b5cf6" name="Emails" />
-                          <Bar dataKey="tariffs" fill="#10b981" name="Tariff Activities" />
-                          <Bar dataKey="other" fill="#f59e0b" name="Other Activities" />
-                        </BarChart>
+                          <Line type="monotone" dataKey="stageChanges" stroke="#3b82f6" strokeWidth={2} name="Stage Changes" />
+                          <Line type="monotone" dataKey="emails" stroke="#8b5cf6" strokeWidth={2} name="Emails" />
+                          <Line type="monotone" dataKey="tariffs" stroke="#10b981" strokeWidth={2} name="Tariff Activities" />
+                          <Line type="monotone" dataKey="other" stroke="#f59e0b" strokeWidth={2} name="Other Activities" />
+                        </LineChart>
                       </ResponsiveContainer>
                     ) : (
                       <p className="text-sm text-muted-foreground text-center py-8">
