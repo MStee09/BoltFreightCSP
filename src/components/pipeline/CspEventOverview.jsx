@@ -1,9 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { CSPEvent } from '../../api/entities';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Alert, AlertDescription } from '../ui/alert';
+import { Button } from '../ui/button';
+import { Textarea } from '../ui/textarea';
 import { format } from 'date-fns';
-import { Calendar, Target, TrendingUp, Users, DollarSign, Package, AlertTriangle, FileText } from 'lucide-react';
+import { Calendar, Target, TrendingUp, Users, DollarSign, Package, AlertTriangle, FileText, Plus, Save, X } from 'lucide-react';
+import { toast } from 'sonner';
 
 const InfoItem = ({ label, value, children }) => (
     <div className="flex flex-col gap-1">
@@ -17,7 +22,40 @@ const InfoItem = ({ label, value, children }) => (
 );
 
 export default function CspEventOverview({ event, customer }) {
+    const [isEditingNote, setIsEditingNote] = useState(false);
+    const [noteText, setNoteText] = useState('');
+    const queryClient = useQueryClient();
+
     if (!event) return null;
+
+    const updateNoteMutation = useMutation({
+        mutationFn: async (notes) => {
+            return await CSPEvent.update(event.id, { notes });
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['csp_event', event.id] });
+            queryClient.invalidateQueries({ queryKey: ['csp_events'] });
+            toast.success('Notes updated successfully');
+            setIsEditingNote(false);
+        },
+        onError: (error) => {
+            toast.error('Failed to update notes: ' + error.message);
+        }
+    });
+
+    const handleEditNote = () => {
+        setNoteText(event.notes || '');
+        setIsEditingNote(true);
+    };
+
+    const handleSaveNote = () => {
+        updateNoteMutation.mutate(noteText);
+    };
+
+    const handleCancelEdit = () => {
+        setIsEditingNote(false);
+        setNoteText('');
+    };
 
     const getStageLabel = (stage) => {
         const labels = {
@@ -297,19 +335,76 @@ export default function CspEventOverview({ event, customer }) {
                     </CardContent>
                 </Card>
 
-                {event.notes && (
-                    <Card>
-                        <CardHeader>
+                <Card>
+                    <CardHeader>
+                        <div className="flex items-center justify-between">
                             <CardTitle className="flex items-center gap-2">
                                 <FileText className="w-4 h-4" />
                                 Notes
                             </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-sm text-slate-700 whitespace-pre-wrap">{event.notes}</p>
-                        </CardContent>
-                    </Card>
-                )}
+                            {!isEditingNote && (
+                                <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={handleEditNote}
+                                    className="h-8"
+                                >
+                                    {event.notes ? (
+                                        <>
+                                            <FileText className="w-3 h-3 mr-1" />
+                                            Edit
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Plus className="w-3 h-3 mr-1" />
+                                            Add Note
+                                        </>
+                                    )}
+                                </Button>
+                            )}
+                        </div>
+                    </CardHeader>
+                    <CardContent>
+                        {isEditingNote ? (
+                            <div className="space-y-3">
+                                <Textarea
+                                    value={noteText}
+                                    onChange={(e) => setNoteText(e.target.value)}
+                                    placeholder="Add notes about this CSP event..."
+                                    rows={6}
+                                    className="text-sm"
+                                />
+                                <div className="flex justify-end gap-2">
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={handleCancelEdit}
+                                        disabled={updateNoteMutation.isPending}
+                                    >
+                                        <X className="w-3 h-3 mr-1" />
+                                        Cancel
+                                    </Button>
+                                    <Button
+                                        size="sm"
+                                        onClick={handleSaveNote}
+                                        disabled={updateNoteMutation.isPending}
+                                    >
+                                        <Save className="w-3 h-3 mr-1" />
+                                        {updateNoteMutation.isPending ? 'Saving...' : 'Save'}
+                                    </Button>
+                                </div>
+                            </div>
+                        ) : (
+                            <>
+                                {event.notes ? (
+                                    <p className="text-sm text-slate-700 whitespace-pre-wrap">{event.notes}</p>
+                                ) : (
+                                    <p className="text-sm text-slate-400 italic">No notes added yet</p>
+                                )}
+                            </>
+                        )}
+                    </CardContent>
+                </Card>
             </div>
         </div>
     );
