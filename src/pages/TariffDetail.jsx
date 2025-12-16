@@ -711,6 +711,11 @@ export default function TariffDetailPage() {
             return `Blanket Tariff for Rocket Shipping${carrierName ? ` with ${carrierName}` : ''}`;
         }
 
+        // Handle blanket tariffs under rocket_csp
+        if (tariff.ownership_type === 'rocket_csp' && tariff.rocket_csp_subtype === 'blanket') {
+            return `Blanket Tariff - C/O Rocket${carrierName ? ` with ${carrierName}` : ''}`;
+        }
+
         if (tariff.ownership_type === 'priority_1_csp') {
             return `For ${customerName} C/O Priority 1${carrierName ? ` with ${carrierName}` : ''}`;
         }
@@ -820,9 +825,15 @@ export default function TariffDetailPage() {
                             <InfoItem label="Effective Date" value={tariff.effective_date ? format(new Date(tariff.effective_date), 'MMM d, yyyy') : 'N/A'} />
                             <InfoItem label="Expiry Date" value={tariff.expiry_date ? format(new Date(tariff.expiry_date), 'MMM d, yyyy') : 'N/A'} />
                             <InfoItem label="Review Date" value={tariff.review_date ? format(new Date(tariff.review_date), 'MMM d, yyyy') : 'N/A'} />
-                            {!tariff.is_blanket_tariff && customer && <InfoItem label="Customer" value={customer.name} />}
-                            <InfoItem label="Customer Contact" value={tariff.customer_contact_name} />
-                            <InfoItem label="Carrier Contact" value={tariff.carrier_contact_name} />
+                            {customer && (
+                                <InfoItem label="Customer">
+                                    <Button variant="link" className="h-auto p-0 font-semibold text-base" asChild>
+                                        <Link to={createPageUrl(`Customers?detailId=${customer.id}`)}>
+                                            {customer.name}
+                                        </Link>
+                                    </Button>
+                                </InfoItem>
+                            )}
                         </CardContent>
                     </Card>
 
