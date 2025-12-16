@@ -101,6 +101,7 @@ export default function TariffsPage() {
   const [blanketUsageDrawer, setBlanketUsageDrawer] = useState({ isOpen: false, tariff: null, carrier: null });
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [tariffToDelete, setTariffToDelete] = useState(null);
+  const [showManualUploadWarning, setShowManualUploadWarning] = useState(false);
 
   useEffect(() => {
     const view = searchParams.get('view');
@@ -923,7 +924,7 @@ export default function TariffsPage() {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem onClick={() => navigate(createPageUrl('TariffUpload'))}>
+                <DropdownMenuItem onClick={() => setShowManualUploadWarning(true)}>
                   <Upload className="w-4 h-4 mr-2" />
                   <div>
                     <div className="font-medium">Manual Upload</div>
@@ -2286,6 +2287,60 @@ export default function TariffsPage() {
         tariff={blanketUsageDrawer.tariff}
         carrier={blanketUsageDrawer.carrier}
       />
+
+      <AlertDialog open={showManualUploadWarning} onOpenChange={setShowManualUploadWarning}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-amber-500" />
+              Creating a New Tariff?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-3 pt-2">
+              <p className="text-slate-700 font-medium">
+                If this is a <span className="font-semibold">new tariff</span>, we recommend creating a CSP Event first.
+              </p>
+              <div className="bg-blue-50 border border-blue-200 rounded-md p-3 space-y-2">
+                <p className="text-sm text-slate-700">
+                  <span className="font-semibold text-blue-900">Why create a CSP Event?</span>
+                </p>
+                <ul className="text-sm text-slate-600 space-y-1 ml-4 list-disc">
+                  <li>Track carrier negotiations and comparisons</li>
+                  <li>Link multiple proposed tariffs to one event</li>
+                  <li>Maintain a complete audit trail</li>
+                  <li>Better organize your pricing strategy</li>
+                </ul>
+              </div>
+              <p className="text-sm text-slate-600">
+                However, if you're uploading an <span className="font-semibold">existing tariff</span> for reference or updating documentation, you can proceed with manual upload.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowManualUploadWarning(false);
+                navigate(createPageUrl('Pipeline'));
+              }}
+              className="border-blue-300 text-blue-700 hover:bg-blue-50"
+            >
+              <Link2 className="w-4 h-4 mr-2" />
+              Create CSP Event
+            </Button>
+            <AlertDialogAction
+              onClick={() => {
+                setShowManualUploadWarning(false);
+                navigate(createPageUrl('TariffUpload'));
+              }}
+              className="bg-slate-700 hover:bg-slate-800"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              Continue to Upload
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
