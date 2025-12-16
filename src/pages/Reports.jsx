@@ -11,6 +11,8 @@ import { Camera, FileText, TrendingUp, Calendar, BarChart3, Clock } from 'lucide
 import { format } from 'date-fns';
 import { UserPerformanceReport } from '../components/reports/UserPerformanceReport';
 import { MyPerformance } from '../components/reports/MyPerformance';
+import { KPIDashboard } from '../components/reports/KPIDashboard';
+import { KPIManagement } from '../components/reports/KPIManagement';
 import { useToast } from '../components/ui/use-toast';
 import { supabase } from '../api/supabaseClient';
 import { useUserRole } from '../hooks/useUserRole';
@@ -18,6 +20,7 @@ import { useImpersonation } from '../contexts/ImpersonationContext';
 
 export default function ReportsPage() {
     const [activeTab, setActiveTab] = useState('performance');
+    const [showKPIManagement, setShowKPIManagement] = useState(false);
     const { toast } = useToast();
     const queryClient = useQueryClient();
     const { isAdmin, loading: roleLoading } = useUserRole();
@@ -151,6 +154,14 @@ export default function ReportsPage() {
         );
     }
 
+    if (showKPIManagement) {
+        return (
+            <div className="p-6 lg:p-8 max-w-[1600px] mx-auto">
+                <KPIManagement onBack={() => setShowKPIManagement(false)} />
+            </div>
+        );
+    }
+
     return (
         <div className="p-6 lg:p-8 max-w-[1600px] mx-auto">
             <div className="flex items-center justify-between mb-8">
@@ -167,6 +178,7 @@ export default function ReportsPage() {
                 <TabsList>
                     <TabsTrigger value="performance">User Performance</TabsTrigger>
                     <TabsTrigger value="snapshots">Data Snapshots</TabsTrigger>
+                    <TabsTrigger value="kpis">KPI Dashboard</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="performance" className="space-y-4">
@@ -297,6 +309,10 @@ export default function ReportsPage() {
                             </div>
                         </CardContent>
                     </Card>
+                </TabsContent>
+
+                <TabsContent value="kpis" className="space-y-4">
+                    <KPIDashboard onManageKPIs={() => setShowKPIManagement(true)} />
                 </TabsContent>
             </Tabs>
         </div>
