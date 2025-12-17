@@ -39,32 +39,63 @@ Deno.serve(async (req: Request) => {
       throw new Error("Unauthorized - Admin access required");
     }
 
-    const { kpiId } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const { kpiId } = body;
 
-    const { data: kpiDef } = await supabase
-      .from('kpi_definitions')
-      .select('*')
-      .eq('is_active', true)
-      .maybeSingle();
+    let kpisToAnalyze = [];
 
-    if (!kpiDef && !kpiId) {
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: "No active KPIs to analyze"
-        }),
-        {
-          headers: {
-            ...corsHeaders,
-            "Content-Type": "application/json",
-          },
-        }
-      );
+    if (kpiId) {
+      const { data: kpiDef, error: kpiError } = await supabase
+        .from('kpi_definitions')
+        .select('*')
+        .eq('id', kpiId)
+        .eq('is_active', true)
+        .maybeSingle();
+
+      if (kpiError) throw kpiError;
+
+      if (!kpiDef) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: "KPI not found or not active"
+          }),
+          {
+            status: 404,
+            headers: {
+              ...corsHeaders,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+      }
+
+      kpisToAnalyze = [kpiDef];
+    } else {
+      const { data: allKpis, error: kpisError } = await supabase
+        .from('kpi_definitions')
+        .select('*')
+        .eq('is_active', true);
+
+      if (kpisError) throw kpisError;
+
+      kpisToAnalyze = allKpis || [];
+
+      if (kpisToAnalyze.length === 0) {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: "No active KPIs to analyze"
+          }),
+          {
+            headers: {
+              ...corsHeaders,
+              "Content-Type": "application/json",
+            },
+          }
+        );
+      }
     }
-
-    const kpisToAnalyze = kpiId 
-      ? [kpiDef]
-      : (await supabase.from('kpi_definitions').select('*').eq('is_active', true)).data || [];
 
     const now = new Date();
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
