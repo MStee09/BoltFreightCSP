@@ -19,6 +19,9 @@ import { cn } from "../lib/utils";
 import { Badge } from "../components/ui/badge";
 import { Switch } from "../components/ui/switch";
 import { useToast } from "../components/ui/use-toast";
+import { supabase } from "../api/supabaseClient";
+
+const MOCK_USER_ID = '00000000-0000-0000-0000-000000000000';
 
 const SingleSelect = ({ options, selected, onChange, placeholder, searchPlaceholder, onCreateNew, emptyText = "No results found", createNewText = "Create new" }) => {
     const [open, setOpen] = useState(false);
@@ -333,7 +336,7 @@ export default function TariffUploadPage() {
 
             const tariffData = {
                 customer_id: data.customerId,
-                carrier_id: data.carrierIds[0], // Use first carrier as carrier_id
+                carrier_id: data.carrierIds[0],
                 customer_ids: data.isBlanket ? data.subCustomerIds : [],
                 version: data.version,
                 ownership_type: ownershipTypeMap[data.ownershipType] || 'customer_direct',
@@ -344,18 +347,65 @@ export default function TariffUploadPage() {
                 review_date: reviewDateFormatted,
                 notes: data.notes || null,
                 file_url: null,
+                file_name: '',
                 csp_event_id: data.cspEventId || null,
                 status: status
             };
 
             const newTariff = await Tariff.create(tariffData);
+
+            if (data.file) {
+                const fileName = `${Date.now()}_${customFileName || data.file.name}`;
+                const filePath = `${MOCK_USER_ID}/${fileName}`;
+
+                const { error: uploadError } = await supabase.storage
+                    .from('documents')
+                    .upload(filePath, data.file);
+
+                if (uploadError) {
+                    console.error("File upload error:", uploadError);
+                    throw new Error(`Failed to upload file: ${uploadError.message}`);
+                }
+
+                const documentData = {
+                    entity_type: 'tariff',
+                    entity_id: newTariff.id,
+                    customer_id: data.customerId || null,
+                    csp_event_id: data.cspEventId || null,
+                    file_name: customFileName || data.file.name,
+                    file_path: filePath,
+                    file_size: data.file.size,
+                    file_type: data.file.type,
+                    document_type: 'tariff',
+                    description: 'Tariff document',
+                    user_id: MOCK_USER_ID
+                };
+
+                const { data: documentRecord, error: docError } = await supabase
+                    .from('documents')
+                    .insert(documentData)
+                    .select()
+                    .single();
+
+                if (docError) {
+                    console.error("Document record creation error:", docError);
+                    throw new Error(`Failed to create document record: ${docError.message}`);
+                }
+
+                await Tariff.update(newTariff.id, {
+                    file_url: filePath,
+                    file_name: customFileName || data.file.name
+                });
+            }
+
             return newTariff;
         },
         onSuccess: (newTariff) => {
             queryClient.invalidateQueries({ queryKey: ['tariffs'] });
+            queryClient.invalidateQueries({ queryKey: ['documents'] });
             toast({
                 title: "Success!",
-                description: "Tariff created successfully.",
+                description: file ? "Tariff and document uploaded successfully." : "Tariff created successfully.",
             });
             navigate(createPageUrl(`TariffDetail?id=${newTariff.id}`));
         },
