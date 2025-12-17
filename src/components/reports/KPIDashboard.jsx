@@ -65,12 +65,18 @@ export function KPIDashboard({ onManageKPIs }) {
   const runAnalysis = async () => {
     setAnalyzing(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error('Please sign in to run analysis');
+        return;
+      }
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-kpis`,
         {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'Authorization': `Bearer ${session.access_token}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({}),
@@ -78,7 +84,8 @@ export function KPIDashboard({ onManageKPIs }) {
       );
 
       if (!response.ok) {
-        throw new Error('Failed to analyze KPIs');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to analyze KPIs');
       }
 
       const result = await response.json();
@@ -86,7 +93,7 @@ export function KPIDashboard({ onManageKPIs }) {
       await fetchKPIData();
     } catch (error) {
       console.error('Error analyzing KPIs:', error);
-      toast.error('Failed to run KPI analysis');
+      toast.error(error.message || 'Failed to run KPI analysis');
     } finally {
       setAnalyzing(false);
     }
