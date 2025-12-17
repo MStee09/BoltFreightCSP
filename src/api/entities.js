@@ -128,6 +128,18 @@ export const Tariff = {
     if (error) throw error;
     return data;
   },
+  async checkForDuplicates({ customerId, carrierId, effectiveDate, expiryDate, ownershipType = null }) {
+    const { data, error } = await supabase.rpc('check_duplicate_tariffs', {
+      p_customer_id: customerId,
+      p_carrier_id: carrierId,
+      p_effective_date: effectiveDate,
+      p_expiry_date: expiryDate,
+      p_ownership_type: ownershipType,
+    });
+
+    if (error) throw error;
+    return data || [];
+  },
 };
 
 export const CSPEvent = createEntity('csp_events');

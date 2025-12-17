@@ -20,6 +20,7 @@ import { Badge } from "../components/ui/badge";
 import { Switch } from "../components/ui/switch";
 import { useToast } from "../components/ui/use-toast";
 import { supabase } from "../api/supabaseClient";
+import DuplicateTariffWarningDialog from '../components/tariffs/DuplicateTariffWarningDialog';
 
 const MOCK_USER_ID = '00000000-0000-0000-0000-000000000000';
 
@@ -205,6 +206,9 @@ export default function TariffUploadPage() {
     const [cspEventId, setCspEventId] = useState(preselectedCspEventId || '');
     const [customFileName, setCustomFileName] = useState('');
     const [isRenamingFile, setIsRenamingFile] = useState(false);
+    const [showDuplicateWarning, setShowDuplicateWarning] = useState(false);
+    const [similarTariffs, setSimilarTariffs] = useState([]);
+    const [pendingTariffData, setPendingTariffData] = useState(null);
 
     const isRocketOrP1 = ownershipType === 'Rocket' || ownershipType === 'Priority 1';
 
@@ -380,7 +384,7 @@ export default function TariffUploadPage() {
         }
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
 
         let missingFields = [];
@@ -398,7 +402,7 @@ export default function TariffUploadPage() {
             return;
         }
 
-        createTariffMutation.mutate({
+        const tariffData = {
             customerId,
             carrierIds,
             subCustomerIds,
@@ -410,7 +414,65 @@ export default function TariffUploadPage() {
             file,
             isBlanket,
             cspEventId
-        });
+        };
+
+        try {
+            const ownershipTypeMap = {
+                'Customer Direct': 'customer_direct',
+                'Priority 1': 'priority_1_csp',
+                'Rocket': isBlanket ? 'rocket_blanket' : 'rocket_csp'
+            };
+
+            const effectiveDateStr = effectiveDate ? (() => {
+                const year = effectiveDate.getFullYear();
+                const month = String(effectiveDate.getMonth() + 1).padStart(2, '0');
+                const day = String(effectiveDate.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            })() : null;
+
+            const expiryDateStr = expiryDate ? (() => {
+                const year = expiryDate.getFullYear();
+                const month = String(expiryDate.getMonth() + 1).padStart(2, '0');
+                const day = String(expiryDate.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            })() : null;
+
+            const similarTariffsFound = await Tariff.checkForDuplicates({
+                customerId: isBlanket ? (subCustomerIds.length > 0 ? subCustomerIds[0] : null) : customerId,
+                carrierId: carrierIds[0],
+                effectiveDate: effectiveDateStr,
+                expiryDate: expiryDateStr,
+                ownershipType: ownershipTypeMap[ownershipType] || 'customer_direct'
+            });
+
+            if (similarTariffsFound && similarTariffsFound.length > 0) {
+                setSimilarTariffs(similarTariffsFound);
+                setPendingTariffData(tariffData);
+                setShowDuplicateWarning(true);
+                return;
+            }
+
+            createTariffMutation.mutate(tariffData);
+        } catch (error) {
+            console.error("Error checking for duplicates:", error);
+            toast({
+                title: "Error",
+                description: "Failed to check for duplicate tariffs. Please try again.",
+                variant: "destructive",
+            });
+        }
+    };
+
+    const handleContinueWithDuplicate = () => {
+        if (pendingTariffData) {
+            createTariffMutation.mutate(pendingTariffData);
+            setPendingTariffData(null);
+        }
+    };
+
+    const handleCancelCreation = () => {
+        setPendingTariffData(null);
+        setSimilarTariffs([]);
     };
 
     const carrierOptions = carriers
@@ -704,6 +766,14 @@ export default function TariffUploadPage() {
                     </form>
                 </CardContent>
             </Card>
+
+            <DuplicateTariffWarningDialog
+                open={showDuplicateWarning}
+                onOpenChange={setShowDuplicateWarning}
+                similarTariffs={similarTariffs}
+                onContinue={handleContinueWithDuplicate}
+                onCancel={handleCancelCreation}
+            />
         </div>
     );
 }
