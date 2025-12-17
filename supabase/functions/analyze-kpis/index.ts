@@ -331,8 +331,17 @@ Respond ONLY with valid JSON in this exact format:
     }),
   });
 
+  if (!response.ok) {
+    console.error('OpenAI API error:', await response.text());
+    throw new Error('Failed to get AI analysis');
+  }
+
   const result = await response.json();
-  const aiResponse = JSON.parse(result.choices[0].message.content);
+  let content = result.choices[0].message.content;
+
+  content = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+  const aiResponse = JSON.parse(content);
 
   return aiResponse;
 }
