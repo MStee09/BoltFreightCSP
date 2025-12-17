@@ -39,11 +39,24 @@ const KPI_TYPES = [
   { value: 'stage_conversion', label: 'Stage Conversion', unit: '%', description: 'Conversion rate between pipeline stages' },
   { value: 'email_response_rate', label: 'Email Response Rate', unit: '%', description: 'Percentage of emails receiving responses' },
   { value: 'deals_closed', label: 'Deals Closed', unit: 'number', description: 'Total number of deals won' },
+  { value: 'deals_entering_stage', label: 'Deals Entering Stage', unit: 'number', description: 'Number of deals entering a specific pipeline stage' },
   { value: 'revenue_target', label: 'Revenue Target', unit: '$', description: 'Total revenue or savings achieved' },
   { value: 'activity_volume', label: 'Activity Volume', unit: 'number', description: 'Total activities completed' },
   { value: 'carrier_engagement', label: 'Carrier Engagement', unit: 'number', description: 'Number of carrier interactions' },
   { value: 'customer_satisfaction', label: 'Customer Satisfaction', unit: 'score', description: 'Customer satisfaction metrics' },
   { value: 'custom', label: 'Custom KPI', unit: 'custom', description: 'Define your own KPI' },
+];
+
+const PIPELINE_STAGES = [
+  { value: 'discovery', label: 'Discovery' },
+  { value: 'rfp', label: 'RFP' },
+  { value: 'in_review', label: 'In Review' },
+  { value: 'negotiation', label: 'Negotiation' },
+  { value: 'contract', label: 'Contract' },
+  { value: 'won', label: 'Won' },
+  { value: 'live', label: 'Live' },
+  { value: 'lost', label: 'Lost' },
+  { value: 'not_awarded', label: 'Not Awarded' },
 ];
 
 const MEASUREMENT_PERIODS = [
@@ -71,6 +84,7 @@ export function KPIManagement({ onBack }) {
     threshold_yellow: '',
     threshold_red: '',
     is_active: true,
+    target_stage: '',
   });
 
   useEffect(() => {
@@ -113,15 +127,31 @@ export function KPIManagement({ onBack }) {
       return;
     }
 
+    if (formData.kpi_type === 'deals_entering_stage' && !formData.target_stage) {
+      toast.error('Please select a target stage');
+      return;
+    }
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
 
+      const metadata = formData.kpi_type === 'deals_entering_stage'
+        ? { target_stage: formData.target_stage }
+        : {};
+
       const kpiData = {
-        ...formData,
+        name: formData.name,
+        description: formData.description,
+        kpi_type: formData.kpi_type,
         target_value: parseFloat(formData.target_value),
+        measurement_period: formData.measurement_period,
+        calculation_method: formData.calculation_method,
+        unit: formData.unit,
         threshold_green: parseFloat(formData.threshold_green),
         threshold_yellow: parseFloat(formData.threshold_yellow),
         threshold_red: parseFloat(formData.threshold_red),
+        is_active: formData.is_active,
+        metadata,
         created_by: user.id,
       };
 
@@ -166,6 +196,7 @@ export function KPIManagement({ onBack }) {
       threshold_yellow: kpi.threshold_yellow.toString(),
       threshold_red: kpi.threshold_red.toString(),
       is_active: kpi.is_active,
+      target_stage: kpi.metadata?.target_stage || '',
     });
     setDialogOpen(true);
   };
@@ -219,6 +250,7 @@ export function KPIManagement({ onBack }) {
       threshold_yellow: '',
       threshold_red: '',
       is_active: true,
+      target_stage: '',
     });
   };
 
@@ -384,6 +416,27 @@ export function KPIManagement({ onBack }) {
                   </SelectContent>
                 </Select>
               </div>
+
+              {formData.kpi_type === 'deals_entering_stage' && (
+                <div>
+                  <Label htmlFor="target_stage">Target Stage *</Label>
+                  <Select
+                    value={formData.target_stage}
+                    onValueChange={(value) => setFormData({ ...formData, target_stage: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a stage" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PIPELINE_STAGES.map((stage) => (
+                        <SelectItem key={stage.value} value={stage.value}>
+                          {stage.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               <div>
                 <Label htmlFor="measurement_period">Measurement Period *</Label>

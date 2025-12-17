@@ -256,6 +256,18 @@ function calculateKPIValue(kpi: any, data: any) {
       contributingData.stageChanges = recentStageChanges.length;
       break;
 
+    case 'deals_entering_stage':
+      const targetStage = kpi.metadata?.target_stage;
+      if (targetStage) {
+        const dealsEnteringStage = recentStageChanges.filter(
+          (s: any) => s.new_stage === targetStage
+        ).length;
+        actualValue = dealsEnteringStage;
+        contributingData.targetStage = targetStage;
+        contributingData.dealsEntered = dealsEnteringStage;
+      }
+      break;
+
     default:
       actualValue = 0;
   }
