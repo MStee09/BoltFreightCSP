@@ -20,89 +20,160 @@ import { Badge } from "../components/ui/badge";
 import { Switch } from "../components/ui/switch";
 import { useToast } from "../components/ui/use-toast";
 
+const SingleSelect = ({ options, selected, onChange, placeholder, searchPlaceholder, onCreateNew, emptyText = "No results found", createNewText = "Create new" }) => {
+    const [open, setOpen] = useState(false);
+
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={open}
+                    className="w-full justify-between"
+                >
+                    {selected ? options.find(o => o.value === selected)?.label : placeholder}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" side="bottom" sideOffset={4}>
+                <Command>
+                    <CommandInput placeholder={searchPlaceholder || "Search..."} />
+                    <CommandEmpty>
+                        <div className="p-4 text-center space-y-2">
+                            <p className="text-sm text-slate-600">{emptyText}</p>
+                            {onCreateNew && (
+                                <button
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setOpen(false);
+                                        onCreateNew();
+                                    }}
+                                    className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
+                                >
+                                    <ExternalLink className="h-3 w-3" />
+                                    {createNewText}
+                                </button>
+                            )}
+                        </div>
+                    </CommandEmpty>
+                    <CommandGroup className="max-h-64 overflow-y-auto">
+                        {onCreateNew && (
+                            <CommandItem
+                                onSelect={() => {
+                                    setOpen(false);
+                                    onCreateNew();
+                                }}
+                                className="text-blue-600 font-medium cursor-pointer border-b border-slate-200"
+                            >
+                                <ExternalLink className="mr-2 h-4 w-4" />
+                                {createNewText}
+                            </CommandItem>
+                        )}
+                        {options.map((option) => (
+                            <CommandItem
+                                key={option.value}
+                                onSelect={() => {
+                                    onChange(option.value);
+                                    setOpen(false);
+                                }}
+                            >
+                                <Check
+                                    className={cn(
+                                        "mr-2 h-4 w-4",
+                                        selected === option.value ? "opacity-100" : "opacity-0"
+                                    )}
+                                />
+                                {option.label}
+                            </CommandItem>
+                        ))}
+                    </CommandGroup>
+                </Command>
+            </PopoverContent>
+        </Popover>
+    );
+};
+
 const MultiSelect = ({ options, selected, onChange, placeholder, searchPlaceholder, onCreateNew, emptyText = "No results found", createNewText = "Create new" }) => {
     const [open, setOpen] = useState(false);
 
     return (
-        <div>
-            <Popover open={open} onOpenChange={setOpen}>
-                <PopoverTrigger asChild>
-                    <Button
-                        variant="outline"
-                        role="combobox"
-                        aria-expanded={open}
-                        className="w-full justify-between h-auto min-h-[40px]"
-                    >
-                        <div className="flex gap-1 flex-wrap">
-                            {selected.length > 0 ? selected.map(value => {
-                                const option = options.find(o => o.value === value);
-                                return <Badge key={value} variant="secondary">{option?.label}</Badge>;
-                            }) : placeholder}
-                        </div>
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                    <Command>
-                        <CommandInput placeholder={searchPlaceholder || "Search..."} />
-                        <CommandEmpty>
-                            <div className="p-4 text-center space-y-2">
-                                <p className="text-sm text-slate-600">{emptyText}</p>
-                                {onCreateNew && (
-                                    <button
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            e.stopPropagation();
-                                            setOpen(false);
-                                            onCreateNew();
-                                        }}
-                                        className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
-                                    >
-                                        <ExternalLink className="h-3 w-3" />
-                                        {createNewText}
-                                    </button>
-                                )}
-                            </div>
-                        </CommandEmpty>
-                        <CommandGroup className="max-h-64 overflow-y-auto">
-                            {options.map((option) => (
-                                <CommandItem
-                                    key={option.value}
-                                    onSelect={() => {
-                                        const newSelected = selected.includes(option.value)
-                                            ? selected.filter((v) => v !== option.value)
-                                            : [...selected, option.value];
-                                        onChange(newSelected);
-                                    }}
-                                >
-                                    <Check
-                                        className={cn(
-                                            "mr-2 h-4 w-4",
-                                            selected.includes(option.value) ? "opacity-100" : "opacity-0"
-                                        )}
-                                    />
-                                    {option.label}
-                                </CommandItem>
-                            ))}
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={open}
+                    className="w-full justify-between h-auto min-h-[40px]"
+                >
+                    <div className="flex gap-1 flex-wrap">
+                        {selected.length > 0 ? selected.map(value => {
+                            const option = options.find(o => o.value === value);
+                            return <Badge key={value} variant="secondary">{option?.label}</Badge>;
+                        }) : placeholder}
+                    </div>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start" side="bottom" sideOffset={4}>
+                <Command>
+                    <CommandInput placeholder={searchPlaceholder || "Search..."} />
+                    <CommandEmpty>
+                        <div className="p-4 text-center space-y-2">
+                            <p className="text-sm text-slate-600">{emptyText}</p>
                             {onCreateNew && (
-                                <div className="border-t border-slate-200 mt-1 pt-1">
-                                    <CommandItem
-                                        onSelect={() => {
-                                            setOpen(false);
-                                            onCreateNew();
-                                        }}
-                                        className="text-blue-600 font-medium cursor-pointer"
-                                    >
-                                        <ExternalLink className="mr-2 h-4 w-4" />
-                                        {createNewText}
-                                    </CommandItem>
-                                </div>
+                                <button
+                                    onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setOpen(false);
+                                        onCreateNew();
+                                    }}
+                                    className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 hover:underline cursor-pointer"
+                                >
+                                    <ExternalLink className="h-3 w-3" />
+                                    {createNewText}
+                                </button>
                             )}
-                        </CommandGroup>
-                    </Command>
-                </PopoverContent>
-            </Popover>
-        </div>
+                        </div>
+                    </CommandEmpty>
+                    <CommandGroup className="max-h-64 overflow-y-auto">
+                        {onCreateNew && (
+                            <CommandItem
+                                onSelect={() => {
+                                    setOpen(false);
+                                    onCreateNew();
+                                }}
+                                className="text-blue-600 font-medium cursor-pointer border-b border-slate-200"
+                            >
+                                <ExternalLink className="mr-2 h-4 w-4" />
+                                {createNewText}
+                            </CommandItem>
+                        )}
+                        {options.map((option) => (
+                            <CommandItem
+                                key={option.value}
+                                onSelect={() => {
+                                    const newSelected = selected.includes(option.value)
+                                        ? selected.filter((v) => v !== option.value)
+                                        : [...selected, option.value];
+                                    onChange(newSelected);
+                                }}
+                            >
+                                <Check
+                                    className={cn(
+                                        "mr-2 h-4 w-4",
+                                        selected.includes(option.value) ? "opacity-100" : "opacity-0"
+                                    )}
+                                />
+                                {option.label}
+                            </CommandItem>
+                        ))}
+                    </CommandGroup>
+                </Command>
+            </PopoverContent>
+        </Popover>
     );
 }
 
@@ -414,28 +485,31 @@ export default function TariffUploadPage() {
                             ) : (
                                 <div className="space-y-2">
                                     <Label htmlFor="customer">Customer</Label>
-                                    <Select onValueChange={setCustomerId} value={customerId || ""}>
-                                        <SelectTrigger id="customer"><SelectValue placeholder="Select a customer" /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value={null}>No Customer Selected</SelectItem>
-                                            {customers
-                                                .sort((a, b) => a.name.localeCompare(b.name))
-                                                .map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
+                                    <SingleSelect
+                                        options={customerOptions}
+                                        selected={customerId}
+                                        onChange={setCustomerId}
+                                        placeholder="Select a customer"
+                                        searchPlaceholder="Search customers..."
+                                        onCreateNew={() => navigate(createPageUrl('CustomerDetail?new=true'))}
+                                        emptyText="No customer found"
+                                        createNewText="Create New Customer"
+                                    />
                                 </div>
                             )}
 
                             <div className={`space-y-2 ${isBlanket ? 'md:col-span-2' : ''}`}>
                                 <Label htmlFor="carrier">Carrier</Label>
-                                <Select onValueChange={(value) => setCarrierIds([value])} value={carrierIds[0] || ""}>
-                                    <SelectTrigger id="carrier"><SelectValue placeholder="Select a carrier" /></SelectTrigger>
-                                    <SelectContent>
-                                        {carriers
-                                            .sort((a, b) => a.name.localeCompare(b.name))
-                                            .map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
+                                <SingleSelect
+                                    options={carrierOptions}
+                                    selected={carrierIds[0]}
+                                    onChange={(value) => setCarrierIds([value])}
+                                    placeholder="Select a carrier"
+                                    searchPlaceholder="Search carriers..."
+                                    onCreateNew={() => navigate(createPageUrl('CarrierDetail?new=true'))}
+                                    emptyText="No carrier found"
+                                    createNewText="Create New Carrier"
+                                />
                             </div>
                         </div>
 
