@@ -49,14 +49,16 @@ const KPI_TYPES = [
 
 const PIPELINE_STAGES = [
   { value: 'discovery', label: 'Discovery' },
-  { value: 'rfp', label: 'RFP' },
-  { value: 'in_review', label: 'In Review' },
-  { value: 'negotiation', label: 'Negotiation' },
-  { value: 'contract', label: 'Contract' },
-  { value: 'won', label: 'Won' },
+  { value: 'data_room_ready', label: 'Data Room Ready' },
+  { value: 'rfp_sent', label: 'RFP Sent' },
+  { value: 'qa_round', label: 'Q&A Round' },
+  { value: 'round_1', label: 'Round 1' },
+  { value: 'final_offers', label: 'Final Offers' },
+  { value: 'awarded', label: 'Awarded' },
+  { value: 'implementation', label: 'Implementation' },
+  { value: 'validation', label: 'Validation' },
   { value: 'live', label: 'Live' },
-  { value: 'lost', label: 'Lost' },
-  { value: 'not_awarded', label: 'Not Awarded' },
+  { value: 'renewal_watch', label: 'Renewal Watch' },
 ];
 
 const MEASUREMENT_PERIODS = [
